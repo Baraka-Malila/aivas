@@ -90,6 +90,7 @@ def find_cves(
             row["version_end_incl"],
             row["version_end_excl"],
         ])
+        # no version bounds in NVD means all versions are affected
         if not has_range or _in_version_range(detected, row):
             matched.append(dict(row) | {"confidence": "probable"})
 
