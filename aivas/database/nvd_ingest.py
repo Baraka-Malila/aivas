@@ -69,34 +69,36 @@ def parse_cve_data(data: dict) -> dict | None:
 def insert_cve(conn: sqlite3.Connection, record: dict) -> None:
     """Insert a parsed CVE record and its CPE matches into database."""
     cpe_list = record.pop("cpe_matches", [])
-    conn.execute(
-        """INSERT OR IGNORE INTO cves
-           (cve_id, description, published, last_modified, vuln_status,
-            cvss_score, cvss_severity, cvss_vector, attack_vector, cwe_id)
-           VALUES (:cve_id, :description, :published, :last_modified, :vuln_status,
-                   :cvss_score, :cvss_severity, :cvss_vector, :attack_vector, :cwe_id)""",
-        record,
-    )
-    conn.executemany(
-        """INSERT OR IGNORE INTO cpe_matches
-           (cve_id, cpe_criteria, version_start_incl, version_start_excl,
-            version_end_incl, version_end_excl, vulnerable)
-           VALUES (?, ?, ?, ?, ?, ?, ?)""",
-        [
-            (
-                record["cve_id"],
-                m["cpe_criteria"],
-                m["version_start_incl"],
-                m["version_start_excl"],
-                m["version_end_incl"],
-                m["version_end_excl"],
-                m["vulnerable"],
-            )
-            for m in cpe_list
-        ],
-    )
-    record["cpe_matches"] = cpe_list  # restore so caller's dict is unchanged
-    conn.commit()
+    try:
+        conn.execute(
+            """INSERT OR IGNORE INTO cves
+               (cve_id, description, published, last_modified, vuln_status,
+                cvss_score, cvss_severity, cvss_vector, attack_vector, cwe_id)
+               VALUES (:cve_id, :description, :published, :last_modified, :vuln_status,
+                       :cvss_score, :cvss_severity, :cvss_vector, :attack_vector, :cwe_id)""",
+            record,
+        )
+        conn.executemany(
+            """INSERT OR IGNORE INTO cpe_matches
+               (cve_id, cpe_criteria, version_start_incl, version_start_excl,
+                version_end_incl, version_end_excl, vulnerable)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            [
+                (
+                    record["cve_id"],
+                    m["cpe_criteria"],
+                    m["version_start_incl"],
+                    m["version_start_excl"],
+                    m["version_end_incl"],
+                    m["version_end_excl"],
+                    m["vulnerable"],
+                )
+                for m in cpe_list
+            ],
+        )
+        conn.commit()
+    finally:
+        record["cpe_matches"] = cpe_list
 
 
 def _iter_cve_files(feeds_dir: Path) -> Iterator[Path]:
@@ -122,6 +124,7 @@ def ingest_feeds(
 
     def flush():
         nonlocal inserted
+        pre = conn.total_changes
         conn.executemany(
             """INSERT OR IGNORE INTO cves
                (cve_id, description, published, last_modified, vuln_status,
@@ -130,7 +133,7 @@ def ingest_feeds(
                        :cvss_score, :cvss_severity, :cvss_vector, :attack_vector, :cwe_id)""",
             batch_cves,
         )
-        inserted += conn.execute("SELECT changes()").fetchone()[0]
+        inserted += conn.total_changes - pre
         conn.executemany(
             """INSERT OR IGNORE INTO cpe_matches
                (cve_id, cpe_criteria, version_start_incl, version_start_excl,
@@ -142,7 +145,7 @@ def ingest_feeds(
         batch_cves.clear()
         batch_cpes.clear()
 
-    for i, path in enumerate(iter(list(_iter_cve_files(feeds_dir)))):
+    for i, path in enumerate(list(_iter_cve_files(feeds_dir))):
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
