@@ -14,6 +14,8 @@ def get_db(path: Path = DB_PATH) -> sqlite3.Connection:
 
 def create_schema(conn: sqlite3.Connection) -> None:
     conn.executescript("""
+        PRAGMA foreign_keys = ON;
+
         CREATE TABLE IF NOT EXISTS cves (
             cve_id          TEXT PRIMARY KEY,
             description     TEXT NOT NULL,
@@ -85,5 +87,7 @@ def create_schema(conn: sqlite3.Connection) -> None:
             ON findings(scan_id);
         CREATE INDEX IF NOT EXISTS idx_findings_host
             ON findings(host);
+        CREATE INDEX IF NOT EXISTS idx_findings_cve
+            ON findings(cve_id);
     """)
     conn.commit()
