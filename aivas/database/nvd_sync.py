@@ -46,10 +46,18 @@ def sync_from_api(
     total_results = None
 
     while True:
-        response = requests.get(
-            NVD_API_URL, params=params, headers=headers, timeout=30
-        )
-        response.raise_for_status()
+        for attempt in range(3):
+            response = requests.get(
+                NVD_API_URL, params=params, headers=headers, timeout=30
+            )
+            if response.status_code == 429:
+                retry_after = int(response.headers.get("Retry-After", 30))
+                time.sleep(retry_after)
+                continue
+            response.raise_for_status()
+            break
+        else:
+            raise RuntimeError("NVD API rate limit exceeded after 3 retries")
         data = response.json()
 
         if total_results is None:
@@ -76,5 +84,6 @@ def sync_from_api(
 
         time.sleep(delay)
 
+    # advance the window even if 0 CVEs parsed — avoids re-fetching same window
     set_last_sync(conn, now)
     return total_inserted
