@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "aivas"
+version = "0.1.0"
+description = "AI-Assisted Network Vulnerability Assessment System"
+authors = [
+    { name = "Baraka Malila", email = "bmalila87@gmail.com" },
+    { name = "Michael Megewa" }
+]
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+
+dependencies = [
+    "click>=8.1",
+    "rich>=13.0",
+    "requests>=2.31",
+    "python-nmap>=0.7",
+    "groq>=0.9",
+    "ollama>=0.2",
+    "jinja2>=3.1",
+    "weasyprint>=60.0",
+    "nvdlib>=0.7",
+]
+
+[project.scripts]
+aivas = "aivas.cli:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "pytest-cov", "ruff", "mypy"]
