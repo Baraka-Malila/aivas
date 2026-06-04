@@ -1,4 +1,3 @@
-import sys
 from pathlib import Path
 
 import click
@@ -43,8 +42,7 @@ def update_db(ctx: click.Context, source: str | None, api_key: str | None) -> No
     if source:
         feeds_dir = Path(source)
         if not feeds_dir.is_dir():
-            console.print(f"[red]Error:[/red] {source} is not a directory.")
-            sys.exit(1)
+            raise click.ClickException(f"{source} is not a directory.")
         console.print(f"[bold]Ingesting CVEs from {feeds_dir} ...[/bold]")
         with console.status("Importing..."):
             count = ingest_feeds(conn, feeds_dir)
