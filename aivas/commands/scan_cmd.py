@@ -64,7 +64,20 @@ def scan(
     credentials: str | None,
 ) -> None:
     """Scan a target or analyse existing Nmap XML for vulnerabilities."""
+    import os
+    from aivas import config as _config
     conn = ctx.obj["conn"]
+    cfg = _config.load()
+    if api_key is None:
+        api_key = cfg.get("api_key")
+    if not narrate and cfg.get("narrate"):
+        narrate = True
+
+    if udp and os.geteuid() != 0:
+        console.print(
+            "[yellow]Warning:[/yellow] --udp requires root. "
+            "Run with [bold]sudo[/bold] or UDP ports will be skipped."
+        )
 
     if import_file:
         xml = Path(import_file).read_text()

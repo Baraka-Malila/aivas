@@ -13,11 +13,14 @@ from aivas.commands.history_cmds import history, diff as diff_cmd
 from aivas.commands.scan_cmd import scan
 from aivas.commands.report_cmd import report
 from aivas.commands.ask_cmd import ask
+from aivas.commands.doctor_cmd import doctor
+from aivas.commands.interactive_cmd import interactive
+from aivas import config as _config
 
 console = Console()
 
 
-@click.group()
+@click.group(invoke_without_command=True)
 @click.option("--db", "db_path", default=None, help="Path to SQLite database file.")
 @click.pass_context
 def cli(ctx: click.Context, db_path: str | None) -> None:
@@ -28,6 +31,8 @@ def cli(ctx: click.Context, db_path: str | None) -> None:
         create_schema(conn)
         ctx.obj["conn"] = conn
         ctx.call_on_close(conn.close)
+    if ctx.invoked_subcommand is None:
+        ctx.invoke(interactive)
 
 
 cli.add_command(history)
@@ -35,6 +40,7 @@ cli.add_command(diff_cmd)
 cli.add_command(scan)
 cli.add_command(report)
 cli.add_command(ask)
+cli.add_command(doctor)
 
 
 @cli.command()
@@ -104,6 +110,36 @@ def search(
         return
 
     console.print(cve_table(f"CVEs for {product} {version or '(any version)'}", results))
+
+
+@cli.group("config")
+def config_group() -> None:
+    """Manage AIVAS configuration (~/.aivas/config.yml)."""
+
+
+@config_group.command("set")
+@click.argument("key")
+@click.argument("value")
+def config_set(key: str, value: str) -> None:
+    """Set a config value. Keys: api_key, provider, lang, default_level, narrate."""
+    if key not in _config.valid_keys():
+        raise click.UsageError(
+            f"Unknown key '{key}'. Valid keys: {', '.join(_config.valid_keys())}"
+        )
+    try:
+        _config.save(key, value)
+        console.print(f"[green]✓[/green] {key} = {value}")
+    except RuntimeError as exc:
+        raise click.ClickException(str(exc))
+
+
+@config_group.command("show")
+def config_show() -> None:
+    """Show current configuration."""
+    cfg = _config.load()
+    for k, v in cfg.items():
+        display = "***" if k == "api_key" and v else (v or "[dim]not set[/dim]")
+        console.print(f"  {k}: {display}")
 
 
 @cli.command("update-kev")
