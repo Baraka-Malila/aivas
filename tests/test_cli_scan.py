@@ -210,3 +210,20 @@ def test_scan_shows_possible_with_flag(tmp_path):
         )
     assert result.exit_code == 0
     assert "CVE-1999-0001" in result.output
+
+
+def test_scan_level_option_accepted(tmp_path):
+    xml_file = tmp_path / "scan.xml"
+    xml_file.write_text(MINIMAL_NMAP_XML)
+    with patch("aivas.commands.scan_cmd.correlate", return_value=[]):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["scan", "--import", str(xml_file), "--level", "2"])
+    assert result.exit_code == 0
+
+
+def test_scan_level_invalid_rejected(tmp_path):
+    xml_file = tmp_path / "scan.xml"
+    xml_file.write_text(MINIMAL_NMAP_XML)
+    runner = CliRunner()
+    result = runner.invoke(cli, ["scan", "--import", str(xml_file), "--level", "5"])
+    assert result.exit_code != 0

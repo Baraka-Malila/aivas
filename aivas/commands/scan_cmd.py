@@ -9,7 +9,7 @@ from aivas.reporter import generate_report
 from aivas.parser import parse_nmap_xml
 from aivas.correlator import correlate
 from aivas.scanner import run_scan
-from aivas.scanner.nse import FULL_SCRIPTS
+from aivas.scanner.nse import scripts_for_level
 
 console = Console()
 
@@ -19,8 +19,8 @@ console = Console()
 @click.option("--import", "import_file", default=None,
               type=click.Path(exists=True, dir_okay=False),
               help="Use existing Nmap XML instead of running a live scan.")
-@click.option("--scripts", default=FULL_SCRIPTS, show_default=False,
-              help="NSE scripts to run (ignored with --import).")
+@click.option("--level", default=2, type=click.IntRange(1, 3), show_default=True,
+              help="Scan depth: 1=quick, 2=full vuln sweep (default), 3=+ SSH packages.")
 @click.option("--limit", default=30, show_default=True, help="Max findings to show.")
 @click.option("--min-confidence", "min_confidence",
               type=click.Choice(["possible", "probable", "confirmed"]),
@@ -42,7 +42,7 @@ def scan(
     ctx: click.Context,
     target: str | None,
     import_file: str | None,
-    scripts: str,
+    level: int,
     limit: int,
     min_confidence: str,
     narrate: bool,
@@ -62,7 +62,7 @@ def scan(
         console.print(f"[bold]Scanning {target}...[/bold]")
         with console.status("Running nmap..."):
             try:
-                xml = run_scan(target, scripts=scripts)
+                xml = run_scan(target, scripts=scripts_for_level(level))
             except RuntimeError as exc:
                 raise click.ClickException(str(exc))
     else:
