@@ -26,8 +26,8 @@ def save_scan(
     conn.executemany(
         """INSERT INTO findings
                (scan_id, host, cve_id, cvss_score, cvss_severity, confidence,
-                en_risk, sw_risk)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                en_risk, sw_risk, en_fix, sw_fix)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         [
             (
                 scan_id,
@@ -38,6 +38,8 @@ def save_scan(
                 f.get("confidence"),
                 f.get("narration_en"),
                 f.get("narration_sw"),
+                f.get("fix_en"),
+                f.get("fix_sw"),
             )
             for f in findings
         ],

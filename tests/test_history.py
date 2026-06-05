@@ -62,3 +62,18 @@ def test_diff_scans_new_fixed_common(db):
     assert result["new"] == ["CVE-2017-0144"]
     assert result["fixed"] == ["CVE-2021-41773"]
     assert result["common"] == ["CVE-2018-15473"]
+
+
+def test_save_scan_stores_fix_fields(db):
+    findings = [{
+        "cve_id": "CVE-2021-41773", "cvss_score": 9.8, "cvss_severity": "CRITICAL",
+        "confidence": "probable", "host": "192.168.1.10",
+        "narration_en": "Critical.", "narration_sw": "Hatari.",
+        "fix_en": "Patch Apache.", "fix_sw": "Rekebisha Apache.",
+    }]
+    scan_id = save_scan(db, "target", findings)
+    row = db.execute(
+        "SELECT en_fix, sw_fix FROM findings WHERE scan_id = ?", (scan_id,)
+    ).fetchone()
+    assert row["en_fix"] == "Patch Apache."
+    assert row["sw_fix"] == "Rekebisha Apache."

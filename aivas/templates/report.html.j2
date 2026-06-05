@@ -39,6 +39,7 @@
   .narration-card .en { margin-bottom: 6px; font-size: 13px; }
   .narration-card .sw { font-size: 13px; color: #2980b9; }
   .lang { font-weight: 700; margin-right: 8px; }
+  .remediation { background: #eafaf1; border-left: 3px solid #27ae60; padding: 8px 12px; margin-top: 6px; font-size: 0.9em; color: #145a32; }
   .footer { text-align: center; padding: 32px; color: #aaa; font-size: 12px; }
   .empty { text-align: center; padding: 48px; color: #aaa; }
 </style>
@@ -111,6 +112,12 @@
       <h3>{{ f.cve_id }} &mdash; CVSS {{ f.cvss_score or 'N/A' }}</h3>
       <div class="en"><span class="lang">EN</span>{{ f.narration_en }}</div>
       <div class="sw"><span class="lang">SW</span>{{ f.narration_sw }}</div>
+      {% if f.fix_en %}
+      <div class="remediation">
+        <strong>How to fix:</strong> {{ f.fix_en }}
+        {% if f.fix_sw %}<br><em>{{ f.fix_sw }}</em>{% endif %}
+      </div>
+      {% endif %}
     </div>
     {% endif %}
     {% endfor %}

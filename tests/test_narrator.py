@@ -17,7 +17,10 @@ def test_parse_narration_json_with_preamble():
 
 def test_parse_narration_bad_json_returns_empty():
     result = _parse_narration("Sorry, I cannot help with that.")
-    assert result == {"en": "", "sw": ""}
+    assert result["en"] == ""
+    assert result["sw"] == ""
+    assert result["fix_en"] == ""
+    assert result["fix_sw"] == ""
 
 
 def test_narrate_enriches_findings():
@@ -72,3 +75,29 @@ def test_narrate_multiple_findings():
     result = narrate(findings, provider)
     assert len(result) == 2
     assert provider.generate.call_count == 2
+
+
+def test_parse_narration_extracts_fix_fields():
+    text = '{"en": "Risk desc.", "sw": "Hatari.", "fix_en": "Update now.", "fix_sw": "Sasisha sasa."}'
+    result = _parse_narration(text)
+    assert result["fix_en"] == "Update now."
+    assert result["fix_sw"] == "Sasisha sasa."
+
+
+def test_parse_narration_fix_fields_default_empty():
+    text = '{"en": "Risk.", "sw": "Hatari."}'
+    result = _parse_narration(text)
+    assert result["fix_en"] == ""
+    assert result["fix_sw"] == ""
+
+
+def test_narrate_adds_fix_fields():
+    provider = MagicMock()
+    provider.generate.return_value = (
+        '{"en": "Risk.", "sw": "Hatari.", "fix_en": "Patch it.", "fix_sw": "Rekebisha."}'
+    )
+    findings = [{"cve_id": "CVE-2021-41773", "cvss_score": 9.8,
+                 "cvss_severity": "CRITICAL", "description": "test", "confidence": "probable"}]
+    result = narrate(findings, provider)
+    assert result[0]["fix_en"] == "Patch it."
+    assert result[0]["fix_sw"] == "Rekebisha."
