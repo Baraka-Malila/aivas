@@ -10,9 +10,8 @@ def parse_nmap_xml(xml_string: str) -> list[dict]:
             continue
         host_ip = addr_el.get("addr", "")
         for port_el in host.findall(".//port"):
-            if port_el.find("state") is None:
-                continue
-            if port_el.find("state").get("state") != "open":
+            state_el = port_el.find("state")
+            if state_el is None or state_el.get("state") != "open":
                 continue
             svc_el = port_el.find("service")
             nse = {
