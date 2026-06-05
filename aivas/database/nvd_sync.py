@@ -1,12 +1,9 @@
 import sqlite3
-import time
 from datetime import datetime, timezone
 
-import requests
+import nvdlib
 
 from aivas.database.nvd_ingest import parse_cve_data, insert_cve
-
-NVD_API_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 
 
 def get_last_sync(conn: sqlite3.Connection) -> str | None:
@@ -32,57 +29,27 @@ def sync_from_api(
     last_sync = get_last_sync(conn)
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    headers = {}
-    if api_key:
-        headers["apiKey"] = api_key
-
-    delay = 0.06 if api_key else 0.6
-    params: dict = {"resultsPerPage": 2000, "startIndex": 0}
+    kwargs: dict = {}
     if last_sync:
-        params["lastModStartDate"] = last_sync
-        params["lastModEndDate"] = now
+        kwargs["lastModStartDate"] = last_sync
+        kwargs["lastModEndDate"] = now
+    if api_key:
+        kwargs["key"] = api_key
+        kwargs["delay"] = 0.06
+    else:
+        kwargs["delay"] = 0.6
+
+    results = nvdlib.searchCVE(**kwargs)
 
     total_inserted = 0
-    total_results = None
-
-    while True:
-        for attempt in range(3):
-            response = requests.get(
-                NVD_API_URL, params=params, headers=headers, timeout=30
-            )
-            if response.status_code == 429:
-                retry_after = int(response.headers.get("Retry-After", 30))
-                time.sleep(retry_after)
-                continue
-            response.raise_for_status()
-            break
-        else:
-            raise RuntimeError("NVD API rate limit exceeded after 3 retries")
-        data = response.json()
-
-        if total_results is None:
-            total_results = data.get("totalResults", 0)
-
-        vulnerabilities = data.get("vulnerabilities", [])
-        if not vulnerabilities:
-            break
-
-        for item in vulnerabilities:
-            cve_data = item.get("cve", {})
-            record = parse_cve_data(cve_data)
-            if record:
-                insert_cve(conn, record)
-                total_inserted += 1
-
-        params["startIndex"] += len(vulnerabilities)
-
+    total = len(results)
+    for i, cve in enumerate(results):
+        record = parse_cve_data(vars(cve))
+        if record:
+            insert_cve(conn, record)
+            total_inserted += 1
         if progress_callback:
-            progress_callback(params["startIndex"], total_results)
-
-        if params["startIndex"] >= total_results:
-            break
-
-        time.sleep(delay)
+            progress_callback(i + 1, total)
 
     # advance the window even if 0 CVEs parsed — avoids re-fetching same window
     set_last_sync(conn, now)
