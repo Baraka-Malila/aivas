@@ -53,7 +53,7 @@
   <span><strong>Total Findings:</strong> {{ findings | length }}</span>
   <span><strong>Critical:</strong> {{ findings | selectattr('cvss_severity', 'equalto', 'CRITICAL') | list | length }}</span>
   <span><strong>High:</strong> {{ findings | selectattr('cvss_severity', 'equalto', 'HIGH') | list | length }}</span>
-  <span><strong>With AI Narration:</strong> {{ findings | selectattr('narration_en', 'defined') | list | length }}</span>
+  <span><strong>With AI Narration:</strong> {{ findings | selectattr('narration_en') | list | length }}</span>
 </div>
 
 <div class="container">

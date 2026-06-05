@@ -35,7 +35,7 @@ def test_save_scan_grade_critical(db):
     row = db.execute(
         "SELECT grade, risk_score FROM scans WHERE id = ?", (scan_id,)
     ).fetchone()
-    assert "Grade" in row["grade"]
+    assert row["grade"] == "Grade B"
     assert row["risk_score"] > 0
 
 
