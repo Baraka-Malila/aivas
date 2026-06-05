@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 
 import click
@@ -8,6 +9,10 @@ from aivas.database.schema import get_db, create_schema, DB_PATH
 from aivas.database.nvd_ingest import ingest_feeds
 from aivas.database.nvd_sync import sync_from_api, get_last_sync
 from aivas.database.cpe_query import find_cves, normalize_product
+from aivas.parser import parse_nmap_xml
+from aivas.correlator import correlate
+from aivas.scanner import run_scan
+from aivas.scanner.nse import FULL_SCRIPTS
 
 console = Console()
 
@@ -112,6 +117,69 @@ def search(
             f"[{SEVERITY_COLORS.get(sev, 'white')}]{sev}[/]",
             r.get("confidence", "probable"),
             (r.get("description") or "")[:120],
+        )
+
+    console.print(table)
+
+
+@cli.command()
+@click.argument("target", required=False)
+@click.option("--import", "import_file", default=None,
+              type=click.Path(exists=True, dir_okay=False),
+              help="Use existing Nmap XML instead of running a live scan.")
+@click.option("--scripts", default=FULL_SCRIPTS, show_default=False,
+              help="NSE scripts to run (ignored with --import).")
+@click.option("--limit", default=30, show_default=True, help="Max findings to show.")
+@click.pass_context
+def scan(
+    ctx: click.Context,
+    target: str | None,
+    import_file: str | None,
+    scripts: str,
+    limit: int,
+) -> None:
+    """Scan a target or analyse existing Nmap XML for vulnerabilities."""
+    conn = ctx.obj["conn"]
+
+    if import_file:
+        xml = Path(import_file).read_text()
+    elif target:
+        if shutil.which("nmap") is None:
+            raise click.ClickException("nmap not found — install nmap and retry.")
+        console.print(f"[bold]Scanning {target}...[/bold]")
+        with console.status("Running nmap..."):
+            try:
+                xml = run_scan(target, scripts=scripts)
+            except RuntimeError as exc:
+                raise click.ClickException(str(exc))
+    else:
+        raise click.UsageError("Provide a TARGET or use --import <file.xml>.")
+
+    services = parse_nmap_xml(xml)
+    if not services:
+        console.print("[yellow]No open services found.[/yellow]")
+        return
+
+    findings = correlate(conn, services)[:limit]
+    if not findings:
+        console.print("[green]No known CVEs matched the detected services.[/green]")
+        return
+
+    table = Table(title="Vulnerability Findings", show_lines=True)
+    table.add_column("CVE ID", style="bold")
+    table.add_column("CVSS", justify="right")
+    table.add_column("Severity")
+    table.add_column("Confidence")
+    table.add_column("Description", max_width=55)
+
+    for f in findings:
+        sev = f.get("cvss_severity") or "N/A"
+        table.add_row(
+            f["cve_id"],
+            str(f.get("cvss_score") or "N/A"),
+            f"[{SEVERITY_COLORS.get(sev, 'white')}]{sev}[/]",
+            f.get("confidence", "possible"),
+            (f.get("description") or "")[:110],
         )
 
     console.print(table)
