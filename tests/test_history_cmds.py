@@ -58,7 +58,7 @@ def test_scan_save_flag_persists_to_db(tmp_path):
                     "confidence": "probable", "host": "192.168.1.10"}
 
     db_path = tmp_path / "test.db"
-    with patch("aivas.cli.correlate", return_value=[fake_finding]):
+    with patch("aivas.commands.scan_cmd.correlate", return_value=[fake_finding]):
         runner = CliRunner()
         result = runner.invoke(
             cli,

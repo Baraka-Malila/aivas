@@ -39,7 +39,7 @@ def test_scan_requires_target_or_import():
 
 
 def test_scan_live_raises_without_nmap():
-    with patch("aivas.cli.shutil.which", return_value=None):
+    with patch("aivas.commands.scan_cmd.shutil.which", return_value=None):
         runner = CliRunner()
         result = runner.invoke(cli, ["scan", "192.168.1.0/24"])
         assert result.exit_code != 0
@@ -101,7 +101,7 @@ def test_scan_narrate_shows_bilingual_output(tmp_path):
                 "narration_en": "Critical path traversal risk.",
                 "narration_sw": "Hatari kubwa ya njia."}
 
-    with patch("aivas.cli.correlate", return_value=[fake_finding]), \
+    with patch("aivas.commands.scan_cmd.correlate", return_value=[fake_finding]), \
          patch("aivas.narrator.get_provider", return_value=MagicMock()), \
          patch("aivas.narrator.narrate", return_value=[narrated]):
         runner = CliRunner()
@@ -124,7 +124,7 @@ def test_scan_narrate_groq_missing_key_shows_error(tmp_path):
         "confidence": "probable", "host": "192.168.1.10",
     }
 
-    with patch("aivas.cli.correlate", return_value=[fake_finding]), \
+    with patch("aivas.commands.scan_cmd.correlate", return_value=[fake_finding]), \
          patch("aivas.narrator.get_provider",
                side_effect=ValueError("Groq API key required.")):
         runner = CliRunner()
@@ -146,7 +146,7 @@ def test_scan_report_saves_html_file(tmp_path):
         "confidence": "probable", "host": "192.168.1.10",
     }
 
-    with patch("aivas.cli.correlate", return_value=[fake_finding]):
+    with patch("aivas.commands.scan_cmd.correlate", return_value=[fake_finding]):
         runner = CliRunner()
         result = runner.invoke(cli, ["scan", "--import", str(xml_file),
                                      "--report", str(report_file)])
@@ -177,7 +177,7 @@ def test_scan_hides_possible_by_default(tmp_path):
     probable = {"cve_id": "CVE-2021-41773", "cvss_score": 9.8,
                 "cvss_severity": "CRITICAL", "description": "real",
                 "confidence": "probable", "host": "192.168.1.10"}
-    with patch("aivas.cli.correlate", return_value=[possible, probable]):
+    with patch("aivas.commands.scan_cmd.correlate", return_value=[possible, probable]):
         runner = CliRunner()
         result = runner.invoke(cli, ["scan", "--import", str(xml_file)])
     assert result.exit_code == 0
@@ -203,7 +203,7 @@ def test_scan_shows_possible_with_flag(tmp_path):
     possible = {"cve_id": "CVE-1999-0001", "cvss_score": 5.0,
                 "cvss_severity": "MEDIUM", "description": "old",
                 "confidence": "possible", "host": "192.168.1.10"}
-    with patch("aivas.cli.correlate", return_value=[possible]):
+    with patch("aivas.commands.scan_cmd.correlate", return_value=[possible]):
         runner = CliRunner()
         result = runner.invoke(
             cli, ["scan", "--import", str(xml_file), "--min-confidence", "possible"]
