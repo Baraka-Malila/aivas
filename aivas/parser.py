@@ -17,7 +17,7 @@ def parse_nmap_xml(xml_string: str) -> list[dict]:
                 os_family = osclass.get("osfamily", "")
         for port_el in host.findall(".//port"):
             state_el = port_el.find("state")
-            if state_el is None or state_el.get("state") != "open":
+            if state_el is None or state_el.get("state") not in ("open", "open|filtered"):
                 continue
             svc_el = port_el.find("service")
             nse = {
