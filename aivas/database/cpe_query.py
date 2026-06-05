@@ -1,3 +1,4 @@
+import re
 import sqlite3
 from packaging.version import Version, InvalidVersion
 
@@ -34,19 +35,42 @@ def normalize_product(product: str) -> str | None:
     return None
 
 
-def _in_version_range(detected: Version, row: sqlite3.Row) -> bool:
+def _parse_version(raw: str) -> Version | None:
+    """Normalize common non-PEP-440 patterns then parse."""
+    v = re.sub(r'p(\d+)', r'.\1', raw)    # 8.9p1 → 8.9.1
+    v = re.sub(r'[+~].*', '', v)           # strip build metadata
+    v = re.sub(r'[a-zA-Z].*$', '', v)     # strip trailing alpha suffixes
+    v = v.strip('.-')
     try:
-        if row["version_start_incl"] and detected < Version(row["version_start_incl"]):
-            return False
-        if row["version_start_excl"] and detected <= Version(row["version_start_excl"]):
-            return False
-        if row["version_end_incl"] and detected > Version(row["version_end_incl"]):
-            return False
-        if row["version_end_excl"] and detected >= Version(row["version_end_excl"]):
-            return False
-        return True
+        return Version(v) if v else None
     except InvalidVersion:
-        return False
+        return None
+
+
+def _cpe_version(criteria: str) -> str | None:
+    """Return the version field from a CPE 2.3 string, or None if wildcard."""
+    parts = (criteria or "").split(":")
+    if len(parts) < 6:
+        return None
+    v = parts[5]
+    return None if v in ("*", "-", "") else v
+
+
+def _in_version_range(detected: Version, row: sqlite3.Row) -> bool:
+    """True if detected falls within the row's version bounds."""
+    checks = [
+        (row["version_start_incl"], lambda d, b: d < b),
+        (row["version_start_excl"], lambda d, b: d <= b),
+        (row["version_end_incl"],   lambda d, b: d > b),
+        (row["version_end_excl"],   lambda d, b: d >= b),
+    ]
+    for bound, out_of_range in checks:
+        if not bound:
+            continue
+        b = _parse_version(bound)
+        if b is not None and out_of_range(detected, b):
+            return False
+    return True
 
 
 def find_cves(
@@ -61,7 +85,7 @@ def find_cves(
     rows = conn.execute(
         """SELECT c.cve_id, c.cvss_score, c.cvss_severity, c.description,
                   c.cvss_vector, c.attack_vector, c.cwe_id,
-                  m.version_start_incl, m.version_start_excl,
+                  m.cpe_criteria, m.version_start_incl, m.version_start_excl,
                   m.version_end_incl, m.version_end_excl
            FROM cpe_matches m
            JOIN cves c ON m.cve_id = c.cve_id
@@ -71,28 +95,53 @@ def find_cves(
     ).fetchall()
 
     if not version:
-        results = [dict(r) | {"confidence": "possible"} for r in rows]
+        seen: set[str] = set()
+        results = []
+        for r in rows:
+            if r["cve_id"] not in seen:
+                seen.add(r["cve_id"])
+                results.append(dict(r) | {"confidence": "possible"})
         results.sort(key=lambda x: x["cvss_score"] or 0, reverse=True)
         return results
 
-    try:
-        detected = Version(version)
-    except InvalidVersion:
-        results = [dict(r) | {"confidence": "possible"} for r in rows]
+    detected = _parse_version(version)
+    if detected is None:
+        seen = set()
+        results = []
+        for r in rows:
+            if r["cve_id"] not in seen:
+                seen.add(r["cve_id"])
+                results.append(dict(r) | {"confidence": "possible"})
         results.sort(key=lambda x: x["cvss_score"] or 0, reverse=True)
         return results
 
-    matched = []
+    # Per-CVE best confidence: probable beats possible
+    best: dict[str, dict] = {}
     for row in rows:
+        cve_id = row["cve_id"]
         has_range = any([
-            row["version_start_incl"],
-            row["version_start_excl"],
-            row["version_end_incl"],
-            row["version_end_excl"],
+            row["version_start_incl"], row["version_start_excl"],
+            row["version_end_incl"],   row["version_end_excl"],
         ])
-        # no version bounds in NVD means all versions are affected
-        if not has_range or _in_version_range(detected, row):
-            matched.append(dict(row) | {"confidence": "probable"})
+        cpe_ver = _cpe_version(row["cpe_criteria"] or "")
 
+        if has_range:
+            if not _in_version_range(detected, row):
+                continue
+            conf = "probable"
+        elif cpe_ver:
+            # Exact version in CPE — only match if detected equals it
+            cv = _parse_version(cpe_ver)
+            if cv is None or detected != cv:
+                continue
+            conf = "probable"
+        else:
+            # Wildcard CPE with no range — product matches but version unknown
+            conf = "possible"
+
+        if cve_id not in best or conf == "probable":
+            best[cve_id] = dict(row) | {"confidence": conf}
+
+    matched = list(best.values())
     matched.sort(key=lambda x: x["cvss_score"] or 0, reverse=True)
     return matched
