@@ -14,7 +14,7 @@ from aivas.commands.scan_cmd import scan
 from aivas.commands.report_cmd import report
 from aivas.commands.ask_cmd import ask
 from aivas.commands.doctor_cmd import doctor
-from aivas.commands.interactive_cmd import interactive
+from aivas.commands.interactive_cmd import interactive  # kept for fallback
 from aivas import config as _config
 
 console = Console()
@@ -32,7 +32,9 @@ def cli(ctx: click.Context, db_path: str | None) -> None:
         ctx.obj["conn"] = conn
         ctx.call_on_close(conn.close)
     if ctx.invoked_subcommand is None:
-        ctx.invoke(interactive)
+        from aivas.tui.app import AIVASApp
+        conn = ctx.obj["conn"]
+        AIVASApp(conn).run()
 
 
 cli.add_command(history)

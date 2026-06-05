@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "aivas"
 version = "0.1.0"
-description = "AI-Assisted Network Vulnerability Assessment System"
+description = "AI-Assisted Network Vulnerability Assessment System — offline CVE scanning, bilingual risk narration, Textual TUI"
 authors = [
     { name = "Baraka Malila", email = "bmalila87@gmail.com" },
     { name = "Michael Megewa" }
@@ -13,6 +13,17 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
+keywords = ["security", "vulnerability", "nmap", "cve", "network", "cli", "swahili"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+]
 
 dependencies = [
     "click>=8.1",
@@ -26,7 +37,13 @@ dependencies = [
     "packaging>=23.0",
     "paramiko>=3.0",
     "nvdlib>=0.7",
+    "textual>=0.80",
+    "pyyaml>=6.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Baraka-Malila/aivas"
+Repository = "https://github.com/Baraka-Malila/aivas"
 
 [project.scripts]
 aivas = "aivas.cli:main"
