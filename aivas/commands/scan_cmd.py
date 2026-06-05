@@ -101,7 +101,7 @@ def scan(
         console.print(f"[bold]Scanning {target}...[/bold]")
         with console.status("Running nmap..."):
             try:
-                xml = run_scan(target, scripts=scripts_for_level(level), udp=udp)
+                xml = run_scan(target, scripts=scripts_for_level(level), udp=udp, os_detect=True)
             except RuntimeError as exc:
                 raise click.ClickException(str(exc))
     else:

@@ -25,5 +25,16 @@ def run_scan(
     except subprocess.TimeoutExpired:
         raise RuntimeError(f"nmap timed out after {timeout}s.")
     if result.returncode != 0:
-        raise RuntimeError(f"nmap exited {result.returncode}: {result.stderr.decode()}")
+        stderr = result.stderr.decode()
+        # OS detection requires root — retry without -O rather than failing
+        if os_detect and "root" in stderr.lower() and "-O" in cmd:
+            cmd.remove("-O")
+            try:
+                result = subprocess.run(cmd, capture_output=True, timeout=timeout)
+            except subprocess.TimeoutExpired:
+                raise RuntimeError(f"nmap timed out after {timeout}s.")
+            if result.returncode != 0:
+                raise RuntimeError(f"nmap exited {result.returncode}: {result.stderr.decode()}")
+        else:
+            raise RuntimeError(f"nmap exited {result.returncode}: {stderr}")
     return result.stdout.decode()
