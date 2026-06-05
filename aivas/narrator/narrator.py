@@ -48,7 +48,8 @@ def narrate(findings: list[dict], provider: LLMProvider) -> list[dict]:
             )
             text = provider.generate(prompt)
             narration = _parse_narration(text)
-            enriched["narration_en"] = narration["en"]
+            # fall back to description when LLM returns unparseable text
+            enriched["narration_en"] = narration["en"] or f.get("description") or ""
             enriched["narration_sw"] = narration["sw"]
         except Exception as exc:
             logger.warning("Narration failed for %s: %s", f["cve_id"], exc)
