@@ -259,3 +259,25 @@ def test_scan_credentials_triggers_ssh_probe():
         result = runner.invoke(cli, ["scan", "192.168.1.1", "--level", "3",
                                       "--credentials", "user@192.168.1.1"])
     assert result.exit_code == 0
+
+
+def test_scan_lang_sw_hides_english(tmp_path):
+    xml_file = tmp_path / "scan.xml"
+    xml_file.write_text(MINIMAL_NMAP_XML)
+    narrated = {
+        "cve_id": "CVE-2021-41773", "cvss_score": 9.8,
+        "cvss_severity": "CRITICAL", "description": "test",
+        "confidence": "probable", "host": "192.168.1.10",
+        "narration_en": "English narration here.",
+        "narration_sw": "Maelezo ya Kiswahili.",
+    }
+    with patch("aivas.commands.scan_cmd.correlate", return_value=[narrated]), \
+         patch("aivas.narrator.get_provider", return_value=MagicMock()), \
+         patch("aivas.narrator.narrate", return_value=[narrated]):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["scan", "--import", str(xml_file),
+                                      "--narrate", "--provider", "ollama",
+                                      "--lang", "sw"])
+    assert result.exit_code == 0
+    assert "Maelezo ya Kiswahili." in result.output
+    assert "English narration here." not in result.output

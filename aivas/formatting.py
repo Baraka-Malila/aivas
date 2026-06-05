@@ -30,18 +30,26 @@ def cve_table(title: str, rows: list[dict], desc_max: int = 60) -> Table:
     return table
 
 
-def print_narrations(findings: list[dict], console: Console | None = None) -> None:
+def print_narrations(
+    findings: list[dict],
+    lang: str = "both",
+    console: Console | None = None,
+) -> None:
     c = console or _console
-    c.print("\n[bold]Bilingual Risk Narrations[/bold]")
+    c.print("\n[bold]Risk Narrations[/bold]")
     for f in findings:
         c.print(
             f"\n[bold cyan]{f['cve_id']}[/bold cyan] "
             f"(CVSS {f.get('cvss_score') or 'N/A'})"
         )
-        c.print(f"[blue]EN:[/blue] {f.get('narration_en', '')}")
-        c.print(f"[green]SW:[/green] {f.get('narration_sw', '')}")
-        if f.get("fix_en"):
+        if lang in ("en", "both"):
+            c.print(f"[blue]EN:[/blue] {f.get('narration_en', '')}")
+        if lang in ("sw", "both"):
+            c.print(f"[green]SW:[/green] {f.get('narration_sw', '')}")
+        if f.get("fix_en") and lang in ("en", "both"):
             c.print(f"[yellow]FIX:[/yellow] {f['fix_en']}")
+        if f.get("fix_sw") and lang in ("sw", "both"):
+            c.print(f"[yellow]FIX (SW):[/yellow] {f['fix_sw']}")
 
 
 def print_score(findings: list[dict], console: Console | None = None) -> None:

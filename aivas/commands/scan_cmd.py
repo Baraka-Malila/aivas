@@ -29,6 +29,9 @@ console = Console()
               default="probable", show_default=True,
               help="Minimum confidence level to show.")
 @click.option("--narrate", is_flag=True, help="Generate bilingual AI risk narration.")
+@click.option("--lang", default="both",
+              type=click.Choice(["en", "sw", "both"]), show_default=True,
+              help="Narration language: en, sw, or both.")
 @click.option("--provider", default="groq",
               type=click.Choice(["groq", "ollama"]), show_default=True,
               help="LLM provider for narration.")
@@ -52,6 +55,7 @@ def scan(
     limit: int,
     min_confidence: str,
     narrate: bool,
+    lang: str,
     provider: str,
     api_key: str | None,
     report_path: str | None,
@@ -147,7 +151,7 @@ def scan(
             raise click.ClickException(str(exc))
         with console.status(f"Generating narration with {provider}..."):
             findings = _narrator_mod.narrate(findings, prov)
-        print_narrations(findings)
+        print_narrations(findings, lang=lang)
 
     if report_path:
         meta = {"target": target or (import_file or "")}

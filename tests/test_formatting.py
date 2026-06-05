@@ -84,3 +84,27 @@ def test_print_score_empty_is_100():
     out = _cap(print_score, [])
     assert "100" in out
     assert "Grade A" in out
+
+
+def test_print_narrations_lang_en_only():
+    findings = [{"cve_id": "CVE-X", "cvss_score": 5.0,
+                 "narration_en": "English risk.", "narration_sw": "Hatari."}]
+    out = _cap(print_narrations, findings, "en")
+    assert "English risk." in out
+    assert "Hatari." not in out
+
+
+def test_print_narrations_lang_sw_only():
+    findings = [{"cve_id": "CVE-X", "cvss_score": 5.0,
+                 "narration_en": "English risk.", "narration_sw": "Hatari."}]
+    out = _cap(print_narrations, findings, "sw")
+    assert "Hatari." in out
+    assert "English risk." not in out
+
+
+def test_print_narrations_lang_both_shows_all():
+    findings = [{"cve_id": "CVE-X", "cvss_score": 5.0,
+                 "narration_en": "English risk.", "narration_sw": "Hatari."}]
+    out = _cap(print_narrations, findings, "both")
+    assert "English risk." in out
+    assert "Hatari." in out
