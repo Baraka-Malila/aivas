@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ meta.title }}</title>
+<style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; background: #f4f6f9; color: #222; }
+  .header { background: #1a1a2e; color: white; padding: 32px 48px; }
+  .header h1 { margin: 0 0 8px 0; font-size: 28px; }
+  .header p { margin: 0; color: #a0aec0; font-size: 14px; }
+  .meta-bar { background: white; padding: 16px 48px; border-bottom: 1px solid #e2e8f0; display: flex; gap: 32px; }
+  .meta-bar span { font-size: 13px; color: #666; }
+  .meta-bar strong { color: #222; }
+  .container { max-width: 1100px; margin: 32px auto; padding: 0 24px; }
+  .summary { display: flex; gap: 16px; margin-bottom: 32px; }
+  .card { background: white; border-radius: 8px; padding: 20px 28px; flex: 1; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .card .number { font-size: 36px; font-weight: 700; }
+  .card .label { font-size: 13px; color: #888; margin-top: 4px; }
+  .critical .number { color: #c0392b; }
+  .high .number { color: #e67e22; }
+  .medium .number { color: #f39c12; }
+  table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  thead { background: #1a1a2e; color: white; }
+  th { padding: 12px 16px; text-align: left; font-size: 13px; font-weight: 600; }
+  td { padding: 12px 16px; border-bottom: 1px solid #f0f0f0; font-size: 13px; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafafa; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+  .CRITICAL { background: #fde8e8; color: #c0392b; }
+  .HIGH { background: #fef3e2; color: #e67e22; }
+  .MEDIUM { background: #fef9e7; color: #b7950b; }
+  .LOW { background: #eafaf1; color: #27ae60; }
+  .NA { background: #f0f0f0; color: #666; }
+  .narration { margin-top: 32px; }
+  .narration h2 { color: #1a1a2e; font-size: 20px; margin-bottom: 16px; }
+  .narration-card { background: white; border-left: 4px solid #1a1a2e; border-radius: 4px; padding: 16px 20px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .narration-card h3 { margin: 0 0 10px 0; font-size: 15px; color: #1a1a2e; }
+  .narration-card .en { margin-bottom: 6px; font-size: 13px; }
+  .narration-card .sw { font-size: 13px; color: #2980b9; }
+  .lang { font-weight: 700; margin-right: 8px; }
+  .footer { text-align: center; padding: 32px; color: #aaa; font-size: 12px; }
+  .empty { text-align: center; padding: 48px; color: #aaa; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>{{ meta.title }}</h1>
+  <p>Generated: {{ meta.generated_at }}{% if meta.target %} &nbsp;|&nbsp; Target: {{ meta.target }}{% endif %}</p>
+</div>
+<div class="meta-bar">
+  <span><strong>Total Findings:</strong> {{ findings | length }}</span>
+  <span><strong>Critical:</strong> {{ findings | selectattr('cvss_severity', 'equalto', 'CRITICAL') | list | length }}</span>
+  <span><strong>High:</strong> {{ findings | selectattr('cvss_severity', 'equalto', 'HIGH') | list | length }}</span>
+  <span><strong>With AI Narration:</strong> {{ findings | selectattr('narration_en', 'defined') | list | length }}</span>
+</div>
+
+<div class="container">
+  {% if not findings %}
+  <div class="empty"><p>No vulnerabilities found. 0 CVEs matched the scanned services.</p></div>
+  {% else %}
+  <div class="summary">
+    <div class="card critical">
+      <div class="number">{{ findings | selectattr('cvss_severity', 'equalto', 'CRITICAL') | list | length }}</div>
+      <div class="label">Critical</div>
+    </div>
+    <div class="card high">
+      <div class="number">{{ findings | selectattr('cvss_severity', 'equalto', 'HIGH') | list | length }}</div>
+      <div class="label">High</div>
+    </div>
+    <div class="card medium">
+      <div class="number">{{ findings | selectattr('cvss_severity', 'equalto', 'MEDIUM') | list | length }}</div>
+      <div class="label">Medium</div>
+    </div>
+    <div class="card">
+      <div class="number">{{ findings | length }}</div>
+      <div class="label">Total</div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>CVE ID</th>
+        <th>CVSS</th>
+        <th>Severity</th>
+        <th>Confidence</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in findings %}
+      <tr>
+        <td><strong>{{ f.cve_id }}</strong></td>
+        <td>{{ f.cvss_score or 'N/A' }}</td>
+        <td><span class="badge {{ f.cvss_severity or 'NA' }}">{{ f.cvss_severity or 'N/A' }}</span></td>
+        <td>{{ f.confidence }}</td>
+        <td>{{ (f.description or '') | truncate(200) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% set narrated = findings | selectattr('narration_en', 'defined') | list %}
+  {% if narrated %}
+  <div class="narration">
+    <h2>AI Risk Narrations (EN / SW)</h2>
+    {% for f in narrated %}
+    {% if f.narration_en or f.narration_sw %}
+    <div class="narration-card">
+      <h3>{{ f.cve_id }} &mdash; CVSS {{ f.cvss_score or 'N/A' }}</h3>
+      <div class="en"><span class="lang">EN</span>{{ f.narration_en }}</div>
+      <div class="sw"><span class="lang">SW</span>{{ f.narration_sw }}</div>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endif %}
+</div>
+<div class="footer">AIVAS &mdash; AI-Assisted Network Vulnerability Assessment System &nbsp;|&nbsp; Mbeya University of Science and Technology 2025/2026</div>
+</body>
+</html>
