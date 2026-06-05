@@ -8,7 +8,7 @@ from aivas.database.schema import get_db, create_schema, DB_PATH
 from aivas.database.nvd_ingest import ingest_feeds
 from aivas.database.nvd_sync import sync_from_api, get_last_sync
 from aivas.database.cpe_query import find_cves, normalize_product
-from aivas.formatting import SEVERITY_COLORS, cve_table
+from aivas.formatting import SEVERITY_COLORS, cve_table, print_narrations, print_score
 from aivas.reporter import generate_report
 from aivas.commands.history_cmds import history, diff as diff_cmd
 from aivas.parser import parse_nmap_xml
@@ -113,6 +113,10 @@ def search(
 @click.option("--scripts", default=FULL_SCRIPTS, show_default=False,
               help="NSE scripts to run (ignored with --import).")
 @click.option("--limit", default=30, show_default=True, help="Max findings to show.")
+@click.option("--min-confidence", "min_confidence",
+              type=click.Choice(["possible", "probable", "confirmed"]),
+              default="probable", show_default=True,
+              help="Minimum confidence level to show.")
 @click.option("--narrate", is_flag=True, help="Generate bilingual AI risk narration.")
 @click.option("--provider", default="groq",
               type=click.Choice(["groq", "ollama"]), show_default=True,
@@ -131,6 +135,7 @@ def scan(
     import_file: str | None,
     scripts: str,
     limit: int,
+    min_confidence: str,
     narrate: bool,
     provider: str,
     api_key: str | None,
@@ -159,9 +164,12 @@ def scan(
         console.print("[yellow]No open services found.[/yellow]")
         return
 
-    findings = correlate(conn, services)[:limit]
+    _rank = {"possible": 0, "probable": 1, "confirmed": 2}
+    findings = [f for f in correlate(conn, services)
+                if _rank.get(f.get("confidence", "possible"), 0) >= _rank[min_confidence]][:limit]
     if not findings:
-        console.print("[green]No known CVEs matched the detected services.[/green]")
+        console.print("[green]No CVEs at this confidence level[/green] "
+                      "(try --min-confidence possible to see all).")
         return
 
     console.print(cve_table("Vulnerability Findings", findings, desc_max=55))
@@ -174,14 +182,7 @@ def scan(
             raise click.ClickException(str(exc))
         with console.status(f"Generating narration with {provider}..."):
             findings = _narrator_mod.narrate(findings, prov)
-        console.print("\n[bold]Bilingual Risk Narrations[/bold]")
-        for f in findings:
-            console.print(
-                f"\n[bold cyan]{f['cve_id']}[/bold cyan] "
-                f"(CVSS {f.get('cvss_score') or 'N/A'})"
-            )
-            console.print(f"[blue]EN:[/blue] {f.get('narration_en', '')}")
-            console.print(f"[green]SW:[/green] {f.get('narration_sw', '')}")
+        print_narrations(findings)
 
     if report_path:
         meta = {"target": target or (import_file or "")}

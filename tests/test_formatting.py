@@ -41,3 +41,46 @@ def test_cve_table_none_score_shows_na():
     t = cve_table("T", rows)
     score_cell = t.columns[1]._cells[0]
     assert score_cell == "N/A"
+
+
+from io import StringIO
+from rich.console import Console
+from aivas.formatting import print_narrations, print_score
+
+
+def _cap(fn, *args):
+    buf = StringIO()
+    c = Console(file=buf, highlight=False, markup=False)
+    fn(*args, console=c)
+    return buf.getvalue()
+
+
+def test_print_narrations_outputs_cve_and_narration():
+    findings = [
+        {
+            "cve_id": "CVE-2021-41773",
+            "cvss_score": 9.8,
+            "narration_en": "Critical path traversal.",
+            "narration_sw": "Njia ya hatari.",
+            "fix_en": "Update Apache.",
+            "fix_sw": "Sasisha Apache.",
+        }
+    ]
+    out = _cap(print_narrations, findings)
+    assert "CVE-2021-41773" in out
+    assert "Critical path traversal." in out
+    assert "Njia ya hatari." in out
+    assert "Update Apache." in out
+
+
+def test_print_score_shows_score_and_grade():
+    findings = [{"cvss_severity": "CRITICAL", "confidence": "confirmed"}]
+    out = _cap(print_score, findings)
+    assert "/100" in out
+    assert "Grade" in out
+
+
+def test_print_score_empty_is_100():
+    out = _cap(print_score, [])
+    assert "100" in out
+    assert "Grade A" in out

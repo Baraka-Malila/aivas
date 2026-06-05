@@ -154,3 +154,59 @@ def test_scan_report_saves_html_file(tmp_path):
     assert result.exit_code == 0
     assert report_file.exists()
     assert "CVE-2021-41773" in report_file.read_text()
+
+
+def test_scan_hides_possible_by_default(tmp_path):
+    MINIMAL_XML = """<?xml version="1.0"?>
+<nmaprun>
+  <host>
+    <address addr="192.168.1.10" addrtype="ipv4"/>
+    <ports>
+      <port protocol="tcp" portid="80">
+        <state state="open"/>
+        <service name="http" product="Apache httpd" version="2.4.49"/>
+      </port>
+    </ports>
+  </host>
+</nmaprun>"""
+    xml_file = tmp_path / "scan.xml"
+    xml_file.write_text(MINIMAL_XML)
+    possible = {"cve_id": "CVE-1999-0001", "cvss_score": 5.0,
+                "cvss_severity": "MEDIUM", "description": "old",
+                "confidence": "possible", "host": "192.168.1.10"}
+    probable = {"cve_id": "CVE-2021-41773", "cvss_score": 9.8,
+                "cvss_severity": "CRITICAL", "description": "real",
+                "confidence": "probable", "host": "192.168.1.10"}
+    with patch("aivas.cli.correlate", return_value=[possible, probable]):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["scan", "--import", str(xml_file)])
+    assert result.exit_code == 0
+    assert "CVE-2021-41773" in result.output
+    assert "CVE-1999-0001" not in result.output
+
+
+def test_scan_shows_possible_with_flag(tmp_path):
+    MINIMAL_XML = """<?xml version="1.0"?>
+<nmaprun>
+  <host>
+    <address addr="192.168.1.10" addrtype="ipv4"/>
+    <ports>
+      <port protocol="tcp" portid="80">
+        <state state="open"/>
+        <service name="http" product="Apache httpd" version="2.4.49"/>
+      </port>
+    </ports>
+  </host>
+</nmaprun>"""
+    xml_file = tmp_path / "scan.xml"
+    xml_file.write_text(MINIMAL_XML)
+    possible = {"cve_id": "CVE-1999-0001", "cvss_score": 5.0,
+                "cvss_severity": "MEDIUM", "description": "old",
+                "confidence": "possible", "host": "192.168.1.10"}
+    with patch("aivas.cli.correlate", return_value=[possible]):
+        runner = CliRunner()
+        result = runner.invoke(
+            cli, ["scan", "--import", str(xml_file), "--min-confidence", "possible"]
+        )
+    assert result.exit_code == 0
+    assert "CVE-1999-0001" in result.output
