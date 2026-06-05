@@ -4,7 +4,7 @@ from pathlib import Path
 import click
 from rich.console import Console
 
-from aivas.formatting import cve_table, print_narrations, print_score
+from aivas.formatting import cve_table, misconfig_table, print_narrations, print_score
 from aivas.reporter import generate_report
 from aivas.parser import parse_nmap_xml
 from aivas.correlator import correlate
@@ -142,6 +142,23 @@ def scan(
 
     console.print(cve_table("Vulnerability Findings", findings, desc_max=55))
     print_score(findings)
+
+    misconfigs: list[dict] = []
+    for svc in services:
+        is_http = svc.get("service", "") in ("http", "https", "ssl") or (
+            svc.get("port") in (80, 443, 8080, 8443)
+        )
+        is_ssl = "ssl" in svc.get("service", "") or svc.get("port") in (443, 8443)
+        if is_http:
+            from aivas.prober import probe_http_service
+            with console.status(
+                f"Config probe {svc['host']}:{svc['port']}..."
+            ):
+                misconfigs.extend(
+                    probe_http_service(svc["host"], svc["port"], ssl=is_ssl)
+                )
+    if misconfigs:
+        console.print(misconfig_table("Configuration Issues", misconfigs))
 
     if narrate:
         import aivas.narrator as _narrator_mod
