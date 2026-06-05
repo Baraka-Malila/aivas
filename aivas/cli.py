@@ -9,6 +9,7 @@ from aivas.database.nvd_ingest import ingest_feeds
 from aivas.database.nvd_sync import sync_from_api, get_last_sync
 from aivas.database.cpe_query import find_cves, normalize_product
 from aivas.formatting import SEVERITY_COLORS, cve_table
+from aivas.reporter import generate_report
 from aivas.parser import parse_nmap_xml
 from aivas.correlator import correlate
 from aivas.scanner import run_scan
@@ -112,6 +113,9 @@ def search(
               help="LLM provider for narration.")
 @click.option("--api-key", "api_key", default=None, envvar="GROQ_API_KEY",
               help="Groq API key (or set GROQ_API_KEY).")
+@click.option("--report", "report_path", default=None,
+              type=click.Path(dir_okay=False, writable=True),
+              help="Save HTML (or .pdf) report to this path.")
 @click.pass_context
 def scan(
     ctx: click.Context,
@@ -122,6 +126,7 @@ def scan(
     narrate: bool,
     provider: str,
     api_key: str | None,
+    report_path: str | None,
 ) -> None:
     """Scan a target or analyse existing Nmap XML for vulnerabilities."""
     conn = ctx.obj["conn"]
@@ -168,6 +173,11 @@ def scan(
             )
             console.print(f"[blue]EN:[/blue] {f.get('narration_en', '')}")
             console.print(f"[green]SW:[/green] {f.get('narration_sw', '')}")
+
+    if report_path:
+        meta = {"target": target or (import_file or "")}
+        saved = generate_report(findings, report_path, meta=meta)
+        console.print(f"\n[green]✓[/green] Report saved to [bold]{saved}[/bold]")
 
 
 def main() -> None:

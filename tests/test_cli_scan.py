@@ -133,3 +133,24 @@ def test_scan_narrate_groq_missing_key_shows_error(tmp_path):
 
     assert result.exit_code != 0
     assert "Groq API key" in result.output
+
+
+def test_scan_report_saves_html_file(tmp_path):
+    xml_file = tmp_path / "scan.xml"
+    xml_file.write_text(MINIMAL_NMAP_XML)
+    report_file = tmp_path / "report.html"
+
+    fake_finding = {
+        "cve_id": "CVE-2021-41773", "cvss_score": 9.8,
+        "cvss_severity": "CRITICAL", "description": "Path traversal",
+        "confidence": "probable", "host": "192.168.1.10",
+    }
+
+    with patch("aivas.cli.correlate", return_value=[fake_finding]):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["scan", "--import", str(xml_file),
+                                     "--report", str(report_file)])
+
+    assert result.exit_code == 0
+    assert report_file.exists()
+    assert "CVE-2021-41773" in report_file.read_text()
