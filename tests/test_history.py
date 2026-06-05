@@ -77,3 +77,27 @@ def test_save_scan_stores_fix_fields(db):
     ).fetchone()
     assert row["en_fix"] == "Patch Apache."
     assert row["sw_fix"] == "Rekebisha Apache."
+
+
+def test_get_scan_findings_returns_findings(db):
+    from aivas.history import get_scan_findings
+    findings = [
+        {"cve_id": "CVE-2021-41773", "cvss_score": 9.8, "cvss_severity": "CRITICAL",
+         "confidence": "probable", "host": "192.168.1.10",
+         "narration_en": "Critical risk.", "narration_sw": "Hatari.",
+         "fix_en": "Patch it.", "fix_sw": "Rekebisha."},
+    ]
+    scan_id = save_scan(db, "target", findings)
+    result = get_scan_findings(db, scan_id)
+    assert len(result) == 1
+    assert result[0]["cve_id"] == "CVE-2021-41773"
+    assert result[0]["cvss_score"] == 9.8
+    assert result[0]["narration_en"] == "Critical risk."
+    assert result[0]["fix_en"] == "Patch it."
+
+
+def test_get_scan_findings_empty_scan(db):
+    from aivas.history import get_scan_findings
+    scan_id = save_scan(db, "target", [])
+    result = get_scan_findings(db, scan_id)
+    assert result == []

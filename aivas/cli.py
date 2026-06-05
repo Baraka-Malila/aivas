@@ -10,6 +10,7 @@ from aivas.database.cpe_query import find_cves, normalize_product
 from aivas.formatting import cve_table
 from aivas.commands.history_cmds import history, diff as diff_cmd
 from aivas.commands.scan_cmd import scan
+from aivas.commands.report_cmd import report
 
 console = Console()
 
@@ -30,6 +31,7 @@ def cli(ctx: click.Context, db_path: str | None) -> None:
 cli.add_command(history)
 cli.add_command(diff_cmd)
 cli.add_command(scan)
+cli.add_command(report)
 
 
 @cli.command()

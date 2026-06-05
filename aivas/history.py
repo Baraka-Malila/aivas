@@ -72,3 +72,27 @@ def diff_scans(conn: sqlite3.Connection, old_id: int, new_id: int) -> dict[str, 
         "fixed": sorted(old_cves - new_cves),
         "common": sorted(old_cves & new_cves),
     }
+
+
+def get_scan_findings(conn: sqlite3.Connection, scan_id: int) -> list[dict]:
+    rows = conn.execute(
+        """SELECT host, cve_id, cvss_score, cvss_severity, confidence,
+                  en_risk, sw_risk, en_fix, sw_fix
+           FROM findings WHERE scan_id = ?""",
+        (scan_id,),
+    ).fetchall()
+    return [
+        {
+            "host": r["host"],
+            "cve_id": r["cve_id"],
+            "cvss_score": r["cvss_score"],
+            "cvss_severity": r["cvss_severity"],
+            "confidence": r["confidence"],
+            "narration_en": r["en_risk"] or "",
+            "narration_sw": r["sw_risk"] or "",
+            "fix_en": r["en_fix"] or "",
+            "fix_sw": r["sw_fix"] or "",
+            "description": "",
+        }
+        for r in rows
+    ]
