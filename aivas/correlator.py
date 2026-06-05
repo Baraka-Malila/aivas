@@ -11,19 +11,20 @@ NSE_CVE_MAP: dict[str, str] = {
 }
 
 
-def _nse_confirmed_cve_ids(services: list[dict]) -> set[str]:
-    confirmed = set()
+def _nse_confirmed(services: list[dict]) -> dict[str, str]:
+    """Return {cve_id: host_ip} for NSE VULNERABLE hits."""
+    confirmed: dict[str, str] = {}
     for svc in services:
         for script_id, output in svc.get("nse_results", {}).items():
             if "VULNERABLE" in output and script_id in NSE_CVE_MAP:
-                confirmed.add(NSE_CVE_MAP[script_id])
+                confirmed.setdefault(NSE_CVE_MAP[script_id], svc["host"])
     return confirmed
 
 
 def correlate(conn: sqlite3.Connection, services: list[dict]) -> list[dict]:
     seen: set[str] = set()
     findings: list[dict] = []
-    confirmed_ids = _nse_confirmed_cve_ids(services)
+    confirmed = _nse_confirmed(services)
 
     for svc in services:
         product = f"{svc.get('product', '')} {svc.get('service', '')}".strip()
@@ -33,10 +34,10 @@ def correlate(conn: sqlite3.Connection, services: list[dict]) -> list[dict]:
             if cve_id in seen:
                 continue
             seen.add(cve_id)
-            confidence = "confirmed" if cve_id in confirmed_ids else row["confidence"]
+            confidence = "confirmed" if cve_id in confirmed else row["confidence"]
             findings.append({**row, "confidence": confidence, "host": svc["host"]})
 
-    for cve_id in confirmed_ids:
+    for cve_id, host in confirmed.items():
         if cve_id not in seen:
             row = conn.execute(
                 "SELECT cve_id, cvss_score, cvss_severity, description FROM cves WHERE cve_id = ?",
@@ -44,7 +45,7 @@ def correlate(conn: sqlite3.Connection, services: list[dict]) -> list[dict]:
             ).fetchone()
             if row:
                 seen.add(cve_id)
-                findings.append({**dict(row), "confidence": "confirmed"})
+                findings.append({**dict(row), "confidence": "confirmed", "host": host})
 
     findings.sort(key=lambda x: x.get("cvss_score") or 0, reverse=True)
     return findings

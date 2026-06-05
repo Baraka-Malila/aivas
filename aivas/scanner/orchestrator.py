@@ -14,11 +14,10 @@ def run_scan(
     if scripts:
         cmd += ["--script", scripts]
 
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        timeout=timeout,
-    )
+    try:
+        result = subprocess.run(cmd, capture_output=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(f"nmap timed out after {timeout}s.")
     if result.returncode != 0:
         raise RuntimeError(f"nmap exited {result.returncode}: {result.stderr.decode()}")
     return result.stdout.decode()
