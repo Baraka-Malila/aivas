@@ -26,7 +26,8 @@ def create_schema(conn: sqlite3.Connection) -> None:
             cvss_severity   TEXT,
             cvss_vector     TEXT,
             attack_vector   TEXT,
-            cwe_id          TEXT
+            cwe_id          TEXT,
+            kev             INTEGER DEFAULT 0
         );
 
         CREATE TABLE IF NOT EXISTS cpe_matches (
@@ -91,3 +92,9 @@ def create_schema(conn: sqlite3.Connection) -> None:
             ON findings(cve_id);
     """)
     conn.commit()
+    # Migration: add kev column if DB predates this sprint
+    try:
+        conn.execute("ALTER TABLE cves ADD COLUMN kev INTEGER DEFAULT 0")
+        conn.commit()
+    except Exception:
+        pass  # column already exists

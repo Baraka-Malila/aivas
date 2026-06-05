@@ -7,6 +7,7 @@ from aivas.database.schema import get_db, create_schema, DB_PATH
 from aivas.database.nvd_ingest import ingest_feeds
 from aivas.database.nvd_sync import sync_from_api, get_last_sync
 from aivas.database.cpe_query import find_cves, normalize_product
+from aivas.database.kev import sync_kev, get_kev_status
 from aivas.formatting import cve_table
 from aivas.commands.history_cmds import history, diff as diff_cmd
 from aivas.commands.scan_cmd import scan
@@ -103,6 +104,28 @@ def search(
         return
 
     console.print(cve_table(f"CVEs for {product} {version or '(any version)'}", results))
+
+
+@cli.command("update-kev")
+@click.pass_context
+def update_kev(ctx: click.Context) -> None:
+    """Download CISA Known Exploited Vulnerabilities and flag matching CVEs."""
+    conn = ctx.obj["conn"]
+    status_before = get_kev_status(conn)
+    console.print("[bold]Downloading CISA KEV feed...[/bold]")
+    with console.status("Syncing KEV..."):
+        try:
+            count = sync_kev(conn)
+        except Exception as exc:
+            raise click.ClickException(f"KEV sync failed: {exc}")
+    status_after = get_kev_status(conn)
+    console.print(
+        f"[green]✓[/green] Marked {count} CVEs as actively exploited (KEV)."
+    )
+    console.print(
+        f"Total KEV-flagged in DB: {status_after['count']} "
+        f"(was {status_before['count']})."
+    )
 
 
 def main() -> None:

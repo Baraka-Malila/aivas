@@ -84,7 +84,7 @@ def find_cves(
 
     rows = conn.execute(
         """SELECT c.cve_id, c.cvss_score, c.cvss_severity, c.description,
-                  c.cvss_vector, c.attack_vector, c.cwe_id,
+                  c.cvss_vector, c.attack_vector, c.cwe_id, c.kev,
                   m.cpe_criteria, m.version_start_incl, m.version_start_excl,
                   m.version_end_incl, m.version_end_excl
            FROM cpe_matches m
