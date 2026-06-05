@@ -1,118 +1,161 @@
-# AIVAS — AI-Assisted Network Vulnerability Assessment System
+# AIVAS
 
-**The only free, plain-language, Swahili-capable network vulnerability scanner built for African SMEs.**
+**AI-Assisted Network Vulnerability Assessment System**
 
-AIVAS combines Nmap service discovery, a full offline NIST NVD CVE database, targeted active verification, and AI-powered risk narration — giving non-expert users the security visibility of enterprise tools like Nessus and OpenVAS, without the cost or complexity.
+AIVAS is a free, offline-capable network vulnerability scanner for Linux. It combines Nmap service discovery, a local NIST NVD CVE database, active configuration probing, and optional AI-powered bilingual (English/Swahili) risk narration.
 
----
-
-## What AIVAS Does
-
-```
-$ aivas scan 192.168.1.0/24
-
-[AIVAS] Scanning 192.168.1.0/24...
-[AIVAS] Discovered 12 hosts, 47 open services
-
-[CRITICAL] 192.168.1.10 — Apache httpd 2.4.49 (port 80)
-  CVE-2021-41773 | CVSS 9.8 | Path Traversal / RCE
-  EN: Your web server has a critical known exploit. Attackers can access any
-      file on the server without authentication. Update Apache to 2.4.51+.
-  SW: Seva yako ya wavuti ina udhaifu mkubwa unaojulikana. Sasisha Apache
-      hadi toleo la 2.4.51 au zaidi mara moja.
-
-[HIGH] 192.168.1.5 — OpenSSH 7.4 (port 22)
-  CVE-2018-15473 | CVSS 5.3 | User Enumeration
-  EN: Your SSH server leaks valid usernames. Combined with weak passwords,
-      this enables targeted brute-force attacks. Update to OpenSSH 7.8+.
-
-Network Risk Score: 62/100 — HIGH
-Report saved: reports/scan_2026-06-04_192.168.1.0.pdf
-```
+![AIVAS TUI](docs/assets/screenshot.png)
 
 ---
 
-## Key Features
+## Features
 
-- **Full NVD CVE database** — 200,000+ CVEs stored locally in SQLite, synced from NIST
-- **Active verification** — Nmap NSE scripts verify critical CVEs (Heartbleed, EternalBlue, etc.), not just version guessing
-- **AI narration** — Groq (default) or Ollama (offline) explains every finding in plain language
-- **Bilingual output** — English and Swahili, side by side
-- **Remediation guidance** — actionable fix instructions per CVE, AI-generated
-- **Network risk score** — aggregate CVSS scores into a 0–100 grade
-- **Scan history** — track security posture over time, alert when new CVEs affect your network
-- **PDF/HTML reports** — professional output for management
-- **Optional credentialed scanning** — SSH into hosts for exact package version accuracy
+- CVE correlation against a local SQLite database synced from NIST NVD (200,000+ CVEs)
+- CISA KEV flagging — marks CVEs actively exploited in the wild
+- Level 1 active configuration probing: missing security headers, exposed endpoints, risky HTTP methods
+- AI risk narration in English and Swahili via Groq or Ollama
+- Interactive Textual TUI with slash commands and AI-routed free text input
+- Scan history, HTML/PDF report export, and diff between scan sessions
+- Fully offline after initial database sync
 
 ---
 
-## Quickstart
+## Requirements
+
+- Linux (Ubuntu 20.04+, Kali, Debian)
+- Python 3.10 or later
+- nmap (`sudo apt install nmap`)
+- pip 23 or later
+
+---
+
+## Installation
 
 ```bash
-# Install
 pip install aivas
+```
 
-# First-time: download CVE database (~600MB)
+If `aivas` is not found after install, add the local bin directory to your PATH:
+
+```bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+### Install from source
+
+```bash
+git clone https://github.com/Baraka-Malila/aivas.git
+cd aivas
+python3 -m pip install --upgrade pip
+python3 -m pip install -e ".[dev]"
+```
+
+---
+
+## Quick Start
+
+```bash
+# Check your setup
+aivas doctor
+
+# Populate the CVE database (from local NVD JSON feeds)
+aivas update-db --source /path/to/nvd-json-data-feeds/
+
+# Or sync from the NVD API
 aivas update-db
 
-# Scan your network
-aivas scan 192.168.1.0/24
+# Sync known exploited vulnerabilities
+aivas update-kev
 
-# Scan with SSH credentials for higher accuracy
-aivas scan 192.168.1.0/24 --credentials admin@192.168.1.10
-
-# Export PDF report
-aivas scan 192.168.1.0/24 --output pdf
-
-# Use local LLM (offline mode)
-aivas scan 192.168.1.0/24 --provider ollama
+# Launch the interactive interface
+aivas
 ```
 
 ---
 
-## Architecture
+## Usage
 
+### Interactive TUI
+
+Run `aivas` with no arguments to open the interface. Type `/help` for a full command list.
+
+| Command | Description |
+|---------|-------------|
+| `/scan <target>` | Full CVE and config probe scan |
+| `/quick <target>` | Fast service scan (level 1) |
+| `/deep <target> [--udp]` | Full scan with UDP discovery |
+| `/ask <query>` | Natural language scan routing (requires API key) |
+| `/doctor` | Check dependencies and configuration |
+| `/history list` | View past scan sessions |
+| `/history show <id>` | Replay findings from a previous scan |
+| `/kev` | Sync CISA Known Exploited Vulnerabilities |
+| `/config set <key> <value>` | Save a configuration value |
+| `/help` | List all commands |
+| `/exit` | Quit |
+
+Free text without a leading `/` is routed to the AI intent parser if an API key is configured. Without an API key, all core scanning features work without AI.
+
+### Command line
+
+```bash
+aivas scan 192.168.1.1
+aivas scan 192.168.1.1 --level 2 --save --report report.html
+aivas scan 192.168.1.1 --narrate --api-key YOUR_KEY
+sudo aivas scan 192.168.1.1 --udp
+aivas search apache --version 2.4.52
+aivas history list
+aivas config set api_key YOUR_GROQ_KEY
 ```
-aivas/
-  cli.py          — entry point, argument parsing (Click)
-  scanner.py      — Nmap orchestration, NSE script selection
-  parser.py       — Nmap XML output → structured service data
-  database.py     — SQLite CVE store, NVD sync, CPE matching
-  correlator.py   — service version → CVE lookup + CVSS scoring
-  narrator.py     — LLM prompting (Groq/Ollama), EN+SW generation
-  reporter.py     — rich terminal output + PDF/HTML export
-  history.py      — scan result persistence, diff, alerting
+
+---
+
+## Scan Levels
+
+| Level | What it does |
+|-------|-------------|
+| 1 | Service version detection only |
+| 2 | CVE correlation + NSE vulnerability scripts + config probing (default) |
+| 3 | Level 2 + SSH-authenticated installed package scan |
+
+---
+
+## Configuration
+
+Settings are stored in `~/.aivas/config.yml`:
+
+```yaml
+api_key: your-groq-api-key
+provider: groq        # groq or ollama
+lang: both            # en, sw, or both
+default_level: 2
 ```
 
-Each module has one responsibility and stays under 200 lines. Interfaces are stable — adding new scan types, LLM providers, or output formats does not require changing existing modules.
+Set any value:
+
+```bash
+aivas config set provider ollama
+aivas config show
+```
 
 ---
 
-## Comparison
+## Contributing
 
-| | AIVAS | OpenVAS | Nessus |
-|---|---|---|---|
-| Cost | Free | Free (complex setup) | ~$3,000/yr |
-| Install | `pip install` | Docker + hours | Complex |
-| Plain language output | Yes (LLM) | No | No |
-| Swahili | Yes | No | No |
-| Remediation guidance | AI-generated | Basic | Some |
-| Active verification | NSE scripts | 90,000+ NASL plugins | Extensive |
-| Resource usage | Lightweight | Heavy | Heavy |
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, coding standards, and how to submit changes.
 
 ---
 
-## Academic Context
+## License
 
-Final year project — Diploma in Computer Engineering  
-Mbeya University of Science and Technology (MUST), Tanzania  
-Students: Baraka Winchislaus Malila & Michael Chacha Megewa  
-Supervisor: Namsembwa Mzava | 2025/2026
+MIT. See [LICENSE](LICENSE).
+
+AIVAS is intended for use on networks you own or have explicit authorisation to scan. Unauthorised scanning may be illegal in your jurisdiction.
 
 ---
 
-## Roadmap
+## Authors
 
-- **v1.0** — Core: CVE DB, Nmap + NSE scanning, LLM narration, PDF reports, scan history
-- **v2.0** — Web dashboard GUI
-- **v3.0** — IDS/IDPS integration, real-time alerting
+Baraka Malila and Michael Chacha Megewa  
+Diploma in Computer Engineering, MUST (Mbeya University of Science and Technology), 2025/2026  
+Supervisor: Namsembwa Mzava
