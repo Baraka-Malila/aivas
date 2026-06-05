@@ -39,7 +39,7 @@ def test_scan_requires_target_or_import():
 
 
 def test_scan_live_raises_without_nmap():
-    with patch("aivas.scanner.orchestrator.shutil.which", return_value=None):
+    with patch("aivas.cli.shutil.which", return_value=None):
         runner = CliRunner()
         result = runner.invoke(cli, ["scan", "192.168.1.0/24"])
         assert result.exit_code != 0
