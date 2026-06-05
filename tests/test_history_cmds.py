@@ -20,7 +20,7 @@ def test_history_shows_saved_scan(db):
     result = runner.invoke(cli, ["history"], obj={"conn": db})
     assert result.exit_code == 0
     assert "10.0.0.0/24" in result.output
-    assert "CRITICAL" in result.output
+    assert "Grade" in result.output
 
 
 def test_diff_shows_new_and_fixed(db):

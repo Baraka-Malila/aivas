@@ -115,8 +115,7 @@ def search(
 @click.option("--limit", default=30, show_default=True, help="Max findings to show.")
 @click.option("--min-confidence", "min_confidence",
               type=click.Choice(["possible", "probable", "confirmed"]),
-              default="probable", show_default=True,
-              help="Minimum confidence level to show.")
+              default="probable", show_default=True, help="Minimum confidence level to show.")
 @click.option("--narrate", is_flag=True, help="Generate bilingual AI risk narration.")
 @click.option("--provider", default="groq",
               type=click.Choice(["groq", "ollama"]), show_default=True,
@@ -173,6 +172,7 @@ def scan(
         return
 
     console.print(cve_table("Vulnerability Findings", findings, desc_max=55))
+    print_score(findings)
 
     if narrate:
         import aivas.narrator as _narrator_mod

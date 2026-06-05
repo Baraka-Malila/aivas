@@ -1,17 +1,6 @@
 import sqlite3
 from datetime import datetime, timezone
-
-
-def _grade(max_score: float | None) -> str:
-    if max_score is None:
-        return "PASS"
-    if max_score >= 9.0:
-        return "CRITICAL"
-    if max_score >= 7.0:
-        return "HIGH"
-    if max_score >= 4.0:
-        return "MEDIUM"
-    return "LOW"
+from aivas.scorer import score_findings
 
 
 def save_scan(
@@ -21,8 +10,7 @@ def save_scan(
     report_path: str | None = None,
 ) -> int:
     now = datetime.now(timezone.utc).isoformat()
-    scores = [f["cvss_score"] for f in findings if f.get("cvss_score")]
-    max_score = max(scores) if scores else None
+    scored = score_findings(findings)
     hosts = {f.get("host") for f in findings if f.get("host")}
 
     cur = conn.execute(
@@ -31,7 +19,7 @@ def save_scan(
                 risk_score, grade, report_path)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
         (target, now, now, len(hosts), len(findings),
-         max_score, _grade(max_score), report_path),
+         scored["score"], f"Grade {scored['grade']}", report_path),
     )
     scan_id = cur.lastrowid
 
