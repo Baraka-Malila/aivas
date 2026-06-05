@@ -10,6 +10,7 @@ from aivas.database.nvd_sync import sync_from_api, get_last_sync
 from aivas.database.cpe_query import find_cves, normalize_product
 from aivas.formatting import SEVERITY_COLORS, cve_table
 from aivas.reporter import generate_report
+from aivas.commands.history_cmds import history, diff as diff_cmd
 from aivas.parser import parse_nmap_xml
 from aivas.correlator import correlate
 from aivas.scanner import run_scan
@@ -22,12 +23,17 @@ console = Console()
 @click.option("--db", "db_path", default=None, help="Path to SQLite database file.")
 @click.pass_context
 def cli(ctx: click.Context, db_path: str | None) -> None:
-    path = Path(db_path) if db_path else DB_PATH
-    conn = get_db(path)
-    create_schema(conn)
     ctx.ensure_object(dict)
-    ctx.obj["conn"] = conn
-    ctx.call_on_close(conn.close)
+    if "conn" not in ctx.obj:
+        path = Path(db_path) if db_path else DB_PATH
+        conn = get_db(path)
+        create_schema(conn)
+        ctx.obj["conn"] = conn
+        ctx.call_on_close(conn.close)
+
+
+cli.add_command(history)
+cli.add_command(diff_cmd)
 
 
 @cli.command()
@@ -116,6 +122,8 @@ def search(
 @click.option("--report", "report_path", default=None,
               type=click.Path(dir_okay=False, writable=True),
               help="Save HTML (or .pdf) report to this path.")
+@click.option("--save", "save", is_flag=True,
+              help="Persist findings to the scan history database.")
 @click.pass_context
 def scan(
     ctx: click.Context,
@@ -127,6 +135,7 @@ def scan(
     provider: str,
     api_key: str | None,
     report_path: str | None,
+    save: bool,
 ) -> None:
     """Scan a target or analyse existing Nmap XML for vulnerabilities."""
     conn = ctx.obj["conn"]
@@ -178,6 +187,12 @@ def scan(
         meta = {"target": target or (import_file or "")}
         saved = generate_report(findings, report_path, meta=meta)
         console.print(f"\n[green]✓[/green] Report saved to [bold]{saved}[/bold]")
+
+    if save:
+        from aivas.history import save_scan as _save_scan
+        sid = _save_scan(conn, target or import_file or "", findings,
+                         report_path=report_path)
+        console.print(f"[dim]Scan saved as #{sid}.[/dim]")
 
 
 def main() -> None:
