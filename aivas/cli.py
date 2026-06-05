@@ -3,25 +3,18 @@ from pathlib import Path
 
 import click
 from rich.console import Console
-from rich.table import Table
 
 from aivas.database.schema import get_db, create_schema, DB_PATH
 from aivas.database.nvd_ingest import ingest_feeds
 from aivas.database.nvd_sync import sync_from_api, get_last_sync
 from aivas.database.cpe_query import find_cves, normalize_product
+from aivas.formatting import SEVERITY_COLORS, cve_table
 from aivas.parser import parse_nmap_xml
 from aivas.correlator import correlate
 from aivas.scanner import run_scan
 from aivas.scanner.nse import FULL_SCRIPTS
 
 console = Console()
-
-SEVERITY_COLORS = {
-    "CRITICAL": "bold red",
-    "HIGH": "red",
-    "MEDIUM": "yellow",
-    "LOW": "green",
-}
 
 
 @click.group()
@@ -102,24 +95,7 @@ def search(
         console.print("[yellow]No CVEs found[/yellow] for the given product/version.")
         return
 
-    table = Table(title=f"CVEs for {product} {version or '(any version)'}", show_lines=True)
-    table.add_column("CVE ID", style="bold")
-    table.add_column("CVSS", justify="right")
-    table.add_column("Severity")
-    table.add_column("Confidence")
-    table.add_column("Description", max_width=60)
-
-    for r in results:
-        sev = r.get("cvss_severity") or "N/A"
-        table.add_row(
-            r["cve_id"],
-            str(r.get("cvss_score") or "N/A"),
-            f"[{SEVERITY_COLORS.get(sev, 'white')}]{sev}[/]",
-            r.get("confidence", "probable"),
-            (r.get("description") or "")[:120],
-        )
-
-    console.print(table)
+    console.print(cve_table(f"CVEs for {product} {version or '(any version)'}", results))
 
 
 @cli.command()
@@ -165,24 +141,7 @@ def scan(
         console.print("[green]No known CVEs matched the detected services.[/green]")
         return
 
-    table = Table(title="Vulnerability Findings", show_lines=True)
-    table.add_column("CVE ID", style="bold")
-    table.add_column("CVSS", justify="right")
-    table.add_column("Severity")
-    table.add_column("Confidence")
-    table.add_column("Description", max_width=55)
-
-    for f in findings:
-        sev = f.get("cvss_severity") or "N/A"
-        table.add_row(
-            f["cve_id"],
-            str(f.get("cvss_score") or "N/A"),
-            f"[{SEVERITY_COLORS.get(sev, 'white')}]{sev}[/]",
-            f.get("confidence", "possible"),
-            (f.get("description") or "")[:110],
-        )
-
-    console.print(table)
+    console.print(cve_table("Vulnerability Findings", findings, desc_max=55))
 
 
 def main() -> None:
