@@ -37,6 +37,8 @@ console = Console()
               help="Save HTML (or .pdf) report to this path.")
 @click.option("--save", "save", is_flag=True,
               help="Persist findings to the scan history database.")
+@click.option("--udp", "udp", is_flag=True,
+              help="Include UDP scan (requires root; reveals IoT/mDNS/SNMP).")
 @click.pass_context
 def scan(
     ctx: click.Context,
@@ -50,6 +52,7 @@ def scan(
     api_key: str | None,
     report_path: str | None,
     save: bool,
+    udp: bool,
 ) -> None:
     """Scan a target or analyse existing Nmap XML for vulnerabilities."""
     conn = ctx.obj["conn"]
@@ -62,7 +65,7 @@ def scan(
         console.print(f"[bold]Scanning {target}...[/bold]")
         with console.status("Running nmap..."):
             try:
-                xml = run_scan(target, scripts=scripts_for_level(level))
+                xml = run_scan(target, scripts=scripts_for_level(level), udp=udp)
             except RuntimeError as exc:
                 raise click.ClickException(str(exc))
     else:

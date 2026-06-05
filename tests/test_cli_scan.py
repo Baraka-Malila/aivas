@@ -227,3 +227,14 @@ def test_scan_level_invalid_rejected(tmp_path):
     runner = CliRunner()
     result = runner.invoke(cli, ["scan", "--import", str(xml_file), "--level", "5"])
     assert result.exit_code != 0
+
+
+def test_scan_udp_flag_passes_to_run_scan(tmp_path):
+    with patch("aivas.commands.scan_cmd.shutil.which", return_value="/usr/bin/nmap"), \
+         patch("aivas.commands.scan_cmd.run_scan", return_value=MINIMAL_NMAP_XML) as mock_scan, \
+         patch("aivas.commands.scan_cmd.correlate", return_value=[]):
+        runner = CliRunner()
+        runner.invoke(cli, ["scan", "192.168.1.1", "--udp"])
+    mock_scan.assert_called_once()
+    _, kwargs = mock_scan.call_args
+    assert kwargs.get("udp") is True
