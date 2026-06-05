@@ -10,6 +10,7 @@ from aivas.parser import parse_nmap_xml
 from aivas.correlator import correlate
 from aivas.scanner import run_scan
 from aivas.scanner.nse import scripts_for_level
+from aivas.scanner.probe import probe_http, probe_ssl, probe_banner
 
 console = Console()
 
@@ -75,6 +76,25 @@ def scan(
     if not services:
         console.print("[yellow]No open services found.[/yellow]")
         return
+
+    for svc in services:
+        if svc.get("product"):
+            continue
+        host, port = svc["host"], svc["port"]
+        is_ssl = "ssl" in svc.get("service", "")
+        info = probe_http(host, port, ssl=is_ssl)
+        if info["server"]:
+            svc["product"] = info["server"]
+        elif info["title"]:
+            svc["product"] = info["title"]
+        if not svc.get("product") and is_ssl:
+            ssl_info = probe_ssl(host, port)
+            if ssl_info["cn"]:
+                svc["product"] = ssl_info["cn"]
+        if not svc.get("product"):
+            banner = probe_banner(host, port)
+            if banner:
+                svc["product"] = banner[:60]
 
     _rank = {"possible": 0, "probable": 1, "confirmed": 2}
     findings = [f for f in correlate(conn, services)
