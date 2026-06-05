@@ -4,6 +4,12 @@ from aivas.database.schema import create_schema
 
 
 @pytest.fixture
+def db_path(tmp_path):
+    """Return a path to a temporary SQLite database (for CLI --db option)."""
+    return tmp_path / "test.db"
+
+
+@pytest.fixture
 def db(tmp_path):
     conn = sqlite3.connect(str(tmp_path / "test.db"))
     conn.row_factory = sqlite3.Row

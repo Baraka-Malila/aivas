@@ -11,6 +11,7 @@ from aivas.formatting import cve_table
 from aivas.commands.history_cmds import history, diff as diff_cmd
 from aivas.commands.scan_cmd import scan
 from aivas.commands.report_cmd import report
+from aivas.commands.ask_cmd import ask
 
 console = Console()
 
@@ -32,6 +33,7 @@ cli.add_command(history)
 cli.add_command(diff_cmd)
 cli.add_command(scan)
 cli.add_command(report)
+cli.add_command(ask)
 
 
 @cli.command()
