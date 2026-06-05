@@ -54,18 +54,21 @@ def test_ask_command_cancelled_by_user(db_path):
     assert "Scan cancelled" in result.output
 
 
+EMPTY_NMAP_XML = """<?xml version="1.0"?>
+<nmaprun><host><address addr="192.168.1.1" addrtype="ipv4"/><ports/></host></nmaprun>"""
+
+
 def test_ask_command_invokes_scan_on_confirm(db_path):
     runner = CliRunner()
     with patch("aivas.commands.ask_cmd.parse_intent") as mock_intent, \
          patch("aivas.commands.ask_cmd.get_provider") as mock_prov, \
-         patch("aivas.commands.scan_cmd.run_scan") as mock_scan:
+         patch("aivas.commands.scan_cmd.shutil.which", return_value="/usr/bin/nmap"), \
+         patch("aivas.commands.scan_cmd.run_scan", return_value=EMPTY_NMAP_XML) as mock_run_scan:
         mock_prov.return_value = MagicMock()
         mock_intent.return_value = {"target": "192.168.1.1", "level": 1, "focus": "web"}
-        mock_scan.side_effect = RuntimeError("nmap not available")
         result = runner.invoke(
             cli,
             ["--db", str(db_path), "ask", "--api-key", "x", "check router"],
             input="y\n",
         )
-    # scan was attempted (RuntimeError from mock = scan was called)
-    assert mock_scan.called or "Error" in result.output
+    assert mock_run_scan.called
