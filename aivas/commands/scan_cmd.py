@@ -97,7 +97,8 @@ def scan(
                 svc["product"] = banner[:60]
 
     _rank = {"possible": 0, "probable": 1, "confirmed": 2}
-    findings = [f for f in correlate(conn, services)
+    os_hint = services[0].get("os_family") if services else None
+    findings = [f for f in correlate(conn, services, os_hint=os_hint or None)
                 if _rank.get(f.get("confidence", "possible"), 0) >= _rank[min_confidence]][:limit]
     if not findings:
         console.print("[green]No CVEs at this confidence level[/green] "

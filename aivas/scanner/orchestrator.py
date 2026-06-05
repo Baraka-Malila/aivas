@@ -7,6 +7,7 @@ def run_scan(
     scripts: str = "",
     timeout: int = 300,
     udp: bool = False,
+    os_detect: bool = False,
 ) -> str:
     if shutil.which("nmap") is None:
         raise RuntimeError("nmap not found — install nmap and retry.")
@@ -14,6 +15,8 @@ def run_scan(
     cmd = ["nmap", "-sV", "-oX", "-", target]
     if udp:
         cmd += ["-sU"]
+    if os_detect:
+        cmd += ["-O"]
     if scripts:
         cmd += ["--script", scripts]
 

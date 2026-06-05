@@ -10,9 +10,11 @@ NSE_CVE_MAP: dict[str, str] = {
     "http-vuln-cve2017-5638": "CVE-2017-5638",
 }
 
+_LINUX_TERMS = frozenset({"linux", "kernel", "ubuntu", "debian", "centos", "rhel", "fedora"})
+_WINDOWS_TERMS = frozenset({"windows", "win32", "win64", "iis", "ntlm"})
+
 
 def _nse_confirmed(services: list[dict]) -> dict[str, str]:
-    """Return {cve_id: host_ip} for NSE VULNERABLE hits."""
     confirmed: dict[str, str] = {}
     for svc in services:
         for script_id, output in svc.get("nse_results", {}).items():
@@ -21,7 +23,21 @@ def _nse_confirmed(services: list[dict]) -> dict[str, str]:
     return confirmed
 
 
-def correlate(conn: sqlite3.Connection, services: list[dict]) -> list[dict]:
+def _os_mismatch(description: str, os_hint: str) -> bool:
+    desc = (description or "").lower()
+    hint = os_hint.lower()
+    if "windows" in hint:
+        return any(t in desc for t in _LINUX_TERMS)
+    if "linux" in hint:
+        return any(t in desc for t in _WINDOWS_TERMS)
+    return False
+
+
+def correlate(
+    conn: sqlite3.Connection,
+    services: list[dict],
+    os_hint: str | None = None,
+) -> list[dict]:
     seen: set[str] = set()
     findings: list[dict] = []
     confirmed = _nse_confirmed(services)
@@ -32,6 +48,8 @@ def correlate(conn: sqlite3.Connection, services: list[dict]) -> list[dict]:
         for row in find_cves(conn, product, version):
             cve_id = row["cve_id"]
             if cve_id in seen:
+                continue
+            if os_hint and _os_mismatch(row.get("description", ""), os_hint):
                 continue
             seen.add(cve_id)
             confidence = "confirmed" if cve_id in confirmed else row["confidence"]

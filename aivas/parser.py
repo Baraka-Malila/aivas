@@ -9,6 +9,12 @@ def parse_nmap_xml(xml_string: str) -> list[dict]:
         if addr_el is None:
             continue
         host_ip = addr_el.get("addr", "")
+        os_el = host.find(".//osmatch")
+        os_family = ""
+        if os_el is not None:
+            osclass = os_el.find("osclass")
+            if osclass is not None:
+                os_family = osclass.get("osfamily", "")
         for port_el in host.findall(".//port"):
             state_el = port_el.find("state")
             if state_el is None or state_el.get("state") != "open":
@@ -26,5 +32,6 @@ def parse_nmap_xml(xml_string: str) -> list[dict]:
                 "product": svc_el.get("product", "") if svc_el is not None else "",
                 "version": svc_el.get("version", "") if svc_el is not None else "",
                 "nse_results": nse,
+                "os_family": os_family,
             })
     return services

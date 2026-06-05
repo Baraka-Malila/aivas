@@ -1,5 +1,36 @@
 from aivas.parser import parse_nmap_xml
 
+MINIMAL_NMAP_XML = """<?xml version="1.0"?>
+<nmaprun>
+  <host>
+    <address addr="192.168.1.10" addrtype="ipv4"/>
+    <ports>
+      <port protocol="tcp" portid="80">
+        <state state="open"/>
+        <service name="http" product="Apache httpd" version="2.4.49"/>
+      </port>
+    </ports>
+  </host>
+</nmaprun>"""
+
+NMAP_XML_WITH_OS = """<?xml version="1.0"?>
+<nmaprun>
+  <host>
+    <address addr="192.168.1.10" addrtype="ipv4"/>
+    <os>
+      <osmatch name="Linux 4.15" accuracy="96">
+        <osclass osfamily="Linux" osgen="4.X" type="general purpose"/>
+      </osmatch>
+    </os>
+    <ports>
+      <port protocol="tcp" portid="22">
+        <state state="open"/>
+        <service name="ssh" product="OpenSSH" version="8.9"/>
+      </port>
+    </ports>
+  </host>
+</nmaprun>"""
+
 
 def test_parse_returns_list(sample_nmap_xml):
     services = parse_nmap_xml(sample_nmap_xml)
@@ -53,3 +84,14 @@ def test_closed_ports_excluded():
       </host>
     </nmaprun>"""
     assert parse_nmap_xml(xml) == []
+
+
+def test_parse_nmap_xml_extracts_os_family():
+    services = parse_nmap_xml(NMAP_XML_WITH_OS)
+    assert len(services) == 1
+    assert services[0]["os_family"] == "Linux"
+
+
+def test_parse_nmap_xml_no_os_returns_empty_string():
+    services = parse_nmap_xml(MINIMAL_NMAP_XML)
+    assert services[0]["os_family"] == ""
