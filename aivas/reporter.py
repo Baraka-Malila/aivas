@@ -20,7 +20,8 @@ def generate_report(
     output_path: str | Path,
     meta: dict | None = None,
 ) -> Path:
-    output_path = Path(output_path)
+    output_path = Path(output_path).expanduser()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     resolved_meta = {"title": "AIVAS Vulnerability Report", "generated_at": now, "target": None}
     if meta:

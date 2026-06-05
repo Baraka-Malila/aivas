@@ -66,3 +66,19 @@ def test_generate_report_empty_findings(tmp_path):
     assert out.exists()
     content = out.read_text()
     assert "No vulnerabilities" in content or "0" in content
+
+
+def test_generate_report_creates_parent_directory(tmp_path):
+    nested = tmp_path / "reports" / "subdir" / "report.html"
+    result = generate_report([], nested)
+    assert result.exists()
+    assert result.parent.is_dir()
+
+
+def test_generate_report_expands_home_tilde(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    result = generate_report([], "~/tilde_report.html")
+    expected = tmp_path / "tilde_report.html"
+    assert result == expected
+    assert result.exists()
