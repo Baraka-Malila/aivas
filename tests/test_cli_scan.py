@@ -86,3 +86,50 @@ def test_scan_import_shows_findings(tmp_path):
     result = runner.invoke(cli, ["--db", str(db_path), "scan", "--import", str(xml_file)])
     assert result.exit_code == 0
     assert "CVE-2021-41773" in result.output
+
+
+def test_scan_narrate_shows_bilingual_output(tmp_path):
+    xml_file = tmp_path / "scan.xml"
+    xml_file.write_text(MINIMAL_NMAP_XML)
+
+    fake_finding = {
+        "cve_id": "CVE-2021-41773", "cvss_score": 9.8,
+        "cvss_severity": "CRITICAL", "description": "Path traversal",
+        "confidence": "probable", "host": "192.168.1.10",
+    }
+    narrated = {**fake_finding,
+                "narration_en": "Critical path traversal risk.",
+                "narration_sw": "Hatari kubwa ya njia."}
+
+    with patch("aivas.cli.correlate", return_value=[fake_finding]), \
+         patch("aivas.narrator.get_provider", return_value=MagicMock()), \
+         patch("aivas.narrator.narrate", return_value=[narrated]):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["scan", "--import", str(xml_file),
+                                     "--narrate", "--provider", "ollama"])
+
+    assert result.exit_code == 0
+    assert "EN:" in result.output
+    assert "SW:" in result.output
+    assert "Critical path traversal risk." in result.output
+
+
+def test_scan_narrate_groq_missing_key_shows_error(tmp_path):
+    xml_file = tmp_path / "scan.xml"
+    xml_file.write_text(MINIMAL_NMAP_XML)
+
+    fake_finding = {
+        "cve_id": "CVE-2021-41773", "cvss_score": 9.8,
+        "cvss_severity": "CRITICAL", "description": "test",
+        "confidence": "probable", "host": "192.168.1.10",
+    }
+
+    with patch("aivas.cli.correlate", return_value=[fake_finding]), \
+         patch("aivas.narrator.get_provider",
+               side_effect=ValueError("Groq API key required.")):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["scan", "--import", str(xml_file),
+                                     "--narrate", "--provider", "groq"])
+
+    assert result.exit_code != 0
+    assert "Groq API key" in result.output

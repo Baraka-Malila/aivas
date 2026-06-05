@@ -106,6 +106,12 @@ def search(
 @click.option("--scripts", default=FULL_SCRIPTS, show_default=False,
               help="NSE scripts to run (ignored with --import).")
 @click.option("--limit", default=30, show_default=True, help="Max findings to show.")
+@click.option("--narrate", is_flag=True, help="Generate bilingual AI risk narration.")
+@click.option("--provider", default="groq",
+              type=click.Choice(["groq", "ollama"]), show_default=True,
+              help="LLM provider for narration.")
+@click.option("--api-key", "api_key", default=None, envvar="GROQ_API_KEY",
+              help="Groq API key (or set GROQ_API_KEY).")
 @click.pass_context
 def scan(
     ctx: click.Context,
@@ -113,6 +119,9 @@ def scan(
     import_file: str | None,
     scripts: str,
     limit: int,
+    narrate: bool,
+    provider: str,
+    api_key: str | None,
 ) -> None:
     """Scan a target or analyse existing Nmap XML for vulnerabilities."""
     conn = ctx.obj["conn"]
@@ -142,6 +151,23 @@ def scan(
         return
 
     console.print(cve_table("Vulnerability Findings", findings, desc_max=55))
+
+    if narrate:
+        import aivas.narrator as _narrator_mod
+        try:
+            prov = _narrator_mod.get_provider(provider, api_key=api_key)
+        except ValueError as exc:
+            raise click.ClickException(str(exc))
+        with console.status(f"Generating narration with {provider}..."):
+            findings = _narrator_mod.narrate(findings, prov)
+        console.print("\n[bold]Bilingual Risk Narrations[/bold]")
+        for f in findings:
+            console.print(
+                f"\n[bold cyan]{f['cve_id']}[/bold cyan] "
+                f"(CVSS {f.get('cvss_score') or 'N/A'})"
+            )
+            console.print(f"[blue]EN:[/blue] {f.get('narration_en', '')}")
+            console.print(f"[green]SW:[/green] {f.get('narration_sw', '')}")
 
 
 def main() -> None:
