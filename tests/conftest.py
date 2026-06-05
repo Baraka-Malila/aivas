@@ -82,3 +82,29 @@ def sample_cve_range_data():
             }]
         }]
     }
+
+
+@pytest.fixture
+def sample_nmap_xml():
+    return """<?xml version="1.0"?>
+<nmaprun>
+  <host>
+    <address addr="192.168.1.10" addrtype="ipv4"/>
+    <ports>
+      <port protocol="tcp" portid="80">
+        <state state="open"/>
+        <service name="http" product="Apache httpd" version="2.4.49"/>
+      </port>
+      <port protocol="tcp" portid="22">
+        <state state="open"/>
+        <service name="ssh" product="OpenSSH" version="7.4"/>
+        <script id="ssh-auth-methods" output="publickey,password"/>
+      </port>
+      <port protocol="tcp" portid="8080">
+        <state state="open"/>
+        <service name="http" product="Apache httpd" version="2.4.49"/>
+        <script id="http-shellshock" output="VULNERABLE: Shellshock"/>
+      </port>
+    </ports>
+  </host>
+</nmaprun>"""
