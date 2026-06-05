@@ -238,3 +238,24 @@ def test_scan_udp_flag_passes_to_run_scan(tmp_path):
     mock_scan.assert_called_once()
     _, kwargs = mock_scan.call_args
     assert kwargs.get("udp") is True
+
+
+def test_scan_credentials_bad_format_rejected():
+    runner = CliRunner()
+    result = runner.invoke(cli, ["scan", "192.168.1.1", "--level", "3",
+                                  "--credentials", "badformat"])
+    assert result.exit_code != 0
+
+
+def test_scan_credentials_triggers_ssh_probe():
+    fake_services = [{
+        "host": "192.168.1.1", "port": 0, "protocol": "tcp",
+        "service": "package", "product": "openssh-server",
+        "version": "8.9", "nse_results": {}, "os_family": "Linux",
+    }]
+    with patch("aivas.commands.scan_cmd._ssh_probe_mod.probe", return_value=fake_services), \
+         patch("aivas.commands.scan_cmd.correlate", return_value=[]):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["scan", "192.168.1.1", "--level", "3",
+                                      "--credentials", "user@192.168.1.1"])
+    assert result.exit_code == 0

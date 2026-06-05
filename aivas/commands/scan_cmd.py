@@ -11,6 +11,7 @@ from aivas.correlator import correlate
 from aivas.scanner import run_scan
 from aivas.scanner.nse import scripts_for_level
 from aivas.scanner.probe import probe_http, probe_ssl, probe_banner
+from aivas.scanner import ssh_probe as _ssh_probe_mod
 
 console = Console()
 
@@ -40,6 +41,8 @@ console = Console()
               help="Persist findings to the scan history database.")
 @click.option("--udp", "udp", is_flag=True,
               help="Include UDP scan (requires root; reveals IoT/mDNS/SNMP).")
+@click.option("--credentials", "credentials", default=None, metavar="USER@HOST",
+              help="SSH credentials for Level 3 authenticated scan.")
 @click.pass_context
 def scan(
     ctx: click.Context,
@@ -54,12 +57,40 @@ def scan(
     report_path: str | None,
     save: bool,
     udp: bool,
+    credentials: str | None,
 ) -> None:
     """Scan a target or analyse existing Nmap XML for vulnerabilities."""
     conn = ctx.obj["conn"]
 
     if import_file:
         xml = Path(import_file).read_text()
+    elif target and level == 3 and credentials:
+        if "@" not in credentials:
+            raise click.UsageError("--credentials must be USER@HOST.")
+        user, ssh_host = credentials.split("@", 1)
+        console.print(f"[bold]Level 3: SSH into {ssh_host} as {user}...[/bold]")
+        with console.status("Running SSH package probe..."):
+            try:
+                services = _ssh_probe_mod.probe(ssh_host, user)
+            except RuntimeError as exc:
+                raise click.ClickException(str(exc))
+        if not services:
+            console.print("[yellow]No packages found via SSH.[/yellow]")
+            return
+        findings = [f for f in correlate(conn, services, os_hint="Linux")][:limit]
+        if not findings:
+            console.print("[green]No CVEs matched installed packages.[/green]")
+            return
+        console.print(cve_table("SSH Package Findings", findings, desc_max=55))
+        print_score(findings)
+        if report_path:
+            saved = generate_report(findings, report_path, meta={"target": ssh_host})
+            console.print(f"\n[green]✓[/green] Report saved to [bold]{saved}[/bold]")
+        if save:
+            from aivas.history import save_scan as _save_scan
+            sid = _save_scan(conn, ssh_host, findings, report_path=report_path)
+            console.print(f"[dim]Scan saved as #{sid}.[/dim]")
+        return
     elif target:
         if shutil.which("nmap") is None:
             raise click.ClickException("nmap not found — install nmap and retry.")
