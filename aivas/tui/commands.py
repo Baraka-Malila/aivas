@@ -90,16 +90,23 @@ async def _cmd_scan(app: "AIVASApp", args: str) -> None:
         return
     level, udp, i = 2, False, 1
     while i < len(parts):
-        if parts[i] == "--level" and i + 1 < len(parts):
+        if parts[i] == "--level":
+            if i + 1 >= len(parts):
+                app.tui_print("[red]--level requires a value 1–3[/red]")
+                return
             try:
                 level = int(parts[i + 1])
             except ValueError:
-                pass
+                app.tui_print("[red]--level must be 1, 2, or 3[/red]")
+                return
+            if level not in (1, 2, 3):
+                app.tui_print("[red]--level must be 1, 2, or 3[/red]")
+                return
             i += 2
         elif parts[i] == "--udp":
             udp = True
             i += 1
-        elif parts[i].startswith("--"):
+        elif parts[i] not in _KNOWN_FLAGS and parts[i].startswith("--"):
             app.tui_print(
                 f"[red]Unknown flag:[/red] {parts[i]!r}\n"
                 "[dim]Valid flags: --level 1-3, --udp[/dim]"
