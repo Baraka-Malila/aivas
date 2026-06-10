@@ -762,3 +762,32 @@ def test_ai_session_context_includes_last_scan():
     ctx = build_context(history)
     assert "192.168.1.1" in ctx
     assert "CVE-2021-41773" in ctx
+
+
+def test_kev_autosync_skips_when_recent():
+    """KEV sync must be skipped if synced within 7 days."""
+    from aivas.tui.kev_sync import _kev_needs_sync
+    import sqlite3
+    from aivas.database.schema import create_schema
+    from datetime import datetime, timezone, timedelta
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    create_schema(conn)
+    recent = (datetime.now(timezone.utc) - timedelta(days=3)).isoformat()
+    conn.execute(
+        "INSERT OR REPLACE INTO sync_meta (key, value) VALUES (?, ?)",
+        ("kev_last_updated", recent),
+    )
+    conn.commit()
+    assert _kev_needs_sync(conn) is False
+
+
+def test_kev_autosync_needed_when_old():
+    """KEV sync must be needed if never synced or synced >7 days ago."""
+    from aivas.tui.kev_sync import _kev_needs_sync
+    import sqlite3
+    from aivas.database.schema import create_schema
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    create_schema(conn)
+    assert _kev_needs_sync(conn) is True   # never synced

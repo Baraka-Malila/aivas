@@ -16,6 +16,7 @@ from textual.widgets import Footer, Header, Input, Label, OptionList, RichLog, R
 
 from . import commands as _cmds
 from .input_actions import InputActionsMixin
+from .kev_sync import _kev_needs_sync, run_kev_background
 
 _BANNER = (
     "[bold cyan]   █████╗ ██╗██╗   ██╗ █████╗ ███████╗[/bold cyan]\n"
@@ -94,16 +95,15 @@ class AIVASApp(InputActionsMixin, App):
     async def on_mount(self) -> None:
         self.query_one("#output", RichLog).write(_BANNER)
         self.query_one("#cmd-input", Input).focus()
+        if _kev_needs_sync(self.conn):
+            self.run_worker(run_kev_background(self.conn, self.tui_print), exclusive=False)
         from aivas import config as _config
-        from .screens import SetupWizardScreen
         cfg = _config.load()
         if not cfg.get("api_key"):
+            from .screens import SetupWizardScreen
             result = await self.push_screen_wait(SetupWizardScreen())
             if result:
-                self.tui_print(
-                    f"[dim]Setup saved. Provider: {result['provider']}, "
-                    f"Language: {result['lang']}[/dim]"
-                )
+                self.tui_print(f"[dim]Setup saved. Provider: {result['provider']}.[/dim]")
 
     async def _handle_scan_result_choice(self, choice: str) -> None:
         """Called when ScanResultScreen is dismissed."""

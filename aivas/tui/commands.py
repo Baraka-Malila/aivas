@@ -11,7 +11,7 @@ from .scan import (  # noqa: F401 — re-exported for tests + callers
     _run_nmap_sudo,
     _KNOWN_FLAGS,
 )
-from .handlers import cmd_copy, cmd_doctor, cmd_kev, cmd_config, cmd_history
+from .handlers import cmd_copy, cmd_doctor, cmd_config, cmd_history
 
 _SCAN_INTENT_RE = re.compile(
     r'\b(scan|check|probe|assess|audit|find|vuln|port|service|network|host|ip)\b'
@@ -29,7 +29,6 @@ REGISTRY: dict[str, tuple[str, str]] = {
     "deep":    ("/deep <target>",                         "Deep scan with UDP (level 2, UDP always on)"),
     "doctor":  ("/doctor",                               "Check dependencies and configuration"),
     "history": ("/history [list|show <id>]",             "View past scan results"),
-    "kev":     ("/kev",                                  "Sync CISA Known Exploited Vulnerabilities"),
     "config":  ("/config [set <key> <value>|show]",      "Manage configuration"),
     "clear":   ("/clear",                                "Clear the output pane"),
     "copy":    ("/copy",                                 "Copy last scan output to clipboard"),
@@ -137,7 +136,6 @@ _HANDLERS: dict[str, object] = {
     "deep":    _cmd_deep,
     "doctor":  cmd_doctor,
     "history": cmd_history,
-    "kev":     cmd_kev,
     "config":  cmd_config,
     "clear":   _cmd_clear,
     "copy":    cmd_copy,
