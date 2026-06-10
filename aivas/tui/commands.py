@@ -265,14 +265,14 @@ async def _run_nmap_threaded(app: "AIVASApp", target: str, scripts: str,
                               udp: bool, os_detect: bool, timeout: int = 300) -> str:
     """Run nmap via Popen (non-sudo path), storing handle on app._scan_proc.
 
-    Allows ESC to kill the underlying subprocess.
+    Popen is created on the event loop before entering the thread so ESC
+    can find and kill it with no race window.
     """
     import subprocess
     import shutil
-    import asyncio
 
     nmap_bin = shutil.which("nmap") or "nmap"
-    cmd = ["nmap", "-sV", "-oX", "-", target]
+    cmd = [nmap_bin, "-sV", "-oX", "-", target]
     if udp:
         cmd += ["-sU"]
     if os_detect:
@@ -280,9 +280,11 @@ async def _run_nmap_threaded(app: "AIVASApp", target: str, scripts: str,
     if scripts:
         cmd += ["--script", scripts]
 
-    def _run_proc():
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        app._scan_proc = proc
+    # Create Popen before entering thread — app._scan_proc is visible to ESC immediately
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    app._scan_proc = proc
+
+    def _communicate() -> str:
         try:
             stdout, stderr = proc.communicate(timeout=timeout)
             if proc.returncode != 0:
@@ -290,11 +292,11 @@ async def _run_nmap_threaded(app: "AIVASApp", target: str, scripts: str,
                 # OS detection requires root — retry without -O
                 if os_detect and "root" in stderr_text.lower() and "-O" in cmd:
                     cmd.remove("-O")
-                    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                    app._scan_proc = proc
-                    stdout, stderr = proc.communicate(timeout=timeout)
-                    if proc.returncode != 0:
-                        raise RuntimeError(f"nmap exited {proc.returncode}: {stderr.decode()}")
+                    retry = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    app._scan_proc = retry
+                    stdout, stderr = retry.communicate(timeout=timeout)
+                    if retry.returncode != 0:
+                        raise RuntimeError(f"nmap exited {retry.returncode}: {stderr.decode()}")
                 else:
                     raise RuntimeError(f"nmap exited {proc.returncode}: {stderr_text}")
             return stdout.decode()
@@ -304,7 +306,7 @@ async def _run_nmap_threaded(app: "AIVASApp", target: str, scripts: str,
         finally:
             app._scan_proc = None
 
-    return await asyncio.to_thread(_run_proc)
+    return await asyncio.to_thread(_communicate)
 
 
 async def _run_nmap_sudo(app: "AIVASApp", target: str, scripts: str,

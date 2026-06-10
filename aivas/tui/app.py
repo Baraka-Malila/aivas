@@ -153,6 +153,8 @@ class AIVASApp(InputActionsMixin, App):
         lbl.display = True
 
     def set_scan_idle(self) -> None:
+        if not self.is_running:
+            return
         lbl = self.query_one("#scan-status", Label)
         lbl.display = False
         inp = self.query_one("#cmd-input", Input)
