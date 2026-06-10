@@ -672,3 +672,13 @@ async def test_tui_unknown_flag_shows_error():
         assert ("unknown" in combined.lower() or "invalid" in combined.lower()
                 or "flag" in combined.lower())
         assert "scanning" not in combined.lower()
+
+
+@pytest.mark.asyncio
+async def test_tui_input_prompt_label_exists():
+    """Prompt label (>) must exist in the composed layout."""
+    async with _make_spy_app().run_test(size=(120, 30)) as pilot:
+        from textual.widgets import Label
+        labels = pilot.app.query(Label)
+        label_texts = [str(l.render()) for l in labels]
+        assert any(">" in t for t in label_texts)

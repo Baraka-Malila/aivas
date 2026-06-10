@@ -7,7 +7,8 @@ import subprocess
 from rich.markup import escape
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.widgets import Footer, Header, Input, Label, OptionList, RichLog
+from textual.containers import Horizontal
+from textual.widgets import Footer, Header, Input, Label, OptionList, RichLog, Rule
 
 from . import commands as _cmds
 from .input_actions import InputActionsMixin
@@ -25,50 +26,17 @@ _BANNER = (
     "·  [bold]Shift+drag[/bold] → select text[/dim]"
 )
 
-_CSS = """
-Screen { layout: vertical; background: $surface; }
-
-#output {
-    height: 1fr;
-    border: heavy $accent;
-    padding: 1 2;
-    scrollbar-gutter: stable;
-}
-
-#suggestions {
-    max-height: 12;
-    background: $surface-darken-1;
-    display: none;
-    padding: 0;
-    border: none;
-}
-
-OptionList > .option-list--option-highlighted {
-    background: $surface-darken-3;
-    color: #4a9eff;
-}
-
-#cmd-input {
-    background: $surface-darken-1;
-    border-top: heavy $accent;
-    border-left: none;
-    border-right: none;
-    border-bottom: none;
-    padding: 0 2;
-    width: 100%;
-}
-
-#cmd-input:focus { border-top: heavy $accent; }
-
-#cmd-input.cmd { color: $accent; }
-
-#scan-status {
-    height: 1;
-    padding: 0 2;
-    background: $surface-darken-1;
-    color: $warning;
-    display: none;
-}
+_CSS = """Screen { layout: vertical; background: $surface; }
+#output { height: 1fr; border: none; padding: 1 2; scrollbar-gutter: stable; }
+#suggestions { max-height: 12; background: $surface-darken-1; display: none; border: none; padding: 0; }
+OptionList > .option-list--option-highlighted { background: $surface-darken-3; color: #4a9eff; }
+#rule-top, #rule-bottom { color: $panel; margin: 0; height: 1; }
+#input-row { height: auto; background: $surface; padding: 0; }
+#prompt-label { width: 3; padding: 0 0 0 1; color: #4a9eff; text-style: bold; }
+#cmd-input { background: $surface; border: none; padding: 0; width: 1fr; color: $text; }
+#cmd-input:focus { border: none; }
+#cmd-input.cmd { color: #4a9eff; }
+#scan-status { height: 1; padding: 0 2; color: #fdd835; display: none; }
 """
 
 
@@ -102,11 +70,17 @@ class AIVASApp(InputActionsMixin, App):
         yield Header(show_clock=True)
         yield RichLog(id="output", markup=True, highlight=True, wrap=True)
         yield OptionList(id="suggestions")
-        yield Label("⟳ Scanning…  (ESC to cancel)", id="scan-status")
-        yield Input(
-            placeholder="/scan <target>  ·  /quick  ·  /doctor  ·  /help",
-            id="cmd-input",
+        yield Rule(id="rule-top")
+        yield Horizontal(
+            Label("> ", id="prompt-label"),
+            Input(
+                placeholder="type a command or ask me to scan something",
+                id="cmd-input",
+            ),
+            id="input-row",
         )
+        yield Rule(id="rule-bottom")
+        yield Label("", id="scan-status")
         yield Footer()
 
     def on_mount(self) -> None:
