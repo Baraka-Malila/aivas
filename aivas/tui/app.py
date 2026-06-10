@@ -53,7 +53,7 @@ class AIVASApp(InputActionsMixin, App):
     SUB_TITLE = "AI-Assisted Vulnerability Assessment"
 
     BINDINGS = [
-        Binding("ctrl+c", "quit", "Quit", priority=True),
+        Binding("ctrl+q", "quit", "Quit", priority=True),
         Binding("ctrl+l", "clear_output", "Clear"),
         Binding("escape", "cancel_or_blur", "Cancel", priority=True),
         Binding("up", "history_prev", "Prev", show=False),
