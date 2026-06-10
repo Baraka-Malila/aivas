@@ -7,6 +7,12 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .app import AIVASApp
 from .progress import StepProgress  # noqa: E402 — after TYPE_CHECKING block
+from aivas.formatting import cve_table, misconfig_table
+from aivas.scorer import score_findings
+from aivas.scanner.nse import scripts_for_level
+from aivas.parser import parse_nmap_xml
+from aivas.correlator import correlate
+from aivas.history import save_scan
 _IPV4_RE = re.compile(r'^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(/\d{1,2})?$')
 _KNOWN_FLAGS = {"--level", "--udp"}
 
@@ -78,10 +84,8 @@ async def _run_nmap_sudo(app: "AIVASApp", target: str, scripts: str,
     if scripts: cmd += ["--script", scripts]
     result = None
     with app.suspend():
-        sys.stdout.write(
-            "\n[AIVAS] UDP scan requires root privileges.\n"
-            f"(One-time fix: sudo setcap cap_net_raw,cap_net_admin+eip {nmap_bin})\n\n"
-        )
+        sys.stdout.write(f"\n[AIVAS] UDP scan requires root privileges.\n"
+                         f"(One-time fix: sudo setcap cap_net_raw,cap_net_admin+eip {nmap_bin})\n\n")
         sys.stdout.flush()
         try:
             result = subprocess.run(cmd, stdin=sys.stdin, stdout=subprocess.PIPE,
@@ -99,29 +103,22 @@ async def _run_nmap_sudo(app: "AIVASApp", target: str, scripts: str,
 
 async def _show_findings(app: "AIVASApp", target: str, findings: list) -> None:
     """Display CVE table, score line, and save to history."""
-    from aivas.formatting import cve_table
-    from aivas.scorer import score_findings
     table = cve_table("Vulnerability Findings", findings, desc_max=55)
-    app.tui_print(table)
-    app.store_scan_output(table)
+    app.tui_print(table); app.store_scan_output(table)
     s = score_findings(findings)
     parts = [f"{v} {k.lower()}" for k, v in s.get("sev_counts", {}).items() if v]
     grade_col = "red" if s["grade"] in ("D", "F") else "green"
     line = (f"Risk Score: {s['score']}/100  Grade [{grade_col}]{s['grade']}[/{grade_col}]"
             f"  [dim]— {s['total']} findings"
             + (" (" + ", ".join(parts) + ")" if parts else "") + "[/dim]")
-    app.tui_print(line)
-    app.store_scan_output(line)
+    app.tui_print(line); app.store_scan_output(line)
     try:
-        from aivas.history import save_scan
         save_scan(app.conn, target, findings)
         app.tui_print("[dim]Scan saved to history (/history list)[/dim]")
-    except Exception:
-        pass
+    except Exception: app.tui_print("[dim]History save unavailable.[/dim]")
 
 async def _probe_misconfigs(app: "AIVASApp", services: list) -> list[dict]:
     """Probe HTTP services for misconfigs, display results, return list."""
-    from aivas.formatting import misconfig_table
     misconfigs: list[dict] = []
     for svc in services:
         if (svc.get("service", "") in ("http", "https", "ssl")
@@ -132,18 +129,12 @@ async def _probe_misconfigs(app: "AIVASApp", services: list) -> list[dict]:
                 "ssl" in svc.get("service", "")))
     if misconfigs:
         mc_table = misconfig_table("Configuration Issues", misconfigs)
-        app.tui_print(mc_table)
-        app.store_scan_output(mc_table)
+        app.tui_print(mc_table); app.store_scan_output(mc_table)
     return misconfigs
 
 async def run_scan_pipeline(app: "AIVASApp", target: str,
                              level: int = 2, udp: bool = False) -> None:
     """Run the full scan pipeline: validate → nmap → correlate → display."""
-    from aivas.scanner.nse import scripts_for_level
-    from aivas.parser import parse_nmap_xml
-    from aivas.correlator import correlate
-    from .progress import StepProgress
-
     if app._scan_task is not None and not app._scan_task.done():
         app.tui_print("[yellow]A scan is already running. Press ESC to cancel it first.[/yellow]")
         return
@@ -201,7 +192,6 @@ async def run_scan_pipeline(app: "AIVASApp", target: str,
     app._last_misconfigs = misconfigs
     app._last_target = target
     from .screens import ScanResultScreen
-    from aivas.scorer import score_findings
     s = score_findings(findings)
     choice = await app.push_screen_wait(
         ScanResultScreen(target, s, findings, misconfigs)

@@ -4,6 +4,9 @@ import asyncio
 import sqlite3
 import subprocess
 
+from io import StringIO
+
+from rich.console import Console
 from rich.markup import escape
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -124,7 +127,7 @@ class AIVASApp(InputActionsMixin, App):
         log.write(f"[dim]❯ {text}[/dim]")
         try:
             await self._route(text)
-        except Exception as exc:
+        except Exception as exc:  # last-resort: keeps TUI alive if any command raises
             self.set_scan_idle()
             self._scan_task = None
             log.write(
@@ -160,8 +163,6 @@ class AIVASApp(InputActionsMixin, App):
         inp.focus()
 
     def store_scan_output(self, content: object) -> None:
-        from io import StringIO
-        from rich.console import Console
         buf = StringIO()
         c = Console(file=buf, force_terminal=False, no_color=True, width=120)
         c.print(content)
