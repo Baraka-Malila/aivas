@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import sqlite3
 
+from rich.markup import escape
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.widgets import Footer, Header, Input, Label, OptionList, RichLog
@@ -126,7 +127,6 @@ class AIVASApp(InputActionsMixin, App):
         except Exception as exc:
             self.set_scan_idle()
             self._scan_task = None
-            from rich.markup import escape
             log.write(
                 f"[bold red]Unexpected error:[/bold red] {type(exc).__name__}: "
                 + escape(str(exc))

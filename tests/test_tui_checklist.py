@@ -608,7 +608,9 @@ async def test_tui_history_show_no_crash_with_markup_in_description():
         inp.value = "/history show 1"
         await pilot.press("enter")
         await pilot.pause(0.2)
-        assert app.query_one("#output") is not None
+        combined = " ".join(app._captured)
+        assert "MarkupError" not in combined    # no crash fallback
+        assert len(app._captured) >= 1          # table was rendered (not empty output)
 
 
 def test_save_scan_no_extra_args():
