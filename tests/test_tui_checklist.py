@@ -634,3 +634,26 @@ def test_sudo_nmap_uses_stdout_not_tempfile():
     assert '"-oX"' in src or "'-oX'" in src
     assert '"-"' in src or "'-'" in src
     assert "NamedTemporaryFile" not in src
+
+
+# ── Input lock during scan ───────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_tui_input_disabled_while_scanning():
+    """Input must be disabled while a scan is running."""
+    async with _make_spy_app().run_test(size=(120, 30)) as pilot:
+        from textual.widgets import Input
+        pilot.app.set_scan_running("192.168.1.1")
+        inp = pilot.app.query_one("#cmd-input", Input)
+        assert inp.disabled is True
+
+
+@pytest.mark.asyncio
+async def test_tui_input_enabled_after_scan():
+    """Input must be re-enabled after scan finishes."""
+    async with _make_spy_app().run_test(size=(120, 30)) as pilot:
+        from textual.widgets import Input
+        pilot.app.set_scan_running("192.168.1.1")
+        pilot.app.set_scan_idle()
+        inp = pilot.app.query_one("#cmd-input", Input)
+        assert inp.disabled is False

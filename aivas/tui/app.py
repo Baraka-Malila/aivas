@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import sqlite3
+import subprocess
 
 from rich.markup import escape
 from textual.app import App, ComposeResult
@@ -91,6 +92,7 @@ class AIVASApp(InputActionsMixin, App):
         super().__init__()
         self.conn = conn
         self._scan_task: asyncio.Task | None = None
+        self._scan_proc: subprocess.Popen | None = None
         self._last_scan_text: str = ""
         self._cmd_history: list[str] = []
         self._history_idx: int = -1
@@ -143,12 +145,19 @@ class AIVASApp(InputActionsMixin, App):
         self.query_one("#output", RichLog).write(content)
 
     def set_scan_running(self, target: str = "") -> None:
+        inp = self.query_one("#cmd-input", Input)
+        inp.disabled = True
+        self._hide_suggestions()
         lbl = self.query_one("#scan-status", Label)
-        lbl.update(f"⟳  Scanning {target}…  (ESC to cancel)")
+        lbl.update(f"  Scanning {target}…  (ESC to cancel)")
         lbl.display = True
 
     def set_scan_idle(self) -> None:
-        self.query_one("#scan-status", Label).display = False
+        lbl = self.query_one("#scan-status", Label)
+        lbl.display = False
+        inp = self.query_one("#cmd-input", Input)
+        inp.disabled = False
+        inp.focus()
 
     def store_scan_output(self, content: object) -> None:
         from io import StringIO
@@ -164,6 +173,13 @@ class AIVASApp(InputActionsMixin, App):
     def action_cancel_or_blur(self) -> None:
         if self._scan_task is not None and not self._scan_task.done():
             self._scan_task.cancel()
-            self._scan_task = None
+            if self._scan_proc is not None:
+                try:
+                    self._scan_proc.kill()
+                except OSError:
+                    pass
+                self._scan_proc = None
+            self.set_scan_idle()
+            self.tui_print("[dim]Scan cancelled.[/dim]")
         else:
             self.query_one("#cmd-input", Input).blur()

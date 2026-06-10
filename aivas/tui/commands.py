@@ -261,6 +261,52 @@ async def _nmap_needs_sudo(udp: bool) -> bool:
     return "cap_net_raw" not in caps
 
 
+async def _run_nmap_threaded(app: "AIVASApp", target: str, scripts: str,
+                              udp: bool, os_detect: bool, timeout: int = 300) -> str:
+    """Run nmap via Popen (non-sudo path), storing handle on app._scan_proc.
+
+    Allows ESC to kill the underlying subprocess.
+    """
+    import subprocess
+    import shutil
+    import asyncio
+
+    nmap_bin = shutil.which("nmap") or "nmap"
+    cmd = ["nmap", "-sV", "-oX", "-", target]
+    if udp:
+        cmd += ["-sU"]
+    if os_detect:
+        cmd += ["-O"]
+    if scripts:
+        cmd += ["--script", scripts]
+
+    def _run_proc():
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        app._scan_proc = proc
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
+            if proc.returncode != 0:
+                stderr_text = stderr.decode()
+                # OS detection requires root — retry without -O
+                if os_detect and "root" in stderr_text.lower() and "-O" in cmd:
+                    cmd.remove("-O")
+                    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    app._scan_proc = proc
+                    stdout, stderr = proc.communicate(timeout=timeout)
+                    if proc.returncode != 0:
+                        raise RuntimeError(f"nmap exited {proc.returncode}: {stderr.decode()}")
+                else:
+                    raise RuntimeError(f"nmap exited {proc.returncode}: {stderr_text}")
+            return stdout.decode()
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            raise RuntimeError(f"nmap timed out after {timeout}s.")
+        finally:
+            app._scan_proc = None
+
+    return await asyncio.to_thread(_run_proc)
+
+
 async def _run_nmap_sudo(app: "AIVASApp", target: str, scripts: str,
                           udp: bool, timeout: int = 300) -> str:
     """Run sudo nmap with stdout XML capture, return XML string.
@@ -375,8 +421,8 @@ async def _run_scan_pipeline(app: "AIVASApp", target: str, level: int,
         if use_sudo:
             xml = await _run_nmap_sudo(app, target, scripts_for_level(level), udp)
         else:
-            xml = await asyncio.to_thread(
-                run_scan, target,
+            xml = await _run_nmap_threaded(
+                app, target,
                 scripts=scripts_for_level(level),
                 udp=udp,
                 os_detect=True,
@@ -391,6 +437,12 @@ async def _run_scan_pipeline(app: "AIVASApp", target: str, level: int,
         return
     finally:
         app._scan_task = None
+        if app._scan_proc is not None:
+            try:
+                app._scan_proc.kill()
+            except OSError:
+                pass
+            app._scan_proc = None
         app.set_scan_idle()
 
     try:
