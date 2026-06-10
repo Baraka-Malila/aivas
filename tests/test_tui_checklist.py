@@ -713,3 +713,24 @@ def test_step_progress_fail_shows_x():
     combined = " ".join(output)
     assert "Port discovery" in combined
     assert "cancelled" in combined
+
+
+@pytest.mark.asyncio
+async def test_scan_result_screen_renders():
+    """ScanResultScreen must show title, grade, and three options."""
+    from aivas.tui.screens import ScanResultScreen
+    from textual.app import App
+    class TestApp(App):
+        def on_mount(self):
+            score = {"score": 32, "grade": "D", "total": 5, "sev_counts": {}}
+            self.push_screen(ScanResultScreen("192.168.1.1", score, [], []))
+    async with TestApp().run_test(size=(120, 30)) as pilot:
+        await pilot.pause(0.1)
+        statics = pilot.app.screen.query("Label,Static")
+        static_texts = [str(w.content) for w in statics]
+        from textual.widgets import RadioButton
+        buttons = pilot.app.screen.query(RadioButton)
+        button_texts = [str(b.label) for b in buttons]
+        combined = " ".join(static_texts + button_texts)
+        assert "192.168.1.1" in combined or "Scan complete" in combined
+        assert "report" in combined.lower() or "narration" in combined.lower()

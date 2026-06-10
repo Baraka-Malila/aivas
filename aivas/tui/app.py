@@ -86,9 +86,30 @@ class AIVASApp(InputActionsMixin, App):
         yield Label("", id="scan-status")
         yield Footer()
 
-    def on_mount(self) -> None:
+    async def on_mount(self) -> None:
         self.query_one("#output", RichLog).write(_BANNER)
         self.query_one("#cmd-input", Input).focus()
+        from aivas import config as _config
+        from .screens import SetupWizardScreen
+        cfg = _config.load()
+        if not cfg.get("api_key"):
+            result = await self.push_screen_wait(SetupWizardScreen())
+            if result:
+                self.tui_print(
+                    f"[dim]Setup saved. Provider: {result['provider']}, "
+                    f"Language: {result['lang']}[/dim]"
+                )
+
+    async def _handle_scan_result_choice(self, choice: str) -> None:
+        """Called when ScanResultScreen is dismissed."""
+        from aivas.formatting import cve_table, misconfig_table
+        if choice == "report":
+            if self._last_findings:
+                self.tui_print(cve_table("Vulnerability Findings", self._last_findings))
+            if self._last_misconfigs:
+                self.tui_print(misconfig_table("Configuration Issues", self._last_misconfigs))
+        elif choice == "narrate":
+            pass  # stub — implemented in Task 10
 
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         text = event.value.strip()

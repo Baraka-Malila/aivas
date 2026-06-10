@@ -200,3 +200,10 @@ async def run_scan_pipeline(app: "AIVASApp", target: str,
     app._last_findings = findings
     app._last_misconfigs = misconfigs
     app._last_target = target
+    from .screens import ScanResultScreen
+    from aivas.scorer import score_findings
+    s = score_findings(findings)
+    choice = await app.push_screen_wait(
+        ScanResultScreen(target, s, findings, misconfigs)
+    )
+    await app._handle_scan_result_choice(choice or "skip")
