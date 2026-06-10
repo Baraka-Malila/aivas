@@ -31,7 +31,7 @@ _CSS = """Screen { layout: vertical; background: $surface; }
 #suggestions { max-height: 12; background: $surface-darken-1; display: none; border: none; padding: 0; }
 OptionList > .option-list--option-highlighted { background: $surface-darken-3; color: #4a9eff; }
 #rule-top, #rule-bottom { color: $panel; margin: 0; height: 1; }
-#input-row { height: auto; background: $surface; padding: 0; }
+#input-row { height: 1; background: $surface; padding: 0; }
 #prompt-label { width: 3; padding: 0 0 0 1; color: #4a9eff; text-style: bold; }
 #cmd-input { background: $surface; border: none; padding: 0; width: 1fr; color: $text; }
 #cmd-input:focus { border: none; }
