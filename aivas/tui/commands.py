@@ -280,7 +280,9 @@ async def _run_nmap_sudo(app: "AIVASApp", target: str, scripts: str,
     if scripts:
         cmd += ["--script", scripts]
 
+    result = None
     with app.suspend():
+        # TUI is suspended — write directly to terminal, not via app.tui_print
         sys.stdout.write(
             "\n[AIVAS] UDP scan requires root privileges.\n"
             "(One-time fix to avoid this prompt: "
@@ -298,6 +300,8 @@ async def _run_nmap_sudo(app: "AIVASApp", target: str, scripts: str,
         except subprocess.TimeoutExpired:
             raise RuntimeError(f"nmap timed out after {timeout}s.")
 
+    if result is None:
+        raise RuntimeError("nmap did not run (TUI suspend failed).")
     if result.returncode != 0:
         raise RuntimeError(
             f"nmap exited {result.returncode} — "
