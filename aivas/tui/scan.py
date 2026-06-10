@@ -99,7 +99,7 @@ async def _run_nmap_sudo(app: "AIVASApp", target: str, scripts: str,
 
 async def _show_findings(app: "AIVASApp", target: str, findings: list) -> None:
     """Display CVE table, score line, and save to history."""
-    table = cve_table("Vulnerability Findings", findings, desc_max=55)
+    table = cve_table("Vulnerability Findings", findings)
     app.tui_print(table); app.store_scan_output(table)
     s = score_findings(findings)
     parts = [f"{v} {k.lower()}" for k, v in s.get("sev_counts", {}).items() if v]
@@ -158,6 +158,7 @@ async def run_scan_pipeline(app: "AIVASApp", target: str,
 
     prog = StepProgress(app)
     prog.step("Port discovery + service detection")
+    await asyncio.sleep(0)
     use_sudo = await _nmap_needs_sudo(udp)
     try:
         xml = (await _run_nmap_sudo(app, target, scripts_for_level(level), udp)
@@ -180,6 +181,7 @@ async def run_scan_pipeline(app: "AIVASApp", target: str,
     if not services: app.tui_print("[yellow]No open services found.[/yellow]"); return
     prog.done("Port discovery + service detection", f"{len(services)} service(s)")
     prog.step("CVE correlation")
+    await asyncio.sleep(0)
     os_hint = services[0].get("os_family") or None
     findings = [f for f in correlate(app.conn, services, os_hint=os_hint)
                 if f.get("confidence") in ("probable", "confirmed")][:30]
@@ -187,14 +189,12 @@ async def run_scan_pipeline(app: "AIVASApp", target: str,
     if findings: await _show_findings(app, target, findings)
     else: app.tui_print("[green]No CVEs matched at probable confidence.[/green]")
     prog.step("Configuration checks")
+    await asyncio.sleep(0)
     misconfigs = await _probe_misconfigs(app, services)
     prog.done("Configuration checks", f"{len(misconfigs)} issue(s)" if misconfigs else "none")
     app._last_findings = findings
     app._last_misconfigs = misconfigs
     app._last_target = target
-    from .screens import ScanResultScreen
-    s = score_findings(findings)
-    choice = await app.push_screen_wait(
-        ScanResultScreen(target, s, findings, misconfigs)
+    app.tui_print(
+        "[dim]── [bold]/narrate[/bold] AI summary · [bold]/report[/bold] full table · [bold]/copy[/bold] clipboard[/dim]"
     )
-    await app._handle_scan_result_choice(choice or "skip")

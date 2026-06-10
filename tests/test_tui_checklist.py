@@ -719,24 +719,29 @@ def test_step_progress_fail_shows_x():
 
 
 @pytest.mark.asyncio
-async def test_scan_result_screen_renders():
-    """ScanResultScreen must show title, grade, and three options."""
-    from aivas.tui.screens import ScanResultScreen
-    from textual.app import App
-    class TestApp(App):
-        def on_mount(self):
-            score = {"score": 32, "grade": "D", "total": 5, "sev_counts": {}}
-            self.push_screen(ScanResultScreen("192.168.1.1", score, [], []))
-    async with TestApp().run_test(size=(120, 30)) as pilot:
-        await pilot.pause(0.1)
-        statics = pilot.app.screen.query("Label,Static")
-        static_texts = [str(w.content) for w in statics]
-        from textual.widgets import RadioButton
-        buttons = pilot.app.screen.query(RadioButton)
-        button_texts = [str(b.label) for b in buttons]
-        combined = " ".join(static_texts + button_texts)
-        assert "192.168.1.1" in combined or "Scan complete" in combined
-        assert "report" in combined.lower() or "narration" in combined.lower()
+async def test_narrate_command_no_findings_shows_warning():
+    """/narrate with no prior scan shows a friendly warning."""
+    app = _make_spy_app()
+    async with app.run_test(size=(120, 30)) as pilot:
+        inp = app.query_one("#cmd-input")
+        inp.value = "/narrate"
+        await pilot.press("enter")
+        await pilot.pause(0.2)
+        combined = " ".join(app._captured)
+        assert "scan first" in combined.lower() or "no scan" in combined.lower()
+
+
+@pytest.mark.asyncio
+async def test_report_command_no_findings_shows_warning():
+    """/report with no prior scan shows a friendly warning."""
+    app = _make_spy_app()
+    async with app.run_test(size=(120, 30)) as pilot:
+        inp = app.query_one("#cmd-input")
+        inp.value = "/report"
+        await pilot.press("enter")
+        await pilot.pause(0.2)
+        combined = " ".join(app._captured)
+        assert "scan first" in combined.lower() or "no scan" in combined.lower()
 
 
 def test_ai_dispatch_no_key_shows_helpful_message():

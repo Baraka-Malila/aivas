@@ -61,7 +61,14 @@ async def dispatch(app: "AIVASApp", text: str, api_key: str | None) -> None:
         response = await asyncio.to_thread(_call_groq, api_key, prompt)
         app.tui_print(f"[dim]AIVAS:[/dim] {response}")
     except Exception as exc:
-        app.tui_print(f"[#e53935]AI error:[/#e53935] {exc}")
+        s = str(exc)
+        if "401" in s or "invalid_api_key" in s.lower():
+            app.tui_print(
+                "[#e53935]AI:[/#e53935] Invalid API key — update with "
+                "[bold]/config set api_key YOUR_KEY[/bold]"
+            )
+        else:
+            app.tui_print(f"[#e53935]AI error:[/#e53935] {exc}")
 
 
 async def narrate_findings(app: "AIVASApp", findings: list[dict],

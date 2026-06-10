@@ -74,6 +74,9 @@ class AIVASApp(InputActionsMixin, App):
         self._last_misconfigs: list[dict] = []
         self._last_target: str = ""
         self._scan_history: list[dict] = []
+        self._spinner_timer = None
+        self._current_scan_target: str = ""
+        self._spinner_idx: int = 0
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -104,25 +107,6 @@ class AIVASApp(InputActionsMixin, App):
             result = await self.push_screen_wait(SetupWizardScreen())
             if result:
                 self.tui_print(f"[dim]Setup saved. Provider: {result['provider']}.[/dim]")
-
-    async def _handle_scan_result_choice(self, choice: str) -> None:
-        """Called when ScanResultScreen is dismissed."""
-        from aivas.formatting import cve_table, misconfig_table
-        if choice == "report":
-            if self._last_findings:
-                self.tui_print(cve_table("Vulnerability Findings", self._last_findings))
-            if self._last_misconfigs:
-                self.tui_print(misconfig_table("Configuration Issues", self._last_misconfigs))
-        elif choice == "narrate":
-            from aivas import config as _cfg
-            cfg = _cfg.load()
-            api_key = cfg.get("api_key") or os.environ.get("GROQ_API_KEY")
-            if not api_key:
-                self.tui_print("[dim]No API key — set one with /config set api_key ...[/dim]")
-                return
-            from .ai import narrate_findings
-            await narrate_findings(self, self._last_findings[:5], api_key,
-                                   lang=cfg.get("lang", "en"))
 
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         text = event.value.strip()
@@ -159,17 +143,30 @@ class AIVASApp(InputActionsMixin, App):
     def tui_print(self, content: object) -> None:
         self.query_one("#output", RichLog).write(content)
 
+    _SPIN = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+
     def set_scan_running(self, target: str = "") -> None:
+        self._current_scan_target = target
+        self._spinner_idx = 0
         inp = self.query_one("#cmd-input", Input)
         inp.disabled = True
         self._hide_suggestions()
         lbl = self.query_one("#scan-status", Label)
-        lbl.update(f"  Scanning {target}…  (ESC to cancel)")
+        lbl.update(f"  ⠋ Scanning {target}…  (ESC to cancel)")
         lbl.display = True
+        self._spinner_timer = self.set_interval(0.1, self._tick_spinner)
+
+    def _tick_spinner(self) -> None:
+        self._spinner_idx = (self._spinner_idx + 1) % len(self._SPIN)
+        lbl = self.query_one("#scan-status", Label)
+        lbl.update(f"  {self._SPIN[self._spinner_idx]} Scanning {self._current_scan_target}…  (ESC to cancel)")
 
     def set_scan_idle(self) -> None:
         if not self.is_running:
             return
+        if self._spinner_timer is not None:
+            self._spinner_timer.stop()
+            self._spinner_timer = None
         lbl = self.query_one("#scan-status", Label)
         lbl.display = False
         inp = self.query_one("#cmd-input", Input)
