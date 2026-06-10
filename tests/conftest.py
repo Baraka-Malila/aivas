@@ -3,6 +3,14 @@ import pytest
 from aivas.database.schema import create_schema
 
 
+@pytest.fixture(autouse=True)
+def _mock_kev_background(monkeypatch):
+    """Prevent real HTTP calls to CISA KEV feed during tests."""
+    async def _noop(*args, **kwargs):
+        pass
+    monkeypatch.setattr("aivas.tui.app.run_kev_background", _noop)
+
+
 @pytest.fixture
 def db_path(tmp_path):
     """Return a path to a temporary SQLite database (for CLI --db option)."""
