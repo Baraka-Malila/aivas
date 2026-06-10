@@ -1,7 +1,7 @@
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
-from aivas.tui.colors import ACCENT, SEVERITY_COLORS, KEV_BADGE, GRADE_COLOR
+from aivas.tui.colors import SEVERITY_COLORS, KEV_BADGE, GRADE_COLOR
 
 _console = Console()
 
