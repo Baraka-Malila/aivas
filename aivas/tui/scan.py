@@ -48,18 +48,18 @@ async def _run_nmap_threaded(app: "AIVASApp", target: str, scripts: str,
     def _communicate() -> str:
         try:
             stdout, stderr = proc.communicate(timeout=timeout)
-            if proc.returncode != 0:
-                err = stderr.decode()
-                if os_detect and "root" in err.lower() and "-O" in cmd:
-                    cmd.remove("-O")
-                    r2 = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                    app._scan_proc = r2
-                    stdout, stderr = r2.communicate(timeout=timeout)
-                    if r2.returncode != 0:
-                        raise RuntimeError(f"nmap exited {r2.returncode}: {stderr.decode()}")
-                else:
-                    raise RuntimeError(f"nmap exited {proc.returncode}: {err}")
-            return stdout.decode()
+            if proc.returncode == 0:
+                return stdout.decode()
+            err = stderr.decode()
+            if os_detect and "root" in err.lower() and "-O" in cmd:
+                cmd.remove("-O")
+                r2 = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                app._scan_proc = r2
+                stdout, stderr = r2.communicate(timeout=timeout)
+                if r2.returncode != 0:
+                    raise RuntimeError(f"nmap exited {r2.returncode}: {stderr.decode()}")
+                return stdout.decode()
+            raise RuntimeError(f"nmap exited {proc.returncode}: {err}")
         except subprocess.TimeoutExpired:
             proc.kill()
             raise RuntimeError(f"nmap timed out after {timeout}s.")
@@ -140,6 +140,8 @@ async def run_scan_pipeline(app: "AIVASApp", target: str,
     from aivas.scanner.nse import scripts_for_level
     from aivas.parser import parse_nmap_xml
     from aivas.correlator import correlate
+    from .progress import StepProgress
+
     if app._scan_task is not None and not app._scan_task.done():
         app.tui_print("[yellow]A scan is already running. Press ESC to cancel it first.[/yellow]")
         return
@@ -159,42 +161,36 @@ async def run_scan_pipeline(app: "AIVASApp", target: str,
     app.set_scan_running(target)
     await asyncio.sleep(0)
     app._scan_task = asyncio.current_task()
+
+    prog = StepProgress(app)
+    prog.step("Port discovery + service detection")
     use_sudo = await _nmap_needs_sudo(udp)
     try:
-        if use_sudo:
-            xml = await _run_nmap_sudo(app, target, scripts_for_level(level), udp)
-        else:
-            xml = await _run_nmap_threaded(
-                app, target, scripts=scripts_for_level(level), udp=udp, os_detect=True)
+        xml = (await _run_nmap_sudo(app, target, scripts_for_level(level), udp)
+               if use_sudo else
+               await _run_nmap_threaded(app, target, scripts=scripts_for_level(level), udp=udp, os_detect=True))
     except asyncio.CancelledError:
-        app.set_scan_idle()
-        app.tui_print("[yellow]Scan cancelled.[/yellow]")
-        return
+        prog.fail("Port discovery + service detection", "cancelled"); app.set_scan_idle(); return
     except RuntimeError as exc:
-        app.set_scan_idle()
-        app.tui_print(f"[red]Scan error:[/red] {exc}")
-        return
+        prog.fail("Port discovery + service detection", str(exc)); app.set_scan_idle(); return
     finally:
         app._scan_task = None
-        if app._scan_proc is not None:
+        if app._scan_proc:
             try: app._scan_proc.kill()
             except OSError: pass
             app._scan_proc = None
         app.set_scan_idle()
-    try:
-        services = parse_nmap_xml(xml)
-    except Exception:
-        app.tui_print("[red]Scan error:[/red] nmap returned unexpected output (not valid XML).")
-        return
-    if not services:
-        app.tui_print("[yellow]No open services found.[/yellow]")
-        return
-    app.tui_print(f"[dim]Found {len(services)} service(s) — correlating CVEs…[/dim]")
+
+    try: services = parse_nmap_xml(xml)
+    except Exception: prog.fail("Port discovery + service detection", "nmap output not valid XML"); return
+    if not services: app.tui_print("[yellow]No open services found.[/yellow]"); return
+    prog.done("Port discovery + service detection", f"{len(services)} service(s)")
+    prog.step("CVE correlation")
     os_hint = services[0].get("os_family") or None
     findings = [f for f in correlate(app.conn, services, os_hint=os_hint)
                 if f.get("confidence") in ("probable", "confirmed")][:30]
-    if findings:
-        await _show_findings(app, target, findings)
-    else:
-        app.tui_print("[green]No CVEs matched at probable confidence.[/green]")
-    await _probe_misconfigs(app, services)
+    prog.done("CVE correlation", f"{len(findings)} CVE(s)" if findings else "0 CVEs")
+    if findings: await _show_findings(app, target, findings)
+    else: app.tui_print("[green]No CVEs matched at probable confidence.[/green]")
+    prog.step("Configuration checks"); await _probe_misconfigs(app, services)
+    prog.done("Configuration checks"); app._last_findings, app._last_target = findings, target

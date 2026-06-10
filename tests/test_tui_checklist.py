@@ -682,3 +682,34 @@ async def test_tui_input_prompt_label_exists():
         labels = pilot.app.query(Label)
         label_texts = [str(l.render()) for l in labels]
         assert any(">" in t for t in label_texts)
+
+
+# ── Task 8: StepProgress tests ───────────────────────────────────────────────
+
+def test_step_progress_output_format():
+    """StepProgress outputs step start and complete lines."""
+    from aivas.tui.progress import StepProgress
+    output = []
+    class FakeApp:
+        def tui_print(self, msg):
+            output.append(str(msg))
+    p = StepProgress(FakeApp())
+    p.step("Port discovery")
+    p.done("Port discovery", "3 open ports")
+    combined = " ".join(output)
+    assert "Port discovery" in combined
+    assert "3 open ports" in combined
+
+
+def test_step_progress_fail_shows_x():
+    """StepProgress fail() outputs a failure marker."""
+    from aivas.tui.progress import StepProgress
+    output = []
+    class FakeApp:
+        def tui_print(self, msg):
+            output.append(str(msg))
+    p = StepProgress(FakeApp())
+    p.fail("Port discovery", "cancelled")
+    combined = " ".join(output)
+    assert "Port discovery" in combined
+    assert "cancelled" in combined

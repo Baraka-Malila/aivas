@@ -65,6 +65,9 @@ class AIVASApp(InputActionsMixin, App):
         self._cmd_history: list[str] = []
         self._history_idx: int = -1
         self._suggestions: list[str] = []
+        self._last_findings: list[dict] = []
+        self._last_misconfigs: list[dict] = []
+        self._last_target: str = ""
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
