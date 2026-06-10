@@ -164,7 +164,7 @@ def test_kev_tag_shown_when_kev_true():
              "description": "HTTP/2 Rapid Reset", "kev": True}]
     t = cve_table("T", rows)
     cve_cell = t.columns[1]._cells[0]   # CVE ID column
-    assert "[KEV]" in cve_cell
+    assert "KEV" in cve_cell.plain
 
 
 def test_kev_tag_absent_when_kev_false():
@@ -174,7 +174,7 @@ def test_kev_tag_absent_when_kev_false():
              "description": "test", "kev": False}]
     t = cve_table("T", rows)
     cve_cell = t.columns[1]._cells[0]
-    assert "[KEV]" not in cve_cell
+    assert "KEV" not in cve_cell.plain
 
 
 # ── SC11 / SC-B: scoring not zero ────────────────────────────────────────────

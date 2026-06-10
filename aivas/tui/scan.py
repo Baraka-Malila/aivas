@@ -6,6 +6,7 @@ import socket
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .app import AIVASApp
+from .progress import StepProgress  # noqa: E402 — after TYPE_CHECKING block
 _IPV4_RE = re.compile(r'^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(/\d{1,2})?$')
 _KNOWN_FLAGS = {"--level", "--udp"}
 
@@ -118,8 +119,8 @@ async def _show_findings(app: "AIVASApp", target: str, findings: list) -> None:
     except Exception:
         pass
 
-async def _probe_misconfigs(app: "AIVASApp", services: list) -> None:
-    """Probe HTTP services for misconfigs and display results."""
+async def _probe_misconfigs(app: "AIVASApp", services: list) -> list[dict]:
+    """Probe HTTP services for misconfigs, display results, return list."""
     from aivas.formatting import misconfig_table
     misconfigs: list[dict] = []
     for svc in services:
@@ -133,6 +134,7 @@ async def _probe_misconfigs(app: "AIVASApp", services: list) -> None:
         mc_table = misconfig_table("Configuration Issues", misconfigs)
         app.tui_print(mc_table)
         app.store_scan_output(mc_table)
+    return misconfigs
 
 async def run_scan_pipeline(app: "AIVASApp", target: str,
                              level: int = 2, udp: bool = False) -> None:
@@ -192,5 +194,9 @@ async def run_scan_pipeline(app: "AIVASApp", target: str,
     prog.done("CVE correlation", f"{len(findings)} CVE(s)" if findings else "0 CVEs")
     if findings: await _show_findings(app, target, findings)
     else: app.tui_print("[green]No CVEs matched at probable confidence.[/green]")
-    prog.step("Configuration checks"); await _probe_misconfigs(app, services)
-    prog.done("Configuration checks"); app._last_findings, app._last_target = findings, target
+    prog.step("Configuration checks")
+    misconfigs = await _probe_misconfigs(app, services)
+    prog.done("Configuration checks", f"{len(misconfigs)} issue(s)" if misconfigs else "none")
+    app._last_findings = findings
+    app._last_misconfigs = misconfigs
+    app._last_target = target
