@@ -583,3 +583,40 @@ async def test_tui_suggestion_shows_description():
         option_texts = [str(ol.get_option_at_index(i).prompt)
                         for i in range(ol.option_count)]
         assert any("CVE" in t or "scan" in t.lower() for t in option_texts)
+
+
+# ── HS3/HS4: Markup escape tests ──────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_tui_history_show_no_crash_with_markup_in_description():
+    """History show must not crash when CVE descriptions contain markup chars."""
+    conn = _make_db()
+    from aivas.history import save_scan
+    findings = [{
+        "cve_id": "CVE-2021-0001",
+        "cvss_score": 9.8,
+        "cvss_severity": "CRITICAL",
+        "confidence": "probable",
+        "description": "Buffer overflow in [kernel] module [/proc] path",
+        "host": "192.168.1.1",
+    }]
+    save_scan(conn, "192.168.1.1", findings)
+    app = _make_spy_app(conn=conn)
+    async with app.run_test(size=(120, 30)) as pilot:
+        from textual.widgets import Input
+        inp = app.query_one("#cmd-input", Input)
+        inp.value = "/history show 1"
+        await pilot.press("enter")
+        await pilot.pause(0.2)
+        assert app.query_one("#output") is not None
+
+
+def test_save_scan_no_extra_args():
+    """save_scan called with correct 3-arg signature — no TypeError."""
+    from aivas.history import save_scan
+    conn = _make_db()
+    findings = [{"cve_id": "CVE-0001", "cvss_score": 7.0,
+                 "cvss_severity": "HIGH", "confidence": "probable",
+                 "host": "192.168.1.1"}]
+    scan_id = save_scan(conn, "192.168.1.1", findings)
+    assert scan_id > 0

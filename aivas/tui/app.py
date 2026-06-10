@@ -126,9 +126,11 @@ class AIVASApp(InputActionsMixin, App):
         except Exception as exc:
             self.set_scan_idle()
             self._scan_task = None
+            from rich.markup import escape
             log.write(
-                f"[bold red]Unexpected error:[/bold red] {type(exc).__name__}: {exc}\n"
-                "[dim]This is a bug — please report it. The TUI is still running.[/dim]"
+                f"[bold red]Unexpected error:[/bold red] {type(exc).__name__}: "
+                + escape(str(exc))
+                + "\n[dim]This is a bug — please report it. The TUI is still running.[/dim]"
             )
 
     async def _route(self, text: str) -> None:
