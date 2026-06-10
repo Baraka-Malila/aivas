@@ -622,3 +622,15 @@ def test_save_scan_no_extra_args():
                  "host": "192.168.1.1"}]
     scan_id = save_scan(conn, "192.168.1.1", findings)
     assert scan_id > 0
+
+
+# ── TK4: sudo nmap uses stdout, not tempfile ─────────────────────────────────
+
+def test_sudo_nmap_uses_stdout_not_tempfile():
+    """_run_nmap_sudo must use -oX - (stdout) not a tempfile."""
+    from aivas.tui.commands import _run_nmap_sudo
+    import inspect
+    src = inspect.getsource(_run_nmap_sudo)
+    assert '"-oX"' in src or "'-oX'" in src
+    assert '"-"' in src or "'-'" in src
+    assert "NamedTemporaryFile" not in src

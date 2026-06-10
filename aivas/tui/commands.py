@@ -263,49 +263,50 @@ async def _nmap_needs_sudo(udp: bool) -> bool:
 
 async def _run_nmap_sudo(app: "AIVASApp", target: str, scripts: str,
                           udp: bool, timeout: int = 300) -> str:
-    """Pause the TUI, run sudo nmap interactively, return XML output."""
-    import os, shutil, sys, tempfile, subprocess
-    with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as f:
-        tmpfile = f.name
-    cmd = ["sudo", "nmap", "-sV", "-oX", tmpfile, target]
+    """Run sudo nmap with stdout XML capture, return XML string.
+
+    Uses -oX - to write XML to stdout — avoids the nmap security check
+    that refuses to write to files not owned by the running user (root).
+    sudo prompts on /dev/tty so stdout capture does not interfere.
+    """
+    import sys
+    import subprocess
+    import shutil
+
+    nmap_bin = shutil.which("nmap") or "nmap"
+    cmd = ["sudo", nmap_bin, "-sV", "-oX", "-", target]
     if udp:
         cmd += ["-sU"]
     if scripts:
         cmd += ["--script", scripts]
-    returncode = -1
-    try:
-        with app.suspend():
-            sys.stdout.write(
-                "\n[AIVAS] UDP scan requires root. "
-                "Enter your sudo password below.\n"
-                "(Tip: run once to avoid this: "
-                f"sudo setcap cap_net_raw,cap_net_admin+eip {(shutil.which('nmap') or 'nmap')})\n\n"
-            )
-            sys.stdout.flush()
-            try:
-                result = subprocess.run(cmd, timeout=timeout)
-                returncode = result.returncode
-            except subprocess.TimeoutExpired:
-                raise RuntimeError(f"nmap timed out after {timeout}s.")
-    except RuntimeError:
-        raise
-    finally:
-        if returncode != 0:
-            try:
-                os.unlink(tmpfile)
-            except OSError:
-                pass
-            if returncode == -1:
-                raise RuntimeError("sudo nmap did not start — is sudo configured?")
-            raise RuntimeError(f"nmap exited {returncode} (sudo password wrong or denied?)")
-    try:
-        with open(tmpfile) as f:
-            return f.read()
-    finally:
+
+    with app.suspend():
+        sys.stdout.write(
+            "\n[AIVAS] UDP scan requires root privileges.\n"
+            "(One-time fix to avoid this prompt: "
+            f"sudo setcap cap_net_raw,cap_net_admin+eip {nmap_bin})\n\n"
+        )
+        sys.stdout.flush()
         try:
-            os.unlink(tmpfile)
-        except OSError:
-            pass
+            result = subprocess.run(
+                cmd,
+                stdin=sys.stdin,
+                stdout=subprocess.PIPE,
+                stderr=sys.stderr,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired:
+            raise RuntimeError(f"nmap timed out after {timeout}s.")
+
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"nmap exited {result.returncode} — "
+            "sudo password wrong, denied, or nmap not found?"
+        )
+    xml = result.stdout.decode("utf-8", errors="replace")
+    if not xml.strip():
+        raise RuntimeError("nmap produced no output (check sudo permissions).")
+    return xml
 
 
 def _bad_ip(target: str) -> str | None:
