@@ -11,6 +11,14 @@ def _mock_kev_background(monkeypatch):
     monkeypatch.setattr("aivas.tui.app.run_kev_background", _noop)
 
 
+@pytest.fixture(autouse=True)
+def _mock_wizard_screen(monkeypatch):
+    """Prevent the first-run setup wizard from blocking all TUI tests."""
+    from unittest.mock import AsyncMock
+    from aivas.tui.app import AIVASApp
+    monkeypatch.setattr(AIVASApp, "push_screen_wait", AsyncMock(return_value=None))
+
+
 @pytest.fixture
 def db_path(tmp_path):
     """Return a path to a temporary SQLite database (for CLI --db option)."""
