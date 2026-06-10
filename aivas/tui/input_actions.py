@@ -1,9 +1,13 @@
 """Input history and suggestion-dropdown logic for AIVASApp (mixin)."""
 from __future__ import annotations
 
+from rich.text import Text
+from textual.css.query import NoMatches
 from textual.widgets import Input, OptionList
+from textual.widgets.option_list import Option
 
 from . import commands as _cmds
+from .colors import ACCENT
 
 
 class InputActionsMixin:
@@ -24,9 +28,6 @@ class InputActionsMixin:
         self._hide_suggestions()
 
     def _refresh_suggestions(self, text: str) -> None:
-        from rich.text import Text
-        from aivas.tui.colors import ACCENT
-
         if not text.startswith("/") or (len(text) > 1 and " " in text[1:]):
             self._hide_suggestions()
             return
@@ -43,7 +44,6 @@ class InputActionsMixin:
         self._suggestions = []
 
         if matches:
-            from textual.widgets.option_list import Option
             for name, usage, desc in matches:
                 prompt = Text()
                 prompt.append(f"/{name:<12}", style=f"bold {ACCENT}")
@@ -58,19 +58,19 @@ class InputActionsMixin:
         ol = self.query_one("#suggestions", OptionList)
         if not ol.display or not ol.option_count:
             return False
+        inp = self.query_one("#cmd-input", Input)
         idx = ol.highlighted if ol.highlighted is not None else 0
         if idx < len(self._suggestions):
-            inp = self.query_one("#cmd-input", Input)
             inp.value = self._suggestions[idx] + " "
             inp.cursor_position = len(inp.value)
         self._hide_suggestions()
-        self.query_one("#cmd-input", Input).focus()
+        inp.focus()
         return True
 
     def _hide_suggestions(self) -> None:
         try:
             self.query_one("#suggestions", OptionList).display = False
-        except Exception:
+        except NoMatches:
             pass
 
     def action_history_prev(self) -> None:
@@ -84,7 +84,6 @@ class InputActionsMixin:
     def action_history_next(self) -> None:
         ol = self.query_one("#suggestions", OptionList)
         inp = self.query_one("#cmd-input", Input)
-        # If suggestions visible and Down pressed, focus the list instead
         if ol.display and ol.option_count and inp.has_focus:
             ol.focus()
             return
@@ -102,3 +101,4 @@ class InputActionsMixin:
         inp = self.query_one("#cmd-input", Input)
         if inp.has_focus and self._accept_suggestion():
             return
+        # Tab with no suggestions: do nothing (input keeps focus)
