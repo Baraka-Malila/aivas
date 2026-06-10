@@ -25,14 +25,12 @@ def _bad_ip(target: str) -> str | None:
     if any(int(m.group(i)) > 255 for i in range(1, 5)):
         return f"Invalid IP address: {target!r} — each octet must be 0–255."
     return None
-
 async def _resolves(host: str) -> bool:
     try:
         await asyncio.to_thread(socket.getaddrinfo, host, None, 0, socket.SOCK_STREAM)
         return True
     except (socket.gaierror, OSError):
         return False
-
 async def _nmap_needs_sudo(udp: bool) -> bool:
     import os, shutil, subprocess
     if not udp or os.geteuid() == 0:
@@ -40,7 +38,6 @@ async def _nmap_needs_sudo(udp: bool) -> bool:
     caps = subprocess.run(["getcap", shutil.which("nmap") or "nmap"],
                           capture_output=True, text=True).stdout
     return "cap_net_raw" not in caps
-
 async def _run_nmap_threaded(app: "AIVASApp", target: str, scripts: str,
                               udp: bool, os_detect: bool, timeout: int = 300) -> str:
     """Run nmap via Popen; stores handle on app._scan_proc for ESC cancel."""
@@ -73,7 +70,6 @@ async def _run_nmap_threaded(app: "AIVASApp", target: str, scripts: str,
         finally:
             app._scan_proc = None
     return await asyncio.to_thread(_communicate)
-
 async def _run_nmap_sudo(app: "AIVASApp", target: str, scripts: str,
                           udp: bool, timeout: int = 300) -> str:
     """Run sudo nmap with stdout XML capture (-oX -), return XML string."""
@@ -116,6 +112,11 @@ async def _show_findings(app: "AIVASApp", target: str, findings: list) -> None:
         save_scan(app.conn, target, findings)
         app.tui_print("[dim]Scan saved to history (/history list)[/dim]")
     except Exception: app.tui_print("[dim]History save unavailable.[/dim]")
+    hist = getattr(app, "_scan_history", None)
+    if hist is not None:
+        hist.append({"target": target, "score": s["score"], "grade": s["grade"],
+                     "top_cves": [f["cve_id"] for f in findings[:3]]})
+        if len(hist) > 3: app._scan_history = hist[-3:]
 
 async def _probe_misconfigs(app: "AIVASApp", services: list) -> list[dict]:
     """Probe HTTP services for misconfigs, display results, return list."""

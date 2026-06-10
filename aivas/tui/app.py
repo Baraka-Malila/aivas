@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import sqlite3
 import subprocess
 
@@ -71,6 +72,7 @@ class AIVASApp(InputActionsMixin, App):
         self._last_findings: list[dict] = []
         self._last_misconfigs: list[dict] = []
         self._last_target: str = ""
+        self._scan_history: list[dict] = []
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -112,7 +114,15 @@ class AIVASApp(InputActionsMixin, App):
             if self._last_misconfigs:
                 self.tui_print(misconfig_table("Configuration Issues", self._last_misconfigs))
         elif choice == "narrate":
-            pass  # stub — implemented in Task 10
+            from aivas import config as _cfg
+            cfg = _cfg.load()
+            api_key = cfg.get("api_key") or os.environ.get("GROQ_API_KEY")
+            if not api_key:
+                self.tui_print("[dim]No API key — set one with /config set api_key ...[/dim]")
+                return
+            from .ai import narrate_findings
+            await narrate_findings(self, self._last_findings[:5], api_key,
+                                   lang=cfg.get("lang", "en"))
 
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         text = event.value.strip()
@@ -140,7 +150,11 @@ class AIVASApp(InputActionsMixin, App):
         if text.startswith("/"):
             await _cmds.handle(self, text)
         else:
-            await _cmds._dispatch_ai(self, text)
+            from .ai import dispatch
+            from aivas import config as _cfg
+            cfg = _cfg.load()
+            api_key = cfg.get("api_key") or os.environ.get("GROQ_API_KEY")
+            await dispatch(self, text, api_key=api_key)
 
     def tui_print(self, content: object) -> None:
         self.query_one("#output", RichLog).write(content)

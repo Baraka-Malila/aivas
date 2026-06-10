@@ -307,19 +307,23 @@ async def test_tui_sc8_invalid_ip_shows_error():
 async def test_tui_ai1_no_api_key_shows_helpful_message():
     """AI1: typing 'hi' with no API key → helpful message, no scan."""
     app = _make_spy_app()
-    async with app.run_test(size=(120, 30)) as pilot:
-        from textual.widgets import Input
-        inp = app.query_one("#cmd-input", Input)
-        inp.value = "hi"
-        await pilot.press("enter")
-        await pilot.pause(0.3)
-        combined = " ".join(app._captured)
-        assert "API key" in combined or "/scan" in combined or "AIVAS" in combined
+    no_key_cfg = {"provider": "groq", "lang": "en"}
+    # Patch config.load everywhere so no wizard and no api_key in _route
+    with patch("aivas.config.load", return_value=no_key_cfg), \
+         patch("aivas.tui.app.AIVASApp.push_screen_wait", new=AsyncMock(return_value=None)):
+        async with app.run_test(size=(120, 30)) as pilot:
+            from textual.widgets import Input
+            inp = app.query_one("#cmd-input", Input)
+            inp.value = "hi"
+            await pilot.press("enter")
+            await pilot.pause(0.3)
+            combined = " ".join(app._captured)
+            assert "API key" in combined or "/scan" in combined or "AIVAS" in combined
 
 
 @pytest.mark.asyncio
 async def test_tui_ai_guard_blocks_casual_text_with_api_key():
-    """AI2: with API key, 'hi' triggers intent guard — no scan started."""
+    """AI2: with API key, 'hi' routes to AI dispatch — no scan started."""
     app = _make_spy_app()
     fake_cfg = {"api_key": "sk-fake", "provider": "groq"}
     with patch("aivas.config.load", return_value=fake_cfg):
@@ -331,7 +335,6 @@ async def test_tui_ai_guard_blocks_casual_text_with_api_key():
             await pilot.pause(0.3)
             combined = " ".join(app._captured)
             assert "Scanning" not in combined
-            assert "/scan" in combined or "understands" in combined
 
 
 @pytest.mark.asyncio
@@ -734,3 +737,28 @@ async def test_scan_result_screen_renders():
         combined = " ".join(static_texts + button_texts)
         assert "192.168.1.1" in combined or "Scan complete" in combined
         assert "report" in combined.lower() or "narration" in combined.lower()
+
+
+def test_ai_dispatch_no_key_shows_helpful_message():
+    """Free text with no API key shows a helpful message, not an error."""
+    from aivas.tui import ai as _ai
+    output = []
+    class FakeApp:
+        def tui_print(self, m): output.append(str(m))
+        _scan_history = []
+    import asyncio
+    asyncio.run(_ai.dispatch(FakeApp(), "hello there", api_key=None))
+    combined = " ".join(output)
+    assert "api key" in combined.lower() or "key" in combined.lower()
+    assert "scan" in combined.lower()
+
+def test_ai_session_context_includes_last_scan():
+    """build_context must include the last scan target in the returned string."""
+    from aivas.tui.ai import build_context
+    history = [
+        {"target": "192.168.1.1", "score": 32, "grade": "D",
+         "top_cves": ["CVE-2021-41773"]},
+    ]
+    ctx = build_context(history)
+    assert "192.168.1.1" in ctx
+    assert "CVE-2021-41773" in ctx
