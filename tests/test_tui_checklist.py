@@ -657,3 +657,18 @@ async def test_tui_input_enabled_after_scan():
         pilot.app.set_scan_idle()
         inp = pilot.app.query_one("#cmd-input", Input)
         assert inp.disabled is False
+
+
+@pytest.mark.asyncio
+async def test_tui_unknown_flag_shows_error():
+    """Unknown flags like --badflagnobody must show an error, not scan."""
+    app = _make_spy_app()
+    async with app.run_test(size=(120, 30)) as pilot:
+        inp = pilot.app.query_one("#cmd-input")
+        inp.value = "/scan 192.168.1.1 --badflagnobody"
+        await pilot.press("enter")
+        await pilot.pause(0.15)
+        combined = " ".join(app._captured)
+        assert ("unknown" in combined.lower() or "invalid" in combined.lower()
+                or "flag" in combined.lower())
+        assert "scanning" not in combined.lower()
