@@ -46,6 +46,8 @@ dependencies = [
     "nvdlib>=0.7",
     "textual>=0.80",
     "pyyaml>=6.0",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
 ]
 
 [project.urls]

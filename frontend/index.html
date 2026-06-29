@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIVAS — Network Security</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0a0a0a; --surface: #111; --raised: #161616;
+  --border: #1e1e1e; --border-sub: #141414;
+  --text: #e0e0e0; --muted: #666;
+  --accent: #4a9eff;
+  --crit: #ef5350; --high: #ff7043; --med: #fdd835; --low: #66bb6a;
+  --user-bg: #0d1929; --user-border: #1a2d45; --user-text: #90bde0;
+}
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--text);
+       font-family: system-ui,-apple-system,sans-serif;
+       display: flex; flex-direction: column; overflow: hidden; }
+#header { background: #0d0d0d; border-bottom: 1px solid #1a1a1a;
+          padding: 0 28px; height: 52px; display: flex; align-items: center;
+          flex-shrink: 0; gap: 10px; }
+#logo { color: var(--accent); font-weight: 700; font-size: 15px; letter-spacing: .03em; }
+#logo-sub { color: var(--muted); font-size: 11px; margin-top: 1px; }
+#header-actions { margin-left: auto; display: flex; gap: 6px; }
+.icon-btn { width: 32px; height: 32px; background: var(--raised); border: 1px solid #222;
+            border-radius: 7px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: var(--muted); font-size: 14px; transition: all .15s; }
+.icon-btn:hover { border-color: #333; color: #aaa; }
+#chat { flex: 1; overflow-y: auto; padding: 32px 0;
+        scrollbar-width: thin; scrollbar-color: #222 transparent; }
+#chat-inner { max-width: 800px; margin: 0 auto; padding: 0 28px;
+              display: flex; flex-direction: column; gap: 22px; }
+.msg { display: flex; flex-direction: column; gap: 5px; }
+.msg.user { align-items: flex-end; }
+.msg.ai   { align-items: flex-start; }
+.msg-label { font-size: 10px; font-weight: 700; letter-spacing: .07em;
+             text-transform: uppercase; padding: 0 2px; }
+.msg.ai  .msg-label { color: var(--accent); }
+.msg.user .msg-label { color: var(--muted); }
+.bubble { font-size: 14px; line-height: 1.75; color: #c8c8c8; max-width: 90%; }
+.msg.user .bubble { background: var(--user-bg); border: 1px solid var(--user-border);
+                    border-radius: 14px 14px 4px 14px; padding: 10px 16px;
+                    color: var(--user-text); max-width: 70%; }
+.bubble code { font-family: 'Fira Code','SF Mono','Courier New',monospace;
+               color: #888; font-size: 12px; background: #161616;
+               padding: 1px 5px; border-radius: 3px; }
+.thinking { display: flex; align-items: center; gap: 8px;
+            color: var(--muted); font-size: 13px; font-style: italic; }
+.spinner { color: var(--accent); display: inline-block; width: 14px; }
+.scan-card { background: var(--surface); border: 1px solid var(--border);
+             border-radius: 10px; overflow: hidden; width: 100%; margin-top: 8px; }
+.card-header { padding: 16px 20px; border-bottom: 1px solid #1a1a1a;
+               display: flex; align-items: center; justify-content: space-between; }
+.card-ip { font-family: 'Fira Code','SF Mono',monospace; font-size: 13px;
+           color: var(--text); font-weight: 600; }
+.card-meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.grade { font-size: 30px; font-weight: 800; line-height: 1; }
+.grade-a{color:var(--low);} .grade-b{color:#aed581;}
+.grade-c{color:var(--med);} .grade-d{color:var(--high);} .grade-f{color:var(--crit);}
+.sev-pills { padding: 10px 20px; display: flex; gap: 8px;
+             border-bottom: 1px solid #1a1a1a; flex-wrap: wrap; }
+.pill { font-size:10px; font-weight:700; padding:4px 9px; border-radius:5px; letter-spacing:.04em; }
+.pill-crit{background:#1a0505;border:1px solid #3a1010;color:var(--crit);}
+.pill-high{background:#1a0e05;border:1px solid #3a2010;color:var(--high);}
+.pill-med {background:#1a1505;border:1px solid #3a3010;color:var(--med);}
+.pill-low {background:#0a1a0a;border:1px solid #1a3a1a;color:var(--low);}
+.cve-list { padding: 4px 0; }
+.cve-row { display:flex;align-items:center;gap:10px;padding:8px 20px;
+           border-bottom:1px solid var(--border-sub);font-size:12px; }
+.cve-row:last-child { border-bottom: none; }
+.sev-dot { width:7px;height:7px;border-radius:50%;flex-shrink:0; }
+.dot-critical{background:var(--crit);} .dot-high{background:var(--high);}
+.dot-medium{background:var(--med);}   .dot-low{background:var(--low);}
+.cve-id { font-family:'Fira Code','SF Mono',monospace;color:#888;font-size:11px;
+          flex-shrink:0;min-width:128px; }
+.cve-desc { color:#aaa;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.cvss-score { font-family:'Fira Code','SF Mono',monospace;font-size:11px;
+              color:var(--muted);flex-shrink:0; }
+.show-all { padding:9px 20px;border-top:1px solid var(--border-sub);
+            font-size:11px;color:var(--accent);cursor:pointer; }
+.show-all:hover { color:#7ab8ff; }
+.card-actions { padding:12px 20px;display:flex;gap:8px;border-top:1px solid #1a1a1a;flex-wrap:wrap; }
+.act-btn { font-size:11px;font-weight:600;padding:7px 14px;border-radius:7px;cursor:pointer;
+           border:1px solid #2a2a2a;background:var(--raised);color:#888;
+           letter-spacing:.02em;transition:all .15s; }
+.act-btn:hover { border-color:#3a3a3a;color:#bbb; }
+.act-btn.primary { background:#0d1929;border-color:#1a3050;color:var(--accent); }
+.act-btn.primary:hover { background:#0f1e35; }
+#input-bar { background:#0d0d0d;border-top:1px solid #1a1a1a;padding:14px 28px;flex-shrink:0; }
+#input-row { max-width:800px;margin:0 auto;display:flex;gap:10px;align-items:center; }
+#text-input { flex:1;background:var(--raised);border:1px solid #262626;border-radius:10px;
+              padding:12px 16px;font-size:14px;color:var(--text);font-family:inherit;
+              outline:none;transition:border-color .15s; }
+#text-input:focus { border-color:#2a3a4a; }
+#text-input::placeholder { color:#444; }
+#send-btn { width:40px;height:40px;background:#4a9eff22;border:1px solid #4a9eff44;
+            border-radius:9px;color:var(--accent);font-size:19px;
+            display:flex;align-items:center;justify-content:center;
+            cursor:pointer;flex-shrink:0;transition:background .15s; }
+#send-btn:hover { background:#4a9eff33; }
+#drawer-overlay { position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:40;display:none; }
+#history-drawer { position:fixed;top:0;right:0;width:360px;height:100%;
+                  background:#0d0d0d;border-left:1px solid var(--border);
+                  z-index:50;transform:translateX(100%);transition:transform .22s ease;
+                  display:flex;flex-direction:column; }
+#history-drawer.open { transform:translateX(0); }
+.drawer-header { padding:18px 22px;border-bottom:1px solid var(--border);
+                 display:flex;align-items:center;justify-content:space-between; }
+.drawer-title { font-size:13px;font-weight:700;color:var(--text); }
+.close-btn { cursor:pointer;color:var(--muted);font-size:20px;line-height:1; }
+.close-btn:hover { color:var(--text); }
+#drawer-list { flex:1;overflow-y:auto;padding:6px 0; }
+.scan-row { padding:13px 22px;border-bottom:1px solid var(--border-sub);
+            display:flex;align-items:center;cursor:pointer;gap:14px; }
+.scan-row:hover { background:var(--raised); }
+.scan-row-ip { font-family:'Fira Code','SF Mono',monospace;font-size:12px;color:var(--text); }
+.scan-row-meta { font-size:10px;color:var(--muted);margin-top:2px; }
+.scan-row-grade { font-size:20px;font-weight:800;flex-shrink:0; }
+#modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:60;
+                 display:none;align-items:center;justify-content:center; }
+#modal-overlay.open { display:flex; }
+#settings-modal { background:#0d0d0d;border:1px solid var(--border);border-radius:12px;
+                  width:420px;max-width:92vw;padding:30px; }
+.modal-title { font-size:15px;font-weight:700;margin-bottom:22px;color:var(--text); }
+.field { margin-bottom:20px; }
+.field label { display:block;font-size:11px;font-weight:600;color:var(--muted);
+               letter-spacing:.06em;text-transform:uppercase;margin-bottom:7px; }
+.field input { width:100%;background:var(--raised);border:1px solid #262626;
+               border-radius:8px;padding:10px 13px;font-size:13px;
+               color:var(--text);font-family:inherit;outline:none; }
+.field input:focus { border-color:#2a3a4a; }
+.field-hint { font-size:11px;color:var(--muted);margin-top:5px;line-height:1.5; }
+.modal-actions { display:flex;gap:8px;justify-content:flex-end;margin-top:10px; }
+.modal-btn { padding:9px 18px;border-radius:7px;font-size:12px;font-weight:600;
+             cursor:pointer;border:1px solid #2a2a2a;background:var(--raised);color:#888; }
+.modal-btn.primary { background:#0d1929;border-color:#1a3050;color:var(--accent); }
+</style>
+</head>
+<body>
+<div id="header">
+  <div>
+    <div id="logo">✦ AIVAS</div>
+    <div id="logo-sub">Network Security</div>
+  </div>
+  <div id="header-actions">
+    <div class="icon-btn" title="Scan history" onclick="openHistory()">🕐</div>
+    <div class="icon-btn" title="Settings" onclick="openSettings()">⚙</div>
+  </div>
+</div>
+<div id="chat"><div id="chat-inner"></div></div>
+<div id="input-bar">
+  <div id="input-row">
+    <input id="text-input" type="text"
+           placeholder="Ask anything, or give me an IP to scan…" autocomplete="off"/>
+    <div id="send-btn" onclick="handleSend()">↑</div>
+  </div>
+</div>
+<div id="drawer-overlay" onclick="closeHistory()"></div>
+<div id="history-drawer">
+  <div class="drawer-header">
+    <div class="drawer-title">Scan History</div>
+    <div class="close-btn" onclick="closeHistory()">✕</div>
+  </div>
+  <div id="drawer-list"></div>
+</div>
+<div id="modal-overlay" onclick="handleOverlayClick(event)">
+  <div id="settings-modal">
+    <div class="modal-title">Settings</div>
+    <div class="field">
+      <label>Groq API Key</label>
+      <input id="api-key-input" type="password" placeholder="gsk_…"/>
+      <div class="field-hint">
+        Or set it permanently via terminal:<br>
+        <code style="font-family:monospace;font-size:10px">aivas config set api_key YOUR_KEY</code>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <div class="modal-btn" onclick="closeSettings()">Cancel</div>
+      <div class="modal-btn primary" onclick="saveSettings()">Save</div>
+    </div>
+  </div>
+</div>
+<script>
+const chatInner = document.getElementById('chat-inner');
+const textInput  = document.getElementById('text-input');
+const SPIN = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏';
+let spinIdx = 0, spinTimer = null;
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                  .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function scrollBot() { document.getElementById('chat').scrollTop = 9999999; }
+function gradeClass(g) { return 'grade-'+(g||'f').toLowerCase().replace('grade ',''); }
+function startSpin() {
+  if (spinTimer) return;
+  spinTimer = setInterval(() => {
+    spinIdx = (spinIdx+1)%SPIN.length;
+    document.querySelectorAll('.spinner').forEach(s => s.textContent=SPIN[spinIdx]);
+  }, 100);
+}
+function maybeStopSpin() {
+  if (!document.querySelector('.thinking')) { clearInterval(spinTimer); spinTimer=null; }
+}
+function appendMsg(role, html) {
+  const d = document.createElement('div');
+  d.className = `msg ${role}`;
+  d.innerHTML = `<div class="msg-label">${role==='ai'?'✦ AIVAS':'You'}</div>
+                 <div class="bubble">${html}</div>`;
+  chatInner.appendChild(d); scrollBot(); return d;
+}
+function appendThinking(text) {
+  const d = document.createElement('div');
+  d.className = 'msg ai';
+  d.innerHTML = `<div class="msg-label">✦ AIVAS</div>
+    <div class="bubble thinking">
+      <span class="spinner">⠋</span>
+      <span class="thinking-text">${esc(text)}</span>
+    </div>`;
+  chatInner.appendChild(d); scrollBot(); startSpin(); return d;
+}
+function setThinkingText(el,t) {
+  const s=el.querySelector('.thinking-text'); if(s) s.textContent=t; scrollBot();
+}
+function removeThinking(el) { el.remove(); maybeStopSpin(); }
+function dotClass(sev) {
+  return 'dot-'+({'CRITICAL':'critical','HIGH':'high','MEDIUM':'medium','LOW':'low'}[sev]||'low');
+}
+function pill(n,label,cls) { return n?`<span class="pill ${cls}">${n} ${label}</span>`:''; }
+function appendScanCard(ev) {
+  const {target,grade,service_count,findings} = ev;
+  const crit=findings.filter(f=>f.cvss_severity==='CRITICAL').length;
+  const high=findings.filter(f=>f.cvss_severity==='HIGH').length;
+  const med =findings.filter(f=>f.cvss_severity==='MEDIUM').length;
+  const low =findings.filter(f=>f.cvss_severity==='LOW').length;
+  const rowHtml=f=>`<div class="cve-row">
+      <div class="sev-dot ${dotClass(f.cvss_severity)}"></div>
+      <div class="cve-id">${esc(f.cve_id)}</div>
+      <div class="cve-desc">${esc((f.description||'').slice(0,72))}</div>
+      <div class="cvss-score">${f.cvss_score??'N/A'}</div>
+    </div>`;
+  const top5html = findings.slice(0,5).map(rowHtml).join('');
+  const allHtml  = findings.map(rowHtml).join('');
+  const moreBtn  = findings.length>5
+    ? `<div class="show-all" data-exp="0" data-all="${esc(allHtml)}"
+           onclick="toggleCves(this)">↓ Show all ${findings.length} findings</div>` : '';
+  const tgt = esc(target||'');
+  const d = document.createElement('div');
+  d.className='msg ai';
+  d.innerHTML=`<div class="msg-label">✦ AIVAS</div>
+    <div class="scan-card">
+      <div class="card-header">
+        <div>
+          <div class="card-ip">${tgt}</div>
+          <div class="card-meta">${service_count} service(s) · ${findings.length} finding(s)</div>
+        </div>
+        <div class="grade ${gradeClass(grade)}">${esc(grade)}</div>
+      </div>
+      <div class="sev-pills">
+        ${pill(crit,'CRITICAL','pill-crit')}${pill(high,'HIGH','pill-high')}
+        ${pill(med,'MEDIUM','pill-med')}${pill(low,'LOW','pill-low')}
+        ${(!crit&&!high&&!med&&!low)
+          ?'<span style="color:var(--low);font-size:11px;">No vulnerabilities found ✓</span>':''}
+      </div>
+      <div class="cve-list">${top5html}</div>${moreBtn}
+      <div class="card-actions">
+        <button class="act-btn primary" onclick="sendText('narrate findings')">Narrate findings</button>
+        <button class="act-btn" onclick="sendText('explain the worst CVE')">Explain worst CVE</button>
+        <button class="act-btn" onclick="sendText('rescan ${tgt}')">Rescan</button>
+      </div>
+    </div>`;
+  chatInner.appendChild(d); scrollBot();
+}
+function toggleCves(el) {
+  const list=el.previousElementSibling;
+  if (el.dataset.exp==='0') {
+    list.innerHTML=el.dataset.all; el.textContent='↑ Show fewer'; el.dataset.exp='1';
+  } else {
+    const rows=new DOMParser()
+      .parseFromString('<div>'+el.dataset.all+'</div>','text/html')
+      .querySelectorAll('.cve-row');
+    list.innerHTML=Array.from(rows).slice(0,5).map(r=>r.outerHTML).join('');
+    el.textContent=`↓ Show all findings`; el.dataset.exp='0';
+  }
+  scrollBot();
+}
+function openScanSocket(key,thinkEl) {
+  const ws=new WebSocket(`ws://${location.host}/ws/scan/${key}`);
+  ws.onmessage=e=>{
+    const ev=JSON.parse(e.data);
+    if (ev.type==='progress') setThinkingText(thinkEl,ev.text);
+    else if (ev.type==='done') {
+      removeThinking(thinkEl); appendScanCard(ev);
+      appendMsg('ai','Ask me to explain any CVE, or say '
+        +'<em style="color:var(--accent)">narrate in Swahili</em> for a bilingual report.');
+    } else if (ev.type==='error') { removeThinking(thinkEl); appendMsg('ai',`⚠ ${esc(ev.text)}`); }
+  };
+  ws.onerror=()=>{ removeThinking(thinkEl); appendMsg('ai','⚠ WebSocket connection error.'); };
+}
+async function sendText(text) {
+  textInput.value='';
+  appendMsg('user',esc(text));
+  const thinking=appendThinking('AIVAS is thinking…');
+  let data;
+  try {
+    const res=await fetch('/api/chat',{method:'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+    data=await res.json();
+  } catch { removeThinking(thinking); appendMsg('ai','⚠ Could not reach the server.'); return; }
+  if (data.scan_id) {
+    setThinkingText(thinking,'Running port discovery…');
+    if (data.response) appendMsg('ai',esc(data.response));
+    openScanSocket(data.scan_id,thinking);
+  } else { removeThinking(thinking); if (data.response) appendMsg('ai',esc(data.response)); }
+}
+function handleSend() { const t=textInput.value.trim(); if(t) sendText(t); }
+textInput.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();handleSend();}
+});
+function openHistory() {
+  fetch('/api/history?limit=30').then(r=>r.json()).then(scans=>{
+    const list=document.getElementById('drawer-list');
+    if (!scans.length) {
+      list.innerHTML='<div style="padding:22px;color:var(--muted);font-size:13px;">No scans yet.</div>';
+    } else {
+      list.innerHTML=scans.map(s=>{
+        const ago=Math.floor((Date.now()-new Date(s.started_at))/86400000);
+        const agoStr=ago===0?'today':ago===1?'yesterday':`${ago}d ago`;
+        const g=(s.grade||'').replace('Grade ','');
+        return `<div class="scan-row"
+                     onclick="loadScan(${s.id},'${esc(s.target)}');closeHistory();">
+          <div style="flex:1">
+            <div class="scan-row-ip">${esc(s.target)}</div>
+            <div class="scan-row-meta">${s.finding_count} findings · ${agoStr}</div>
+          </div>
+          <div class="scan-row-grade ${gradeClass(g)}">${esc(g)}</div>
+        </div>`;
+      }).join('');
+    }
+  });
+  document.getElementById('history-drawer').classList.add('open');
+  document.getElementById('drawer-overlay').style.display='block';
+}
+function closeHistory() {
+  document.getElementById('history-drawer').classList.remove('open');
+  document.getElementById('drawer-overlay').style.display='none';
+}
+function loadScan(id,target) { sendText(`summarize scan ${id} for ${target}`); }
+function openSettings()  { document.getElementById('modal-overlay').classList.add('open'); }
+function closeSettings() { document.getElementById('modal-overlay').classList.remove('open'); }
+function handleOverlayClick(e) { if(e.target.id==='modal-overlay') closeSettings(); }
+function saveSettings() {
+  const key=document.getElementById('api-key-input').value.trim();
+  if(key) appendMsg('ai',
+    `Key saved for this session. To persist: <code>aivas config set api_key ${esc(key.slice(0,8))}…</code>`);
+  closeSettings();
+}
+async function init() {
+  try {
+    const h=await fetch('/api/history?limit=1').then(r=>r.json());
+    if (h.length) {
+      const s=h[0];
+      const ago=Math.floor((Date.now()-new Date(s.started_at))/86400000);
+      const agoStr=ago===0?'earlier today':ago===1?'yesterday':`${ago} days ago`;
+      const g=(s.grade||'').replace('Grade ','');
+      appendMsg('ai',
+        `Welcome back. Your last scan of <code>${esc(s.target)}</code> was ${agoStr} — `
+        +`Grade <span class="${gradeClass(g)}" style="font-weight:700">${esc(g)}</span>, `
+        +`${s.finding_count} finding(s). Want me to rescan, or would you like a summary?`);
+    } else {
+      appendMsg('ai',
+        `Hello. I'm AIVAS, your network security assistant. `
+        +`Give me an IP address or network range and I'll scan it. `
+        +`You can also ask about CVEs or past scans — in English or Swahili.`);
+    }
+  } catch {
+    appendMsg('ai',"Hello. I'm AIVAS. Type an IP to scan or ask anything about your network.");
+  }
+  textInput.focus();
+}
+init();
+</script>
+</body>
+</html>
