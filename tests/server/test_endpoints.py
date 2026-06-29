@@ -31,6 +31,31 @@ def test_get_scan_not_found(client):
     assert r.status_code == 404
 
 
+from unittest.mock import AsyncMock, patch
+
+
+def test_chat_no_scan_intent(client, test_conn, monkeypatch):
+    monkeypatch.setattr(_m, "_conn", test_conn)
+    with patch("aivas.server.chat_api.handle_chat",
+               new=AsyncMock(return_value=("No AI configured.", None))):
+        r = client.post("/api/chat", json={"text": "hello"})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["response"] == "No AI configured."
+    assert data["scan_id"] is None
+
+
+def test_chat_with_scan_intent(client, test_conn, monkeypatch):
+    monkeypatch.setattr(_m, "_conn", test_conn)
+    with patch("aivas.server.chat_api.handle_chat",
+               new=AsyncMock(return_value=("Scanning now.", ("192.168.1.1", 2)))):
+        r = client.post("/api/chat", json={"text": "scan 192.168.1.1"})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["scan_id"] is not None
+    assert data["response"] == "Scanning now."
+
+
 def test_get_scan_findings(client, test_conn, monkeypatch):
     monkeypatch.setattr(_m, "_conn", test_conn)
     findings = [{"cve_id": "CVE-2021-44228", "cvss_score": 10.0,
