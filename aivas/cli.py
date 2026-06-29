@@ -46,6 +46,24 @@ cli.add_command(doctor)
 
 
 @cli.command()
+@click.option("--host", default="127.0.0.1", show_default=True)
+@click.option("--port", default=8000, show_default=True)
+@click.option("--open", "open_browser", is_flag=True, help="Open browser after start.")
+def serve(host: str, port: int, open_browser: bool) -> None:
+    """Start the AIVAS web UI server."""
+    import uvicorn
+    console.print(f"[bold cyan]✦ AIVAS web UI[/bold cyan]  →  http://{host}:{port}")
+    if open_browser:
+        import threading
+        import webbrowser
+        threading.Timer(1.2, lambda: webbrowser.open(f"http://{host}:{port}")).start()
+    uvicorn.run("aivas.server.main:app", host=host, port=port, reload=False)
+
+
+cli.add_command(serve)
+
+
+@cli.command()
 @click.option("--source", default=None, help="Path to local nvd-json-data-feeds directory.")
 @click.option("--api-key", default=None, envvar="NIST_API_KEY", help="NIST NVD API key.")
 @click.pass_context
