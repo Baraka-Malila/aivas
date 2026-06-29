@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture
 def test_conn(tmp_path):
-    conn = sqlite3.connect(str(tmp_path / "test.db"))
+    conn = sqlite3.connect(str(tmp_path / "test.db"), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     create_schema(conn)
     yield conn
