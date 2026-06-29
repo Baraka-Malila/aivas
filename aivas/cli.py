@@ -45,19 +45,37 @@ cli.add_command(ask)
 cli.add_command(doctor)
 
 
+def _free_port(preferred: int) -> int:
+    """Return preferred port if free, otherwise find an available one."""
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind(("", preferred))
+            return preferred
+        except OSError:
+            pass
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("", 0))
+        return s.getsockname()[1]
+
+
 @cli.command()
 @click.option("--host", default="127.0.0.1", show_default=True)
-@click.option("--port", default=8000, show_default=True)
+@click.option("--port", default=8000, show_default=True, help="Preferred port (auto-selects if busy).")
 @click.option("--open", "open_browser", is_flag=True, help="Open browser after start.")
 def serve(host: str, port: int, open_browser: bool) -> None:
     """Start the AIVAS web UI server."""
     import uvicorn
-    console.print(f"[bold cyan]✦ AIVAS web UI[/bold cyan]  →  http://{host}:{port}")
+    actual_port = _free_port(port)
+    if actual_port != port:
+        console.print(f"[yellow]Port {port} in use — using {actual_port} instead.[/yellow]")
+    url = f"http://{host}:{actual_port}"
+    console.print(f"[bold cyan]✦ AIVAS web UI[/bold cyan]  →  {url}")
     if open_browser:
         import threading
         import webbrowser
-        threading.Timer(1.2, lambda: webbrowser.open(f"http://{host}:{port}")).start()
-    uvicorn.run("aivas.server.main:app", host=host, port=port, reload=False)
+        threading.Timer(1.2, lambda: webbrowser.open(url)).start()
+    uvicorn.run("aivas.server.main:app", host=host, port=actual_port, reload=False)
 
 
 cli.add_command(serve)
