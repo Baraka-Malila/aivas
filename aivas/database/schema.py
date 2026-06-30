@@ -90,6 +90,34 @@ def create_schema(conn: sqlite3.Connection) -> None:
             ON findings(host);
         CREATE INDEX IF NOT EXISTS idx_findings_cve
             ON findings(cve_id);
+
+        CREATE TABLE IF NOT EXISTS chat_sessions (
+            id          TEXT PRIMARY KEY,
+            title       TEXT,
+            created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS chat_messages (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id   TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+            role         TEXT NOT NULL CHECK(role IN ('user','assistant','tool')),
+            content      TEXT,
+            tool_calls   TEXT,
+            tool_call_id TEXT,
+            created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_chat_messages_session_time
+            ON chat_messages(session_id, created_at);
+
+        CREATE TABLE IF NOT EXISTS cve_advice (
+            cve_id      TEXT PRIMARY KEY,
+            advice_en   TEXT NOT NULL,
+            advice_sw   TEXT NOT NULL,
+            model       TEXT NOT NULL,
+            created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
     """)
     conn.commit()
     # Migration: add kev column if DB predates this sprint
