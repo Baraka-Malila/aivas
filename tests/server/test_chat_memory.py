@@ -95,6 +95,7 @@ def test_load_history_truncates_to_max_turns(conn):
         save_assistant(conn, sid, f"a{i}")
     history = load_history(conn, sid, max_turns=3)
     assert len(history) == 6  # 3 turns × 2 messages
+    assert history[0]["role"] == "user"
     assert history[0]["content"] == "u7"
     assert history[-1]["content"] == "a9"
 
