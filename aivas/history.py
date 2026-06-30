@@ -74,11 +74,21 @@ def diff_scans(conn: sqlite3.Connection, old_id: int, new_id: int) -> dict[str, 
     }
 
 
+def get_scan_meta(conn: sqlite3.Connection, scan_id: int) -> dict | None:
+    row = conn.execute(
+        "SELECT id, target, started_at, finished_at, finding_count, risk_score, grade "
+        "FROM scans WHERE id = ?", (scan_id,)
+    ).fetchone()
+    return dict(row) if row else None
+
+
 def get_scan_findings(conn: sqlite3.Connection, scan_id: int) -> list[dict]:
     rows = conn.execute(
-        """SELECT host, cve_id, cvss_score, cvss_severity, confidence,
-                  en_risk, sw_risk, en_fix, sw_fix
-           FROM findings WHERE scan_id = ?""",
+        """SELECT f.host, f.cve_id, f.cvss_score, f.cvss_severity, f.confidence,
+                  f.en_risk, f.sw_risk, f.en_fix, f.sw_fix, c.description
+           FROM findings f
+           LEFT JOIN cves c ON c.cve_id = f.cve_id
+           WHERE f.scan_id = ?""",
         (scan_id,),
     ).fetchall()
     return [
@@ -92,7 +102,7 @@ def get_scan_findings(conn: sqlite3.Connection, scan_id: int) -> list[dict]:
             "narration_sw": r["sw_risk"] or "",
             "fix_en": r["en_fix"] or "",
             "fix_sw": r["sw_fix"] or "",
-            "description": "",
+            "description": r["description"] or "",
         }
         for r in rows
     ]
