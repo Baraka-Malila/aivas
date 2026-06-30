@@ -11,3 +11,5 @@ reports/
 .venv/
 venv/
 *.log
+frontend/dist/
+frontend/node_modules/
