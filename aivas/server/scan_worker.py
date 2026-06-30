@@ -9,7 +9,6 @@ import subprocess
 import xml.etree.ElementTree as ET
 from typing import AsyncGenerator
 
-from aivas.correlator import correlate
 from aivas.history import save_scan
 from aivas.parser import parse_nmap_xml
 from aivas.scanner.nse import scripts_for_level
