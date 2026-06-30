@@ -10,22 +10,27 @@ from aivas.parser import parse_nmap_xml
 
 _HTTP_PORTS = {80, 443, 8080, 8443, 8000, 8888, 3000}
 
-_DEVICE_PATTERNS: list[tuple[set[int], str]] = [
-    ({554, 37777}, "Camera"),
-    ({9100}, "Printer"),
-    ({9100, 515}, "Printer"),
-    ({5555}, "Android"),
-    ({3389}, "Windows"),
-    ({139, 445}, "Windows"),
+_DEVICE_PATTERNS: list[tuple[set[int], str, bool]] = [
+    ({554, 37777}, "Camera", False),  # OR logic: either port triggers
+    ({9100}, "Printer", False),
+    ({5555}, "Android", False),
+    ({3389}, "Windows", False),
+    ({139, 445}, "Windows", True),   # AND logic: both ports required
 ]
 
 
 def device_type_from_ports(ports: list[int]) -> str:
     """Infer device type from open ports."""
     port_set = set(ports)
-    for pattern, label in _DEVICE_PATTERNS:
-        if pattern & port_set:
-            return label
+    for pattern, label, require_all in _DEVICE_PATTERNS:
+        # require_all=True: all ports in pattern must be present (AND)
+        # require_all=False: any port in pattern triggers match (OR)
+        if require_all:
+            if pattern.issubset(port_set):
+                return label
+        else:
+            if pattern & port_set:
+                return label
     if 23 in port_set and not port_set & {22, 3389}:
         return "Router"
     if 22 in port_set:
@@ -95,11 +100,15 @@ async def http_probe_events(
         ssl = port == 443 or svc.get("service") == "https"
         label = f"{host}:{port}"
         yield _ev("http_probe", f"  {label} — probing headers, paths, methods…")
-        findings = await asyncio.to_thread(probe_http_service, host, port, ssl)
+        try:
+            findings = await asyncio.to_thread(probe_http_service, host, port, ssl)
+        except Exception:
+            yield _ev("http_error", f"  {label} — probe failed (host may be unreachable)")
+            continue
         for f in findings:
             f["host"] = host
             f["port"] = port
-            yield _ev("http_finding", f"  {label} — {f['title']} [{f['severity']}]")
+            yield _ev("http_finding", f"  {label} — {f.get('title', 'unknown')} [{f.get('severity', '?')}]")
         all_misconfigs.extend(findings)
     if not all_misconfigs:
         yield _ev("http_clean", "  No HTTP misconfigurations detected")
@@ -111,12 +120,11 @@ async def scan_host(
     blocking_nmap,
 ) -> AsyncGenerator[dict, None]:
     """Scan one host; yield events then sentinel with __svcs/__findings/__misconfigs."""
-    import asyncio as _a
-    fut = _a.ensure_future(_a.to_thread(blocking_nmap, host_ip, scripts, 120))
-    start = _a.get_event_loop().time()
+    fut = asyncio.create_task(asyncio.to_thread(blocking_nmap, host_ip, scripts, 120))
+    start = asyncio.get_running_loop().time()
     xml: str | None = None
     while True:
-        done, _ = await _a.wait({fut}, timeout=3.0)
+        done, _ = await asyncio.wait({fut}, timeout=3.0)
         if done:
             try:
                 xml = fut.result()
@@ -124,7 +132,7 @@ async def scan_host(
                 yield {"type": "error", "text": str(exc)}
                 return
             break
-        elapsed = int(_a.get_event_loop().time() - start)
+        elapsed = int(asyncio.get_running_loop().time() - start)
         yield _ev("scanning", f"  {host_ip}: scanning… {elapsed}s")
     try:
         services = parse_nmap_xml(xml)

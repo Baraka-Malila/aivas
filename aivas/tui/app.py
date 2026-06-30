@@ -75,7 +75,7 @@ class AIVASApp(InputActionsMixin, App):
         self._last_target: str = ""
         self._scan_history: list[dict] = []
         self._spinner_timer = None
-        self._current_scan_target: str = ""
+        self._status_msg: str = ""
         self._spinner_idx: int = 0
 
     def compose(self) -> ComposeResult:
@@ -145,21 +145,24 @@ class AIVASApp(InputActionsMixin, App):
 
     _SPIN = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 
-    def set_scan_running(self, target: str = "") -> None:
-        self._current_scan_target = target
-        self._spinner_idx = 0
-        inp = self.query_one("#cmd-input", Input)
-        inp.disabled = True
-        self._hide_suggestions()
+    def set_busy(self, msg: str, lock_input: bool = False) -> None:
+        self._status_msg = msg
+        if lock_input:
+            self.query_one("#cmd-input", Input).disabled = True
+            self._hide_suggestions()
         lbl = self.query_one("#scan-status", Label)
-        lbl.update(f"  ⠋ Scanning {target}…  (ESC to cancel)")
+        lbl.update(f"  ⠋ {msg}")
         lbl.display = True
-        self._spinner_timer = self.set_interval(0.1, self._tick_spinner)
+        if self._spinner_timer is None:
+            self._spinner_idx = 0
+            self._spinner_timer = self.set_interval(0.1, self._tick_spinner)
+
+    def set_scan_running(self, target: str = "") -> None:
+        self.set_busy(f"Scanning {target}…  (ESC to cancel)", lock_input=True)
 
     def _tick_spinner(self) -> None:
         self._spinner_idx = (self._spinner_idx + 1) % len(self._SPIN)
-        lbl = self.query_one("#scan-status", Label)
-        lbl.update(f"  {self._SPIN[self._spinner_idx]} Scanning {self._current_scan_target}…  (ESC to cancel)")
+        self.query_one("#scan-status", Label).update(f"  {self._SPIN[self._spinner_idx]} {self._status_msg}")
 
     def set_scan_idle(self) -> None:
         if not self.is_running:

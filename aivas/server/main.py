@@ -7,13 +7,12 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from pydantic import BaseModel
 
 from aivas.database.schema import get_db, create_schema, DB_PATH
 from aivas.history import list_scans, get_scan_findings
 
-# In-memory map of scan_key → (target, level) for pending WebSocket scans
 _pending: dict[str, tuple[str, int]] = {}
 _conn: sqlite3.Connection | None = None
 
@@ -23,7 +22,7 @@ _FRONTEND = Path(__file__).parent.parent.parent / "frontend" / "index.html"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _conn
-    if _conn is None:          # allow test injection via monkeypatch
+    if _conn is None:
         _conn = get_db(DB_PATH)
         create_schema(_conn)
     yield
@@ -57,18 +56,42 @@ async def get_scan(scan_id: int):
     return findings
 
 
+@app.get("/api/report/{scan_id}")
+async def get_report(scan_id: int):
+    from aivas.server.report_gen import generate_html_report
+    html = generate_html_report(_conn, scan_id)
+    if html is None:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    return HTMLResponse(html)
+
+
+@app.get("/api/report/{scan_id}/pdf")
+async def get_pdf_report(scan_id: int):
+    import asyncio
+    from aivas.server.report_pdf import generate_pdf_report
+    pdf = await asyncio.to_thread(generate_pdf_report, _conn, scan_id)
+    if pdf is None:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=aivas-report-{scan_id}.pdf"},
+    )
+
+
 class ChatRequest(BaseModel):
     text: str
+    scan_id: int | None = None
 
 
 @app.post("/api/chat")
 async def chat(body: ChatRequest):
     from aivas.server.chat_api import handle_chat
-    response, scan_intent = await handle_chat(_conn, body.text)
+    response, scan_intent = await handle_chat(_conn, body.text, scan_id=body.scan_id)
     scan_key = None
     if scan_intent:
         scan_key = str(uuid.uuid4())
-        _pending[scan_key] = scan_intent      # (target, level)
+        _pending[scan_key] = scan_intent
     return {"response": response, "scan_id": scan_key}
 
 

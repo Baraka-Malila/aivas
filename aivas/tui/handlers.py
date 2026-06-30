@@ -163,3 +163,25 @@ async def cmd_history(app: "AIVASApp", args: str) -> None:
         app.tui_print(cve_table(f"Scan #{sid} Findings", safe))
     else:
         app.tui_print("Usage: /history list  |  /history show <id>")
+
+
+async def post_scan_handler(app: "AIVASApp", choice: str) -> None:
+    """Handle post-scan modal choice: narrate, report, or skip."""
+    if choice == "narrate":
+        from aivas import config as _cfg
+        import os
+        cfg = _cfg.load()
+        api_key = cfg.get("api_key") or os.environ.get("GROQ_API_KEY")
+        if not api_key:
+            app.tui_print("[dim]No API key — set one with [bold]/config set api_key ...[/bold][/dim]")
+            return
+        from .ai import narrate_findings
+        await narrate_findings(app, app._last_findings[:5], api_key, cfg.get("lang", "en"))
+    elif choice == "report":
+        from aivas.formatting import cve_table
+        if app._last_findings:
+            table = cve_table("Vulnerability Findings", app._last_findings)
+            app.tui_print(table)
+            app.store_scan_output(table)
+        else:
+            app.tui_print("[dim]No CVE findings to report.[/dim]")

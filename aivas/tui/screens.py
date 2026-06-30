@@ -1,9 +1,10 @@
-"""Push-screens for AIVAS: first-run setup wizard."""
+"""Push-screens for AIVAS: first-run setup wizard and post-scan modal."""
 from __future__ import annotations
 
 from textual.app import ComposeResult
 from textual.binding import Binding
-from textual.screen import Screen
+from textual.containers import Vertical
+from textual.screen import ModalScreen, Screen
 from textual.widgets import RadioButton, RadioSet, Static, Input, Rule
 
 
@@ -68,3 +69,57 @@ class SetupWizardScreen(Screen):
 
     def on_screen_resume(self) -> None:
         self.query_one("#provider-set", RadioSet).focus()
+
+
+class ScanResultScreen(ModalScreen):
+    """Post-scan overlay: choose AI narration, full report, or skip."""
+
+    BINDINGS = [
+        Binding("escape", "dismiss_skip", "Skip",    show=False),
+        Binding("enter",  "confirm",      "Confirm", priority=True),
+    ]
+
+    CSS = """
+    ScanResultScreen {
+        align: center bottom;
+        background: $background 60%;
+    }
+    #scan-panel {
+        background: $surface;
+        border: solid $panel;
+        padding: 1 2;
+        width: 70%;
+        margin-bottom: 4;
+        height: auto;
+    }
+    """
+
+    def __init__(self, target: str, grade: str, count: int) -> None:
+        super().__init__()
+        self._target = target
+        self._grade = grade
+        self._count = count
+
+    def compose(self) -> ComposeResult:
+        grade_col = "red" if self._grade in ("D", "F") else "green"
+        with Vertical(id="scan-panel"):
+            yield Static(
+                f"[bold]Scan complete:[/bold] {self._target}"
+                f"  Grade [{grade_col}]{self._grade}[/{grade_col}]"
+                f"  [dim]{self._count} finding(s)[/dim]"
+            )
+            yield RadioSet(
+                RadioButton("AI narration  (Swahili + English)", id="narrate"),
+                RadioButton("Full CVE report",                   id="report"),
+                RadioButton("Skip",                              id="skip", value=True),
+                id="choice-set",
+            )
+            yield Static("[dim]Tab to select  ·  Enter confirm  ·  Esc skip[/dim]")
+
+    def action_confirm(self) -> None:
+        rs = self.query_one("#choice-set", RadioSet)
+        btn = rs.pressed_button
+        self.dismiss(btn.id if btn else "skip")
+
+    def action_dismiss_skip(self) -> None:
+        self.dismiss(None)

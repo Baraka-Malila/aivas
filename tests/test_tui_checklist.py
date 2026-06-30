@@ -689,7 +689,8 @@ async def test_tui_input_prompt_label_exists():
 
 # ── Task 8: StepProgress tests ───────────────────────────────────────────────
 
-def test_step_progress_output_format():
+@pytest.mark.asyncio
+async def test_step_progress_output_format():
     """StepProgress outputs step start and complete lines."""
     from aivas.tui.progress import StepProgress
     output = []
@@ -697,8 +698,8 @@ def test_step_progress_output_format():
         def tui_print(self, msg):
             output.append(str(msg))
     p = StepProgress(FakeApp())
-    p.step("Port discovery")
-    p.done("Port discovery", "3 open ports")
+    await p.step("Port discovery")
+    await p.done("Port discovery", "3 open ports")
     combined = " ".join(output)
     assert "Port discovery" in combined
     assert "3 open ports" in combined
@@ -719,8 +720,8 @@ def test_step_progress_fail_shows_x():
 
 
 @pytest.mark.asyncio
-async def test_narrate_command_no_findings_shows_warning():
-    """/narrate with no prior scan shows a friendly warning."""
+async def test_narrate_not_a_command_anymore():
+    """/narrate is no longer a slash command; narration is in the post-scan modal."""
     app = _make_spy_app()
     async with app.run_test(size=(120, 30)) as pilot:
         inp = app.query_one("#cmd-input")
@@ -728,12 +729,12 @@ async def test_narrate_command_no_findings_shows_warning():
         await pilot.press("enter")
         await pilot.pause(0.2)
         combined = " ".join(app._captured)
-        assert "scan first" in combined.lower() or "no scan" in combined.lower()
+        assert "unknown command" in combined.lower()
 
 
 @pytest.mark.asyncio
-async def test_report_command_no_findings_shows_warning():
-    """/report with no prior scan shows a friendly warning."""
+async def test_report_not_a_command_anymore():
+    """/report is no longer a slash command; reports are in the post-scan modal."""
     app = _make_spy_app()
     async with app.run_test(size=(120, 30)) as pilot:
         inp = app.query_one("#cmd-input")
@@ -741,21 +742,23 @@ async def test_report_command_no_findings_shows_warning():
         await pilot.press("enter")
         await pilot.pause(0.2)
         combined = " ".join(app._captured)
-        assert "scan first" in combined.lower() or "no scan" in combined.lower()
+        assert "unknown command" in combined.lower()
 
 
-def test_ai_dispatch_no_key_shows_helpful_message():
-    """Free text with no API key shows a helpful message, not an error."""
+def test_ai_dispatch_no_key_uses_local_fallback():
+    """With no API key, free text falls back to local Ollama model."""
     from aivas.tui import ai as _ai
+    from unittest.mock import patch
     output = []
     class FakeApp:
         def tui_print(self, m): output.append(str(m))
         _scan_history = []
-    import asyncio
-    asyncio.run(_ai.dispatch(FakeApp(), "hello there", api_key=None))
+    with patch.object(_ai, "_call_local", return_value="Scan your network for threats."):
+        import asyncio
+        asyncio.run(_ai.dispatch(FakeApp(), "hello", api_key=None))
     combined = " ".join(output)
-    assert "api key" in combined.lower() or "key" in combined.lower()
-    assert "scan" in combined.lower()
+    assert "local" in combined.lower()
+    assert "aivas" in combined.lower()
 
 def test_ai_session_context_includes_last_scan():
     """build_context must include the last scan target in the returned string."""

@@ -6,26 +6,52 @@ import sqlite3
 import types
 
 from aivas import config as _config
-from aivas.history import list_scans
+from aivas.history import list_scans, get_scan_findings
 
 
-def _build_context(conn: sqlite3.Connection) -> str:
+def _build_context(conn: sqlite3.Connection, scan_id: int | None = None) -> str:
+    lines: list[str] = []
     scans = list_scans(conn, limit=3)
     if not scans:
         return "No scans performed yet."
-    lines = ["Recent scans:"]
+
+    lines.append("Recent scans:")
     for s in scans:
-        lines.append(f"  · {s['target']} — {s['grade']} ({s['risk_score']}/100)")
+        grade = (s.get("grade") or "").replace("Grade ", "")
+        lines.append(f"  · Scan #{s['id']}: {s['target']} — Grade {grade} "
+                     f"({s['risk_score']}/100) on {str(s['started_at'])[:10]}")
+
+    # Include full findings for the target scan or the most recent one
+    target_id = scan_id or scans[0]["id"]
+    findings = get_scan_findings(conn, target_id)
+    if findings:
+        scan_ref = next((s for s in scans if s["id"] == target_id), scans[0])
+        grade = (scan_ref.get("grade") or "").replace("Grade ", "")
+        lines.append(
+            f"\nFindings from scan #{target_id} ({scan_ref['target']}, Grade {grade}):"
+        )
+        by_sev: dict[str, list] = {}
+        for f in findings:
+            sev = f.get("cvss_severity") or "UNKNOWN"
+            by_sev.setdefault(sev, []).append(f)
+        for sev in ["CRITICAL", "HIGH", "MEDIUM", "LOW"]:
+            if sev not in by_sev:
+                continue
+            lines.append(f"  {sev} ({len(by_sev[sev])}):")
+            for f in by_sev[sev][:6]:
+                desc = (f.get("description") or "")[:100]
+                lines.append(
+                    f"    - {f['cve_id']} (CVSS {f.get('cvss_score','N/A')}): {desc}"
+                )
+
     return "\n".join(lines)
 
 
 async def handle_chat(
-    conn: sqlite3.Connection, text: str
+    conn: sqlite3.Connection,
+    text: str,
+    scan_id: int | None = None,
 ) -> tuple[str, tuple[str, int] | None]:
-    """Send text to the Groq agent. Returns (response, scan_intent|None).
-
-    scan_intent is (target: str, level: int) when the agent wants to run a scan.
-    """
     cfg = _config.load()
     api_key = cfg.get("api_key") or os.environ.get("GROQ_API_KEY")
     if not api_key:
@@ -36,7 +62,7 @@ async def handle_chat(
     from aivas.tui.agent import run_agent
 
     holder = types.SimpleNamespace(conn=conn)
-    context = _build_context(conn)
+    context = _build_context(conn, scan_id=scan_id)
     try:
         response, scan_intent = await run_agent(holder, text, api_key, context=context)
         return response or "", scan_intent

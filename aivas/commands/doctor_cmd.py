@@ -72,13 +72,26 @@ def doctor(ctx: click.Context) -> None:
         "aivas config set api_key YOUR_KEY" if not ok_key else "",
     ))
 
+    # Version
+    from aivas import __version__
+    lines.append(_check("version", True, f"AIVAS {__version__}"))
+
     # UDP / root
     import os
     is_root = os.geteuid() == 0
-    lines.append(_check(
-        "permissions", True,
-        "root (UDP scans enabled)" if is_root else "user (--udp needs sudo)",
-    ))
+    if is_root:
+        perm_ok, perm_detail, perm_hint = True, "root (UDP + OS detect enabled)", ""
+    else:
+        import subprocess as _sp
+        nmap_bin = shutil.which("nmap") or "nmap"
+        caps = _sp.run(["getcap", nmap_bin], capture_output=True, text=True).stdout
+        if "cap_net_raw" in caps:
+            perm_ok, perm_detail, perm_hint = True, "nmap has raw socket capability (UDP enabled)", ""
+        else:
+            perm_ok = False
+            perm_detail = "user — UDP/OS detect need raw sockets"
+            perm_hint = f"sudo setcap cap_net_raw,cap_net_admin+eip {nmap_bin}"
+    lines.append(_check("permissions", perm_ok, perm_detail, perm_hint))
 
     all_ok = all("✗" not in l.plain for l in lines)
     status_color = "green" if all_ok else "yellow"

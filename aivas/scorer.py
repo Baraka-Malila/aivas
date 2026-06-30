@@ -1,11 +1,13 @@
 _WEIGHTS = {"CRITICAL": 15, "HIGH": 8, "MEDIUM": 4, "LOW": 1}
 _CONFIDENCE_MULT = {"confirmed": 1.0, "probable": 0.9, "possible": 0.5}
 _MAX_PER_FINDING = 20
+_SCORE_TOP_N = 5
 
 
 def score_findings(findings: list[dict]) -> dict:
+    top = sorted(findings, key=lambda f: f.get("cvss_score") or 0, reverse=True)[:_SCORE_TOP_N]
     penalty = 0.0
-    for f in findings:
+    for f in top:
         sev = f.get("cvss_severity") or ""
         conf = f.get("confidence") or "possible"
         weight = _WEIGHTS.get(sev, 0)
@@ -22,4 +24,14 @@ def score_findings(findings: list[dict]) -> dict:
         grade = "D"
     else:
         grade = "F"
-    return {"score": score, "grade": grade, "penalty": int(penalty)}
+    sev_counts = {}
+    for f in findings:
+        s = (f.get("cvss_severity") or "N/A").upper()
+        sev_counts[s] = sev_counts.get(s, 0) + 1
+    return {
+        "score": score,
+        "grade": grade,
+        "penalty": int(penalty),
+        "total": len(findings),
+        "sev_counts": sev_counts,
+    }

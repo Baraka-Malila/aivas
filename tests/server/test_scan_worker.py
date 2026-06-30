@@ -25,7 +25,7 @@ async def _collect(gen):
 
 
 def test_run_scan_nmap_error(conn):
-    with patch("aivas.server.scan_worker._run_nmap",
+    with patch("aivas.server.scan_worker._blocking_nmap",
                side_effect=RuntimeError("nmap not found")):
         events = asyncio.run(_collect(run_scan(conn, "192.168.1.1")))
     assert events[-1]["type"] == "error"
@@ -33,7 +33,7 @@ def test_run_scan_nmap_error(conn):
 
 
 def test_run_scan_no_open_ports(conn):
-    with patch("aivas.server.scan_worker._run_nmap", return_value="<nmaprun/>"):
+    with patch("aivas.server.scan_worker._blocking_nmap", return_value="<nmaprun/>"):
         with patch("aivas.server.scan_worker.parse_nmap_xml", return_value=[]):
             events = asyncio.run(_collect(run_scan(conn, "192.168.1.99")))
     assert events[-1]["type"] == "error"
@@ -43,7 +43,7 @@ def test_run_scan_no_open_ports(conn):
 def test_run_scan_done_event_shape(conn):
     fake_service = {"host": "192.168.1.1", "port": 80, "service": "http",
                     "product": "apache", "version": "2.4", "os_family": None}
-    with patch("aivas.server.scan_worker._run_nmap", return_value="<xml/>"):
+    with patch("aivas.server.scan_worker._blocking_nmap", return_value="<xml/>"):
         with patch("aivas.server.scan_worker.parse_nmap_xml", return_value=[fake_service]):
             with patch("aivas.server.scan_worker.correlate", return_value=[]):
                 events = asyncio.run(_collect(run_scan(conn, "192.168.1.1")))
@@ -55,14 +55,17 @@ def test_run_scan_done_event_shape(conn):
     assert done["service_count"] == 1
     assert isinstance(done["findings"], list)
     assert isinstance(done["scan_id"], int)
+    assert isinstance(done["services"], list)
 
 
-def test_run_scan_emits_progress_events(conn):
+def test_run_scan_emits_many_progress_events(conn):
     fake_service = {"host": "192.168.1.1", "port": 22, "service": "ssh",
                     "product": "openssh", "version": "7.4", "os_family": None}
-    with patch("aivas.server.scan_worker._run_nmap", return_value="<xml/>"):
+    with patch("aivas.server.scan_worker._blocking_nmap", return_value="<xml/>"):
         with patch("aivas.server.scan_worker.parse_nmap_xml", return_value=[fake_service]):
             with patch("aivas.server.scan_worker.correlate", return_value=[]):
                 events = asyncio.run(_collect(run_scan(conn, "192.168.1.1")))
     progress = [e for e in events if e["type"] == "progress"]
-    assert len(progress) >= 2
+    # Should have at least: init, ports, ports_done, open_ports, port_open,
+    # cve_start, cve_lookup, cve_none, scoring, grade
+    assert len(progress) >= 8
