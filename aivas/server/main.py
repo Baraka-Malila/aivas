@@ -1,4 +1,4 @@
-"""FastAPI web server for AIVAS — routes, WebSocket scan handler, pending registry."""
+"""FastAPI web server for AIVAS — routes, WebSocket scan handler, static SPA serving."""
 from __future__ import annotations
 
 import sqlite3
@@ -16,7 +16,8 @@ from aivas.history import list_scans, get_scan_findings
 _pending: dict[str, tuple[str, int]] = {}
 _conn: sqlite3.Connection | None = None
 
-_FRONTEND = Path(__file__).parent.parent.parent / "frontend" / "index.html"
+_DIST = Path(__file__).parent.parent.parent / "frontend" / "dist"
+_LEGACY = Path(__file__).parent.parent.parent / "frontend" / "index.html"
 
 
 @asynccontextmanager
@@ -29,11 +30,6 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
-
-
-@app.get("/")
-async def index():
-    return FileResponse(_FRONTEND)
 
 
 @app.get("/health")
@@ -54,6 +50,14 @@ async def get_scan(scan_id: int):
     ).fetchone():
         raise HTTPException(status_code=404, detail="Scan not found")
     return findings
+
+
+@app.delete("/api/scan/{scan_id}")
+async def delete_scan(scan_id: int):
+    _conn.execute("DELETE FROM findings WHERE scan_id = ?", (scan_id,))
+    _conn.execute("DELETE FROM scans WHERE id = ?", (scan_id,))
+    _conn.commit()
+    return {"deleted": scan_id}
 
 
 @app.get("/api/report/{scan_id}")
@@ -79,9 +83,21 @@ async def get_pdf_report(scan_id: int):
     )
 
 
+@app.get("/api/narrate/{scan_id}")
+async def narrate(scan_id: int):
+    from aivas.server.chat_api import handle_narrate
+    text = await handle_narrate(_conn, scan_id)
+    return {"response": text}
+
+
 class ChatRequest(BaseModel):
     text: str
     scan_id: int | None = None
+
+
+class ScanRequest(BaseModel):
+    target: str
+    level: int = 2
 
 
 @app.post("/api/chat")
@@ -93,6 +109,13 @@ async def chat(body: ChatRequest):
         scan_key = str(uuid.uuid4())
         _pending[scan_key] = scan_intent
     return {"response": response, "scan_id": scan_key}
+
+
+@app.post("/api/scan")
+async def start_scan(body: ScanRequest):
+    scan_key = str(uuid.uuid4())
+    _pending[scan_key] = (body.target, body.level)
+    return {"scan_key": scan_key}
 
 
 @app.websocket("/ws/scan/{scan_key}")
@@ -113,3 +136,21 @@ async def scan_ws(websocket: WebSocket, scan_key: str):
         pass
     finally:
         await scan_gen.aclose()
+
+
+def _serve_spa(path: str = "") -> FileResponse:
+    candidate = _DIST / path
+    if path and candidate.is_file():
+        return FileResponse(str(candidate))
+    idx = _DIST / "index.html"
+    return FileResponse(str(idx if idx.exists() else _LEGACY))
+
+
+@app.get("/")
+async def index():
+    return _serve_spa()
+
+
+@app.get("/{full_path:path}")
+async def spa_fallback(full_path: str):
+    return _serve_spa(full_path)

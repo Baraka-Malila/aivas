@@ -45,7 +45,7 @@ def test_run_scan_done_event_shape(conn):
                     "product": "apache", "version": "2.4", "os_family": None}
     with patch("aivas.server.scan_worker._blocking_nmap", return_value="<xml/>"):
         with patch("aivas.server.scan_worker.parse_nmap_xml", return_value=[fake_service]):
-            with patch("aivas.server.scan_worker.correlate", return_value=[]):
+            with patch("aivas.server.scan_helpers.correlate", return_value=[]):
                 events = asyncio.run(_collect(run_scan(conn, "192.168.1.1")))
     done = events[-1]
     assert done["type"] == "done"
@@ -56,6 +56,7 @@ def test_run_scan_done_event_shape(conn):
     assert isinstance(done["findings"], list)
     assert isinstance(done["scan_id"], int)
     assert isinstance(done["services"], list)
+    assert isinstance(done["misconfigs"], list)
 
 
 def test_run_scan_emits_many_progress_events(conn):
@@ -63,7 +64,7 @@ def test_run_scan_emits_many_progress_events(conn):
                     "product": "openssh", "version": "7.4", "os_family": None}
     with patch("aivas.server.scan_worker._blocking_nmap", return_value="<xml/>"):
         with patch("aivas.server.scan_worker.parse_nmap_xml", return_value=[fake_service]):
-            with patch("aivas.server.scan_worker.correlate", return_value=[]):
+            with patch("aivas.server.scan_helpers.correlate", return_value=[]):
                 events = asyncio.run(_collect(run_scan(conn, "192.168.1.1")))
     progress = [e for e in events if e["type"] == "progress"]
     # Should have at least: init, ports, ports_done, open_ports, port_open,

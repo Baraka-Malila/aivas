@@ -71,3 +71,26 @@ async def handle_chat(
         if "401" in s or "invalid_api_key" in s.lower():
             return "API key rejected by Groq. Update: aivas config set api_key KEY", None
         return f"AI error: {exc}", None
+
+
+async def handle_narrate(conn: sqlite3.Connection, scan_id: int) -> str:
+    """Generate a 3-paragraph AI security assessment for a completed scan."""
+    cfg = _config.load()
+    api_key = cfg.get("api_key") or os.environ.get("GROQ_API_KEY")
+    if not api_key:
+        return "No AI key configured. Run: aivas config set api_key YOUR_GROQ_KEY"
+    context = _build_context(conn, scan_id=scan_id)
+    prompt = (
+        "Write a 3-paragraph professional security assessment for the scan above. "
+        "Paragraph 1: overall risk posture and grade justification. "
+        "Paragraph 2: most critical findings and their real-world impact. "
+        "Paragraph 3: prioritised remediation actions. "
+        "Use **bold** for CVE IDs and severity labels. Do not initiate a new scan."
+    )
+    holder = types.SimpleNamespace(conn=conn)
+    try:
+        from aivas.tui.agent import run_agent
+        response, _ = await run_agent(holder, prompt, api_key, context=context)
+        return response or "Assessment could not be generated."
+    except Exception as exc:
+        return f"Assessment error: {exc}"
