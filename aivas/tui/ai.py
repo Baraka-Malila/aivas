@@ -79,7 +79,7 @@ async def dispatch(app: "AIVASApp", text: str, api_key: str | None) -> None:
         _idle = getattr(app, 'set_scan_idle', None)
         if _busy: _busy("AIVAS thinking…")
         try:
-            response, scan_intent = await run_agent(app, text, api_key, context=context)
+            response, scan_intent, _ = await run_agent(app, text, api_key, context=context)
             if response:
                 app.tui_print(f"[dim]AIVAS:[/dim] {response}")
             if scan_intent:

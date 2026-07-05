@@ -64,7 +64,7 @@ async def handle_chat(
     holder = types.SimpleNamespace(conn=conn)
     context = _build_context(conn, scan_id=scan_id)
     try:
-        response, scan_intent = await run_agent(holder, text, api_key, context=context)
+        response, scan_intent, _ = await run_agent(holder, text, api_key, context=context)
         return response or "", scan_intent
     except Exception as exc:
         s = str(exc)
@@ -90,7 +90,7 @@ async def handle_narrate(conn: sqlite3.Connection, scan_id: int) -> str:
     holder = types.SimpleNamespace(conn=conn)
     try:
         from aivas.tui.agent import run_agent
-        response, _ = await run_agent(holder, prompt, api_key, context=context)
+        response, _, _turns = await run_agent(holder, prompt, api_key, context=context)
         return response or "Assessment could not be generated."
     except Exception as exc:
         return f"Assessment error: {exc}"

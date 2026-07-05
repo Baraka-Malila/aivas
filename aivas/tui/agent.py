@@ -83,19 +83,29 @@ def _exec_tool(name: str, args: dict, conn: sqlite3.Connection) -> tuple[str, tu
 
 
 async def run_agent(
-    app: "AIVASApp", text: str, api_key: str, context: str = ""
-) -> tuple[str, tuple | None]:
-    """Run Groq tool-calling loop. Returns (response_text, scan_intent|None)."""
+    app: "AIVASApp", text: str, api_key: str,
+    context: str = "", history: list[dict] | None = None,
+) -> tuple[str, tuple | None, list[dict]]:
+    """Run Groq tool-calling loop with optional prior history.
+
+    Returns:
+        (final_text, scan_intent | None, assistant_turns)
+        - final_text: the assistant's last natural-language reply
+        - scan_intent: (target, level) if any scan_host tool call was made, else None
+        - assistant_turns: the new messages produced this call, ready to persist:
+            [{"role":"assistant","content":..., "tool_calls":[...]?},
+             {"role":"tool","tool_call_id":..., "content":...}, ...]
+    """
     from groq import Groq
 
     system = "\n\n".join(filter(None, [_SYSTEM, context or ""]))
     client = Groq(api_key=api_key)
-    orig_messages: list[dict] = [
-        {"role": "system", "content": system},
-        {"role": "user", "content": text},
-    ]
-    messages: list[dict] = list(orig_messages)
+    messages: list[dict] = [{"role": "system", "content": system}]
+    if history:
+        messages.extend(history)
+    messages.append({"role": "user", "content": text})
     scan_intent: tuple | None = None
+    turns_to_persist: list[dict] = []
 
     def _call(msgs: list[dict], tools) -> object:
         kwargs: dict = {
@@ -114,26 +124,38 @@ async def run_agent(
         except Exception as exc:
             s = str(exc)
             if "400" in s or "tool" in s.lower():
-                resp = await asyncio.to_thread(_call, orig_messages, None)
+                # Retry without tools
+                orig = [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": text},
+                ]
+                resp = await asyncio.to_thread(_call, orig, None)
                 content = _XML_CALL_RE.sub("", resp.choices[0].message.content or "").strip()
-                return content, scan_intent
+                turns_to_persist.append({"role": "assistant", "content": content})
+                return content, scan_intent, turns_to_persist
             raise
         msg = resp.choices[0].message
 
         if not msg.tool_calls:
             content = _XML_CALL_RE.sub("", msg.content or "").strip()
-            return content, scan_intent
+            turns_to_persist.append({"role": "assistant", "content": content})
+            return content, scan_intent, turns_to_persist
 
-        messages.append({
+        # Build assistant turn with tool_calls
+        tool_calls_payload = [
+            {"id": tc.id, "type": "function",
+             "function": {"name": tc.function.name, "arguments": tc.function.arguments}}
+            for tc in msg.tool_calls
+        ]
+        assistant_turn = {
             "role": "assistant",
             "content": msg.content or "",
-            "tool_calls": [
-                {"id": tc.id, "type": "function",
-                 "function": {"name": tc.function.name, "arguments": tc.function.arguments}}
-                for tc in msg.tool_calls
-            ],
-        })
+            "tool_calls": tool_calls_payload,
+        }
+        messages.append(assistant_turn)
+        turns_to_persist.append(assistant_turn)
 
+        # Execute each tool, record both the in-flight message and the persisted turn
         for tc in msg.tool_calls:
             raw = tc.function.arguments or "{}"
             try:
@@ -143,8 +165,11 @@ async def run_agent(
             result, si = _exec_tool(tc.function.name, args, app.conn)
             if si:
                 scan_intent = si
-            messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
+            tool_msg = {"role": "tool", "tool_call_id": tc.id, "content": result}
+            messages.append(tool_msg)
+            turns_to_persist.append(tool_msg)
 
     final = await asyncio.to_thread(_call, messages, None)
     content = _XML_CALL_RE.sub("", final.choices[0].message.content or "").strip()
-    return content, scan_intent
+    turns_to_persist.append({"role": "assistant", "content": content})
+    return content, scan_intent, turns_to_persist
