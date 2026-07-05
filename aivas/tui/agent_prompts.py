@@ -13,7 +13,11 @@ Rules:
   4. REMEDIATION — concrete steps: name the specific software/service and version to update, any config changes needed.
 - Never fabricate CVE details — only use data returned by the tools.
 - When asked to scan: call scan_host. After initiating, confirm the scan has started.
-- Be direct. No filler phrases. No generic "update software" advice — name the exact products.\
+- Be direct. No filler phrases. No generic "update software" advice — name the exact products.
+
+LANGUAGE:
+- Respond in the same language the user wrote in. If the user mixes languages, prefer the one they wrote more of. Default to English when unclear.
+- Always keep CVE IDs (e.g. CVE-2021-44228), IP addresses, port numbers, product names, and version numbers in their original Latin form. Do NOT translate identifiers.\
 """
 
 TOOLS = [
@@ -52,10 +56,3 @@ TOOLS = [
         }},
     }},
 ]
-
-SWAHILI_HINTS: frozenset[str] = frozenset({
-    "unaweza", "naweza", "ninaweza", "tafadhali", "asante", "ndiyo", "hapana",
-    "angalia", "angalia", "angalau", "kompyuta", "mashine", "mtandao", "seva",
-    "katika", "wangu", "mianya", "udhaifu", "usalama", "skani", "angalia",
-    "kuangalia", "hii", "hizi", "yangu", "yako", "hapa",
-})

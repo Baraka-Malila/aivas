@@ -79,3 +79,22 @@ def test_exec_tool_get_history_bad_limit_uses_default(conn):
     )
     data = json.loads(result)
     assert isinstance(data, list)  # default 5 returns whatever's in DB (empty list)
+
+
+def test_system_prompt_contains_language_mirror_instruction():
+    from aivas.tui.agent import _SYSTEM
+    text = _SYSTEM.lower()
+    assert "language" in text
+    assert "same language" in text or "user wrote" in text or "user's language" in text
+
+
+def test_system_prompt_protects_identifiers():
+    from aivas.tui.agent import _SYSTEM
+    assert "CVE" in _SYSTEM or "identifier" in _SYSTEM.lower()
+
+
+def test_detect_lang_is_removed():
+    import aivas.tui.agent as a
+    assert not hasattr(a, "_detect_lang")
+    assert not hasattr(a, "_SWAHILI_HINTS")
+    assert not hasattr(a, "_lang_instruction")

@@ -7,7 +7,7 @@ import re as _re
 import sqlite3
 from typing import TYPE_CHECKING
 
-from .agent_prompts import SYSTEM as _SYSTEM, TOOLS as _TOOLS, SWAHILI_HINTS as _SWAHILI_HINTS
+from .agent_prompts import SYSTEM as _SYSTEM, TOOLS as _TOOLS
 
 _XML_CALL_RE = _re.compile(r'<function=\w[^>]*>.*?</function>', _re.DOTALL)
 
@@ -34,17 +34,6 @@ def _as_str(v, default: str = "") -> str:
         return default
     return str(v).strip()
 
-
-def _detect_lang(text: str) -> str:
-    words = set(text.lower().split())
-    return "sw" if len(words & _SWAHILI_HINTS) >= 2 else "en"
-
-
-def _lang_instruction(lang: str) -> str:
-    if lang == "sw":
-        return ("LAZIMA ujibu kwa Kiswahili PEKE YAKE. "
-                "Usitumie Kiingereza hata kidogo. Jibu lako lote liwe kwa Kiswahili.")
-    return "Respond ONLY in English. Do not mix in any Swahili."
 
 
 def _exec_tool(name: str, args: dict, conn: sqlite3.Connection) -> tuple[str, tuple | None]:
@@ -99,8 +88,7 @@ async def run_agent(
     """Run Groq tool-calling loop. Returns (response_text, scan_intent|None)."""
     from groq import Groq
 
-    lang = _detect_lang(text)
-    system = "\n\n".join(filter(None, [_SYSTEM, _lang_instruction(lang), context or ""]))
+    system = "\n\n".join(filter(None, [_SYSTEM, context or ""]))
     client = Groq(api_key=api_key)
     orig_messages: list[dict] = [
         {"role": "system", "content": system},
