@@ -82,8 +82,20 @@ def executive_summary(grade: str, score: int, target: str, findings: list[dict])
         risk = f"{n} lower-severity CVE(s) identified. Schedule remediation within 30 days."
     else:
         risk = "No CVEs matched in the local database. Verify that services are fully up to date."
-    return (f"Host <strong>{target}</strong> received a risk score of <strong>{score}/100</strong> "
+
+    body = (f"Host <strong>{target}</strong> received a risk score of <strong>{score}/100</strong> "
             f"(Grade <strong>{grade}</strong> — {label}). {risk}")
+
+    kev_n = sum(1 for f in findings if f.get("kev"))
+    if kev_n:
+        unit = "vulnerability" if kev_n == 1 else "vulnerabilities"
+        kev_note = (
+            f"<strong>WARNING — {kev_n} actively-exploited {unit} detected.</strong> "
+            "These CVEs are in CISA's Known Exploited Vulnerabilities catalog — "
+            "confirmed in-the-wild attacks. Remediation cannot wait. "
+        )
+        return kev_note + body
+    return body
 
 
 def sev_summary_rows(findings: list[dict]) -> str:

@@ -45,6 +45,7 @@ code{font-family:'Courier New',monospace;font-size:9pt;color:#1a56db}
 .sum-tbl th{background:#1a1a2e;color:#fff;padding:6px 10px;text-align:left;font-weight:700;font-size:9pt}
 .sum-tbl td{padding:5px 10px;border-bottom:1px solid #e8eaed;vertical-align:top}
 .rpt-footer{border-top:1px solid #dde0e6;padding-top:8px;margin-top:16px;font-size:8pt;color:#888;text-align:center}
+.kev-pill{display:inline-block;background:#7f1d1d;color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;margin-right:6px;letter-spacing:0.5px}
 @media print{.no-print{display:none}}"""
 
 
@@ -67,16 +68,28 @@ def generate_html_report(conn: sqlite3.Connection, scan_id: int) -> str | None:
         f'<span class="pill {_PIL_CSS[s]}">{len(by[s])} {s}</span>'
         for s in _SEV_ORDER if by[s]
     )
-    sorted_f = sorted(findings, key=lambda f: f.get("cvss_score") or 0, reverse=True)
+    def _sort_kev_first(fs: list[dict]) -> list[dict]:
+        return sorted(fs, key=lambda f: (not f.get("kev"),))
+
+    sorted_f = []
+    for sev in _SEV_ORDER:
+        group = [f for f in findings if f.get("cvss_severity") == sev]
+        sorted_f.extend(_sort_kev_first(group))
+    # Append findings with no/unknown severity at the end, KEV first
+    rest = [f for f in findings if f.get("cvss_severity") not in _SEV_ORDER]
+    sorted_f.extend(_sort_kev_first(rest))
+
     rows = ""
     for i, f in enumerate(sorted_f, 1):
         sev = f.get("cvss_severity") or "?"
         sc = _SEV_CSS.get(sev, "sev-l")
         desc = _esc((f.get("description") or "")[:120])
         fix = _esc(cve_fix(f, conn=conn))
+        kev_pill = ('<span class="kev-pill" title="CISA Known Exploited Vulnerability">&#9888; KEV</span>'
+                    if f.get("kev") else "")
         rows += (f'<tr><td style="text-align:center">{i}</td>'
                  f'<td><span class="sev {sc}">{_esc(sev)}</span></td>'
-                 f'<td><code>{_esc(f.get("cve_id",""))}</code></td>'
+                 f'<td>{kev_pill}<code>{_esc(f.get("cve_id",""))}</code></td>'
                  f'<td style="text-align:center">{f.get("cvss_score","N/A")}</td>'
                  f'<td>{desc}</td><td>{fix}</td></tr>\n')
     no_cves = '<tr><td colspan="6" style="color:#666;padding:12px">No CVEs matched in local database.</td></tr>'

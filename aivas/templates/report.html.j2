@@ -42,6 +42,17 @@
   .remediation { background: #eafaf1; border-left: 3px solid #27ae60; padding: 8px 12px; margin-top: 6px; font-size: 0.9em; color: #145a32; }
   .footer { text-align: center; padding: 32px; color: #aaa; font-size: 12px; }
   .empty { text-align: center; padding: 48px; color: #aaa; }
+  .kev-pill {
+    display: inline-block;
+    background: #7f1d1d;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin-right: 6px;
+    letter-spacing: 0.5px;
+  }
 </style>
 </head>
 <body>
@@ -92,7 +103,7 @@
     <tbody>
       {% for f in findings %}
       <tr>
-        <td><strong>{{ f.cve_id }}</strong></td>
+        <td>{% if f.kev %}<span class="kev-pill" title="CISA Known Exploited Vulnerability">&#9888; KEV</span>{% endif %}<strong>{{ f.cve_id }}</strong></td>
         <td>{{ f.cvss_score or 'N/A' }}</td>
         <td><span class="badge {{ f.cvss_severity or 'NA' }}">{{ f.cvss_severity or 'N/A' }}</span></td>
         <td>{{ f.confidence }}</td>

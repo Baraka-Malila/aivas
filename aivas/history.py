@@ -50,8 +50,18 @@ def save_scan(
 
 def list_scans(conn: sqlite3.Connection, limit: int = 20) -> list[dict]:
     rows = conn.execute(
-        """SELECT id, target, started_at, finding_count, risk_score, grade
-           FROM scans ORDER BY id DESC LIMIT ?""",
+        """
+        SELECT s.id, s.target, s.started_at, s.finding_count, s.risk_score, s.grade,
+               COALESCE((
+                 SELECT COUNT(DISTINCT f.cve_id)
+                   FROM findings f
+                   JOIN cves c ON c.cve_id = f.cve_id
+                  WHERE f.scan_id = s.id AND c.kev = 1
+               ), 0) AS kev_count
+          FROM scans s
+         ORDER BY s.id DESC
+         LIMIT ?
+        """,
         (limit,),
     ).fetchall()
     return [dict(r) for r in rows]
