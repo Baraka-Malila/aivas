@@ -123,9 +123,11 @@ async def _probe_misconfigs(app: "AIVASApp", services: list) -> list[dict]:
         if (svc.get("service", "") in ("http", "https", "ssl")
                 or svc.get("port") in (80, 443, 8080, 8443)):
             from aivas.prober import probe_http_service
-            misconfigs.extend(await asyncio.to_thread(
-                probe_http_service, svc["host"], svc["port"],
-                "ssl" in svc.get("service", "")))
+            _is_ssl = "ssl" in svc.get("service", "") or svc.get("port") in (443, 8443)
+            _scheme = "https" if _is_ssl else "http"
+            _result = await asyncio.to_thread(
+                probe_http_service, svc["host"], svc["port"], _scheme)
+            misconfigs.extend(_result["findings"])
     if misconfigs:
         mc_table = misconfig_table("Configuration Issues", misconfigs)
         app.tui_print(mc_table); app.store_scan_output(mc_table)

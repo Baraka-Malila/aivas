@@ -43,10 +43,13 @@ def test_run_scan_no_open_ports(conn):
 def test_run_scan_done_event_shape(conn):
     fake_service = {"host": "192.168.1.1", "port": 80, "service": "http",
                     "product": "apache", "version": "2.4", "os_family": None}
+    fake_probe_result = {"status": "ok", "findings": []}
     with patch("aivas.server.scan_worker._blocking_nmap", return_value="<xml/>"):
         with patch("aivas.server.scan_worker.parse_nmap_xml", return_value=[fake_service]):
             with patch("aivas.server.scan_helpers.correlate", return_value=[]):
-                events = asyncio.run(_collect(run_scan(conn, "192.168.1.1")))
+                with patch("aivas.prober.probe_http_service",
+                           return_value=fake_probe_result):
+                    events = asyncio.run(_collect(run_scan(conn, "192.168.1.1")))
     done = events[-1]
     assert done["type"] == "done"
     assert done["target"] == "192.168.1.1"

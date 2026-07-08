@@ -1,3 +1,4 @@
+import socket
 import urllib.request
 import urllib.error
 
@@ -21,17 +22,19 @@ _RISKY_METHODS = {
 }
 
 
-def check_methods(url: str, timeout: int = 5) -> list[dict]:
+def check_methods(url: str, timeout: int = 5) -> dict:
     """Return misconfiguration findings for dangerous HTTP methods."""
-    findings = []
+    findings: list[dict] = []
     try:
         req = urllib.request.Request(url, method="OPTIONS")
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             allow = resp.headers.get("Allow", "")
     except urllib.error.HTTPError as e:
         allow = e.headers.get("Allow", "") if e.headers else ""
-    except Exception:
-        return []
+    except (urllib.error.URLError, socket.timeout, ConnectionRefusedError, OSError):
+        return {"status": "unreachable", "findings": []}
+    except Exception as exc:
+        return {"status": "error", "findings": [], "error": str(exc)}
 
     allowed_methods = {m.strip().upper() for m in allow.split(",")}
     for method, (title, severity, description, recommendation) in _RISKY_METHODS.items():
@@ -43,4 +46,4 @@ def check_methods(url: str, timeout: int = 5) -> list[dict]:
                 "description": description,
                 "recommendation": recommendation,
             })
-    return findings
+    return {"status": "ok", "findings": findings}

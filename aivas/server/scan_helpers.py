@@ -97,19 +97,30 @@ async def http_probe_events(
     for svc in http_svcs:
         port = svc.get("port", 80)
         host = svc.get("host", "")
-        ssl = port == 443 or svc.get("service") == "https"
+        scheme = "https" if (port in (443, 8443) or svc.get("service") == "https") else "http"
         label = f"{host}:{port}"
         yield _ev("http_probe", f"  {label} — probing headers, paths, methods…")
         try:
-            findings = await asyncio.to_thread(probe_http_service, host, port, ssl)
-        except Exception:
-            yield _ev("http_error", f"  {label} — probe failed (host may be unreachable)")
+            result = await asyncio.to_thread(probe_http_service, host, port, scheme)
+        except Exception as exc:
+            yield _ev("http_error", f"  {label} — probe error: {exc}")
             continue
-        for f in findings:
+        if result["status"] == "unreachable":
+            yield _ev("http_unreachable",
+                      f"  {label} — HTTP probe failed (host did not respond)")
+            continue
+        if result["status"] == "error":
+            yield _ev("http_error",
+                      f"  {label} — {result.get('error', 'probe error')}")
+            continue
+        # status == "ok"
+        for f in result["findings"]:
             f["host"] = host
             f["port"] = port
-            yield _ev("http_finding", f"  {label} — {f.get('title', 'unknown')} [{f.get('severity', '?')}]")
-        all_misconfigs.extend(findings)
+            all_misconfigs.append(f)
+            yield _ev("http_finding",
+                      f"  {label} — {f.get('title', 'finding')} "
+                      f"[{f.get('severity', 'MEDIUM')}]")
     if not all_misconfigs:
         yield _ev("http_clean", "  No HTTP misconfigurations detected")
     yield {"__misconfigs": all_misconfigs}
