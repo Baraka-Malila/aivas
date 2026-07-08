@@ -53,6 +53,10 @@ def _esc(s: str) -> str:
     return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def _sort_kev_first(findings: list[dict]) -> list[dict]:
+    return sorted(findings, key=lambda f: (not f.get("kev"),))
+
+
 def generate_html_report(conn: sqlite3.Connection, scan_id: int) -> str | None:
     meta = get_scan_meta(conn, scan_id)
     if not meta:
@@ -68,9 +72,6 @@ def generate_html_report(conn: sqlite3.Connection, scan_id: int) -> str | None:
         f'<span class="pill {_PIL_CSS[s]}">{len(by[s])} {s}</span>'
         for s in _SEV_ORDER if by[s]
     )
-    def _sort_kev_first(fs: list[dict]) -> list[dict]:
-        return sorted(fs, key=lambda f: (not f.get("kev"),))
-
     sorted_f = []
     for sev in _SEV_ORDER:
         group = [f for f in findings if f.get("cvss_severity") == sev]
