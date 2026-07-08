@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import shutil
 import sqlite3
 import subprocess
@@ -10,9 +11,12 @@ import xml.etree.ElementTree as ET
 from typing import AsyncGenerator
 
 from aivas.history import save_scan
+from aivas.narrator.narrator import narrate
+from aivas.narrator.providers import GroqProvider
 from aivas.parser import parse_nmap_xml
 from aivas.scanner.nse import scripts_for_level
 from aivas.scorer import score_findings
+from aivas.server.cve_advice import warm_cache
 from aivas.server.scan_helpers import (
     _ev, _svc_label,
     cve_events, http_probe_events, scan_host,
@@ -139,6 +143,42 @@ async def run_scan(
             else:
                 yield ev
         all_services.extend(services)
+
+    api_key = os.environ.get("GROQ_API_KEY")
+    try:
+        from aivas import config as _config
+        api_key = _config.load().get("api_key") or api_key
+    except Exception:
+        pass
+
+    if api_key and all_findings:
+        yield _ev("phase_header", "AI NARRATION")
+        yield _ev("narrate", f"Generating bilingual narrations for {len(all_findings)} finding(s)…")
+        try:
+            provider = GroqProvider(api_key=api_key)
+            narrated = await asyncio.to_thread(
+                narrate, all_findings[:30], provider,
+            )
+            for i, f in enumerate(narrated):
+                all_findings[i] = f
+        except Exception as exc:
+            yield _ev("narrate_error", f"Narration failed: {exc}")
+
+        yield _ev("phase_header", "AI REMEDIATION")
+        cve_ids = [f.get("cve_id") for f in all_findings if f.get("cve_id")]
+        yield _ev("advice", f"Generating remediation advice for {len(cve_ids)} CVE(s)…")
+        try:
+            await warm_cache(conn, cve_ids, api_key, max_concurrent=5)
+        except Exception as exc:
+            yield _ev("advice_error", f"Advice warmup failed: {exc}")
+
+    for f in all_findings:
+        if not f.get("cve_id"):
+            continue
+        row = conn.execute(
+            "SELECT kev FROM cves WHERE cve_id=?", (f["cve_id"],),
+        ).fetchone()
+        f["kev"] = bool(row and row["kev"])
 
     yield _ev("phase_header", "SCORING")
     findings = [
