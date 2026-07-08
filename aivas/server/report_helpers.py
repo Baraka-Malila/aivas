@@ -21,11 +21,29 @@ _BUF = {"buffer overflow", "stack overflow", "heap overflow", "out-of-bounds wri
 _TRAV = {"path traversal", "directory traversal", "file inclusion"}
 
 
-def cve_fix(f: dict) -> str:
-    """Return a remediation string for a finding. Uses stored fix if available."""
-    fix = (f.get("fix_en") or "").strip()
-    if fix:
-        return fix
+def cve_fix(f: dict, conn: "sqlite3.Connection | None" = None, lang: str = "en") -> str:
+    """Three-tier remediation lookup:
+       1. Stored on the finding (from narrator path) → return.
+       2. Cached in cve_advice table → return.
+       3. Legacy template by description keyword → return.
+    """
+    fix_field = f.get(f"fix_{lang}") or ""
+    fix_field = fix_field.strip()
+    if fix_field:
+        return fix_field
+
+    cve_id = f.get("cve_id", "")
+    if conn is not None and cve_id:
+        from aivas.server.cve_advice import get_advice
+        cached = get_advice(conn, cve_id)
+        if cached:
+            return cached.get(f"advice_{lang}", "") or cached.get("advice_en", "")
+
+    return _legacy_template_fix(f, lang)
+
+
+def _legacy_template_fix(f: dict, lang: str = "en") -> str:
+    """Existing keyword-switch fallback; honest as a fallback, dishonest as primary."""
     desc = (f.get("description") or "").lower()
     cve = f.get("cve_id", "")
     if any(t in desc for t in _RCE):

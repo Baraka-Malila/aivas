@@ -73,7 +73,7 @@ def generate_html_report(conn: sqlite3.Connection, scan_id: int) -> str | None:
         sev = f.get("cvss_severity") or "?"
         sc = _SEV_CSS.get(sev, "sev-l")
         desc = _esc((f.get("description") or "")[:120])
-        fix = _esc(cve_fix(f))
+        fix = _esc(cve_fix(f, conn=conn))
         rows += (f'<tr><td style="text-align:center">{i}</td>'
                  f'<td><span class="sev {sc}">{_esc(sev)}</span></td>'
                  f'<td><code>{_esc(f.get("cve_id",""))}</code></td>'
