@@ -5,6 +5,7 @@ import pytest
 from aivas.database.schema import create_schema
 from aivas.server.report_helpers import executive_summary
 from aivas.history import list_scans
+from aivas.server.report_gen import generate_html_report
 
 
 @pytest.fixture
@@ -71,3 +72,21 @@ def test_list_scans_kev_count_zero_when_no_kev(conn):
     )
     conn.commit()
     assert list_scans(conn, limit=5)[0]["kev_count"] == 0
+
+
+def test_html_report_includes_kev_pill_via_db(conn):
+    conn.execute(
+        "INSERT INTO scans(id, target, started_at, risk_score, grade) "
+        "VALUES (1, '192.168.1.1', '2026-07-08', 75, 'Grade C')"
+    )
+    conn.execute(
+        "INSERT INTO cves(cve_id, description, kev) VALUES('CVE-2021-44228','Log4Shell RCE',1)"
+    )
+    conn.execute(
+        "INSERT INTO findings(scan_id, host, cve_id, cvss_score, cvss_severity) "
+        "VALUES (1, '192.168.1.1', 'CVE-2021-44228', 10.0, 'CRITICAL')"
+    )
+    conn.commit()
+    html = generate_html_report(conn, 1)
+    assert html is not None
+    assert "kev-pill" in html

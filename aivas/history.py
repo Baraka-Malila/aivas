@@ -95,7 +95,7 @@ def get_scan_meta(conn: sqlite3.Connection, scan_id: int) -> dict | None:
 def get_scan_findings(conn: sqlite3.Connection, scan_id: int) -> list[dict]:
     rows = conn.execute(
         """SELECT f.host, f.cve_id, f.cvss_score, f.cvss_severity, f.confidence,
-                  f.en_risk, f.sw_risk, f.en_fix, f.sw_fix, c.description
+                  f.en_risk, f.sw_risk, f.en_fix, f.sw_fix, c.description, c.kev
            FROM findings f
            LEFT JOIN cves c ON c.cve_id = f.cve_id
            WHERE f.scan_id = ?""",
@@ -113,6 +113,7 @@ def get_scan_findings(conn: sqlite3.Connection, scan_id: int) -> list[dict]:
             "fix_en": r["en_fix"] or "",
             "fix_sw": r["sw_fix"] or "",
             "description": r["description"] or "",
+            "kev": bool(r["kev"]),
         }
         for r in rows
     ]
