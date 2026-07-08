@@ -72,7 +72,7 @@ async def generate_advice(
         cvss_severity=cve_row.get("cvss_severity") or "N/A",
         description=(cve_row.get("description") or "")[:600],
     )
-    text = await asyncio.to_thread(provider.generate, prompt)
+    text = await asyncio.to_thread(provider.generate, prompt, 800)
     return _parse_two_paragraphs(text)
 
 

@@ -25,6 +25,14 @@ async def chat_ws(websocket: WebSocket, session_id: str):
             except WebSocketDisconnect:
                 return
             if msg.get("type") == "interrupt":
+                # NOTE (§12.4 — streaming deferred): The LLM call in handle_chat
+                # is synchronous and completes before the next receive_json() runs.
+                # This acknowledgement is therefore sent AFTER the response is already
+                # computed — interrupt has no actual effect today.  Real cancellation
+                # requires refactoring handle_chat to stream tokens and check a
+                # cancellation flag between chunks.  Do not remove this branch; the
+                # frontend expects the "interrupted" reply to keep its state machine
+                # consistent even though no in-flight call was cancelled.
                 await websocket.send_json({"type": "interrupted"})
                 continue
             if msg.get("type") != "user":

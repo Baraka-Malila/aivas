@@ -152,20 +152,33 @@ async def run_scan(
         pass
 
     if api_key and all_findings:
+        # Filter and sort before AI phases — only narrate/warmup findings that
+        # will be saved (probable/confirmed), highest CVSS first so the most
+        # critical findings are narrated when the list is capped at 30.
+        findings_for_ai = sorted(
+            [f for f in all_findings if f.get("confidence") in ("probable", "confirmed")],
+            key=lambda f: f.get("cvss_score") or 0,
+            reverse=True,
+        )[:30]
+
         yield _ev("phase_header", "AI NARRATION")
-        yield _ev("narrate", f"Generating bilingual narrations for {len(all_findings)} finding(s)…")
+        yield _ev("narrate", f"Generating bilingual narrations for {len(findings_for_ai)} finding(s)…")
         try:
             provider = GroqProvider(api_key=api_key)
             narrated = await asyncio.to_thread(
-                narrate, all_findings[:30], provider,
+                narrate, findings_for_ai, provider,
             )
-            for i, f in enumerate(narrated):
-                all_findings[i] = f
+            # Write narrated results back into the original list by cve_id so
+            # the SCORING phase (which re-filters all_findings) picks them up.
+            narrated_by_id = {f.get("cve_id"): f for f in narrated}
+            all_findings = [
+                narrated_by_id.get(f.get("cve_id"), f) for f in all_findings
+            ]
         except Exception as exc:
             yield _ev("narrate_error", f"Narration failed: {exc}")
 
         yield _ev("phase_header", "AI REMEDIATION")
-        cve_ids = [f.get("cve_id") for f in all_findings if f.get("cve_id")]
+        cve_ids = [f.get("cve_id") for f in findings_for_ai if f.get("cve_id")]
         yield _ev("advice", f"Generating remediation advice for {len(cve_ids)} CVE(s)…")
         try:
             await warm_cache(conn, cve_ids, api_key, max_concurrent=5)

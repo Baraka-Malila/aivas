@@ -48,6 +48,7 @@ def save_user(conn: sqlite3.Connection, session_id: str, text: str) -> None:
         (session_id, text),
     )
     conn.commit()
+    touch_session(conn, session_id)
 
 
 def save_assistant(
@@ -61,6 +62,7 @@ def save_assistant(
         (session_id, text, tc_json),
     )
     conn.commit()
+    touch_session(conn, session_id)
 
 
 def save_tool_result(
@@ -73,6 +75,7 @@ def save_tool_result(
         (session_id, result, tool_call_id),
     )
     conn.commit()
+    touch_session(conn, session_id)
 
 
 def update_title_if_unset(
