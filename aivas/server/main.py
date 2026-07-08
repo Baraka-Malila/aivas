@@ -13,10 +13,10 @@ from pydantic import BaseModel
 from aivas.database.schema import get_db, create_schema, DB_PATH
 from aivas.history import list_scans, get_scan_findings
 from aivas.server.chat_memory import (
-    create_session, get_session, list_sessions, delete_session,
+    create_session, get_session, list_sessions, delete_session, load_history,
 )
-from aivas.server.chat_memory import load_history
 from aivas.server.chat_api import handle_chat
+from aivas.server.ws_chat import router as _ws_router
 
 _pending: dict[str, tuple[str, int]] = {}
 _conn: sqlite3.Connection | None = None
@@ -35,6 +35,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+app.include_router(_ws_router)
 
 
 @app.get("/health")
