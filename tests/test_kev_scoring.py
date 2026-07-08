@@ -24,12 +24,13 @@ def test_kev_finding_caps_grade_at_c():
     # One LOW finding marked KEV would otherwise score very high
     out = score_findings([_f("CVE-K", 3.0, sev="LOW", kev=True)])
     assert out["grade"] in ("C", "D", "F")
-    assert out["score"] <= 75
+    assert out["score"] <= 74
 
 
 def test_kev_multiplier_increases_penalty():
     base = score_findings([_f("CVE-1", 7.0, sev="HIGH", conf="confirmed", kev=False)])
     with_kev = score_findings([_f("CVE-1", 7.0, sev="HIGH", conf="confirmed", kev=True)])
+    assert with_kev["penalty"] > base["penalty"]
     assert with_kev["score"] < base["score"]
 
 

@@ -26,14 +26,20 @@ def _grade_for_score(score: int) -> str:
 
 
 def score_findings(findings: list[dict]) -> dict:
-    top = sorted(
-        findings, key=lambda f: _penalty_for(f), reverse=True,
+    # Sort by effective penalty (not raw CVSS) so KEV-multiplied findings rank
+    # higher than same-severity non-KEV ones.  Compute penalty once per finding
+    # to avoid calling _penalty_for twice (during sort and during sum).
+    top_with_pen = sorted(
+        ((f, _penalty_for(f)) for f in findings),
+        key=lambda x: x[1],
+        reverse=True,
     )[:_SCORE_TOP_N]
-    penalty = sum(_penalty_for(f) for f in top)
+    top = [f for f, _ in top_with_pen]
+    penalty = sum(min(p, _MAX_PER_FINDING) for _, p in top_with_pen)
     score = max(0, 100 - int(penalty))
     grade = _grade_for_score(score)
 
-    # KEV cap: any KEV finding caps grade at C (score ≤ 75)
+    # KEV cap: any KEV finding caps grade at C (score ≤ 74)
     if any(f.get("kev") for f in findings):
         if score > _KEV_GRADE_CAP_SCORE:
             score = _KEV_GRADE_CAP_SCORE
