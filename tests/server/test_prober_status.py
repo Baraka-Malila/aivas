@@ -19,9 +19,11 @@ def test_ok_returns_status_ok():
         "__enter__": lambda self: self,
         "__exit__": lambda self, *a: None,
     })()
-    with patch("urllib.request.urlopen", return_value=fake_resp):
+    with patch("aivas.prober.headers.urllib.request.urlopen", return_value=fake_resp), \
+         patch("aivas.prober.endpoints.urllib.request.urlopen", return_value=fake_resp), \
+         patch("aivas.prober.methods.urllib.request.urlopen", return_value=fake_resp):
         result = probe_http_service("127.0.0.1", 80, scheme="http")
-    assert result["status"] in ("ok", "error")
+    assert result["status"] == "ok"
     assert isinstance(result["findings"], list)
 
 
