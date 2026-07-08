@@ -12,6 +12,11 @@ from pydantic import BaseModel
 
 from aivas.database.schema import get_db, create_schema, DB_PATH
 from aivas.history import list_scans, get_scan_findings
+from aivas.server.chat_memory import (
+    create_session, get_session, list_sessions, delete_session,
+)
+from aivas.server.chat_memory import load_history
+from aivas.server.chat_api import handle_chat
 
 _pending: dict[str, tuple[str, int]] = {}
 _conn: sqlite3.Connection | None = None
@@ -92,6 +97,7 @@ async def narrate(scan_id: int):
 
 class ChatRequest(BaseModel):
     text: str
+    session_id: str | None = None
     scan_id: int | None = None
 
 
@@ -102,13 +108,50 @@ class ScanRequest(BaseModel):
 
 @app.post("/api/chat")
 async def chat(body: ChatRequest):
-    from aivas.server.chat_api import handle_chat
-    response, scan_intent = await handle_chat(_conn, body.text, scan_id=body.scan_id)
+    sid = body.session_id or create_session(_conn)
+    response, scan_intent = await handle_chat(
+        _conn, sid, body.text, scan_id=body.scan_id,
+    )
     scan_key = None
     if scan_intent:
         scan_key = str(uuid.uuid4())
         _pending[scan_key] = scan_intent
-    return {"response": response, "scan_id": scan_key}
+    return {"response": response, "scan_id": scan_key, "session_id": sid}
+
+
+@app.get("/api/sessions")
+async def list_sessions_route():
+    return list_sessions(_conn, limit=20)
+
+
+@app.post("/api/sessions")
+async def create_session_route():
+    sid = create_session(_conn)
+    return {"id": sid}
+
+
+@app.get("/api/sessions/{session_id}")
+async def get_session_route(session_id: str):
+    s = get_session(_conn, session_id)
+    if not s:
+        raise HTTPException(status_code=404, detail="Session not found")
+    s["messages"] = load_history(_conn, session_id, max_turns=100)
+    return s
+
+
+@app.get("/api/sessions/{session_id}/messages")
+async def get_session_messages_route(session_id: str):
+    s = get_session(_conn, session_id)
+    if not s:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return load_history(_conn, session_id, max_turns=100)
+
+
+@app.delete("/api/sessions/{session_id}")
+async def delete_session_route(session_id: str):
+    if not delete_session(_conn, session_id):
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {"deleted": session_id}
 
 
 @app.post("/api/scan")
