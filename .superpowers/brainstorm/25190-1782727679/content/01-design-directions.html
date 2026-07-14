@@ -1,0 +1,386 @@
+<style>
+  body { background: #0a0a0a; color: #e2e8f0; font-family: system-ui, sans-serif; padding: 2rem; }
+  h1 { font-size: 1.1rem; color: #94a3b8; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.3rem; }
+  .subtitle { color: #475569; font-size: 0.85rem; margin-bottom: 2.5rem; }
+
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+
+  .card {
+    background: #111;
+    border: 1px solid #1e2a3a;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.15s;
+  }
+  .card:hover { border-color: #4a9eff; transform: translateY(-2px); }
+  .card.selected { border-color: #4a9eff; box-shadow: 0 0 0 1px #4a9eff; }
+
+  .card-label {
+    padding: 0.75rem 1rem;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #4a9eff;
+    border-bottom: 1px solid #1e2a3a;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .badge {
+    font-size: 0.6rem;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: #1e3a5f;
+    color: #4a9eff;
+  }
+  .badge.rec { background: #14532d; color: #4ade80; }
+
+  /* ── MOCKUP CONTAINER ── */
+  .mockup {
+    height: 260px;
+    position: relative;
+    overflow: hidden;
+    font-size: 0;
+  }
+
+  /* ── OPTION A: Terminal Pro ── */
+  .mock-a {
+    background: #0d1117;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px !important;
+    padding: 8px;
+  }
+  .mock-a .topbar {
+    display: flex; gap: 4px; margin-bottom: 6px;
+  }
+  .mock-a .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .mock-a .ascii {
+    color: #4a9eff; font-size: 5px !important; line-height: 1.2;
+    letter-spacing: 0; margin-bottom: 6px; font-family: monospace;
+  }
+  .mock-a .row { display: flex; gap: 6px; margin-bottom: 6px; }
+  .mock-a .panel {
+    border: 1px solid #1e2530;
+    border-radius: 3px; padding: 5px;
+    font-size: 8px !important; font-family: monospace; line-height: 1.5;
+  }
+  .mock-a .panel.wide { flex: 1; }
+  .mock-a .panel.half { flex: 1; }
+  .mock-a .panel-title { color: #4a9eff; font-size: 7px !important; margin-bottom: 3px; border-bottom: 1px solid #1e2530; padding-bottom: 2px; }
+  .mock-a .scan-row { display: flex; gap: 4px; margin-bottom: 6px; }
+  .mock-a .scan-input { flex: 1; background: #161b22; border: 1px solid #30363d; border-radius: 2px; padding: 3px 5px; color: #e6edf3; font-size: 8px !important; font-family: monospace; }
+  .mock-a .scan-btn { background: #4a9eff; color: #000; border-radius: 2px; padding: 3px 7px; font-size: 7px !important; font-family: monospace; font-weight: bold; }
+  .mock-a .cve-row { display: flex; gap: 4px; padding: 2px 0; border-bottom: 1px solid #1c1f24; }
+  .mock-a .sev-crit { color: #e53935; font-size: 7px !important; }
+  .mock-a .sev-high { color: #ff6d00; font-size: 7px !important; }
+  .mock-a .cve-id { color: #4a9eff; font-size: 7px !important; }
+  .mock-a .score-big { color: #fdd835; font-size: 22px !important; font-weight: bold; line-height: 1; }
+  .mock-a .grade { color: #e53935; font-size: 16px !important; font-weight: bold; }
+  .mock-a .chat-line { color: #4caf50; font-size: 7px !important; }
+  .mock-a .chat-resp { color: #94a3b8; font-size: 7px !important; }
+
+  /* ── OPTION B: Security Dashboard ── */
+  .mock-b {
+    background: #0f172a;
+    font-size: 9px !important;
+    display: flex;
+    gap: 0;
+  }
+  .mock-b .sidebar {
+    width: 36px; background: #1e293b; border-right: 1px solid #334155;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 8px 0; gap: 8px;
+  }
+  .mock-b .sidebar-icon {
+    width: 20px; height: 20px; border-radius: 4px;
+    background: #334155; display: flex; align-items: center;
+    justify-content: center; font-size: 10px !important;
+  }
+  .mock-b .sidebar-icon.active { background: #4a9eff22; color: #4a9eff; }
+  .mock-b .main { flex: 1; padding: 8px; overflow: hidden; }
+  .mock-b .topbar { display: flex; gap: 6px; margin-bottom: 8px; align-items: center; }
+  .mock-b .search { flex: 1; background: #1e293b; border: 1px solid #334155; border-radius: 4px; padding: 4px 8px; color: #94a3b8; font-size: 8px !important; }
+  .mock-b .btn-scan { background: linear-gradient(135deg, #4a9eff, #818cf8); color: #fff; border-radius: 4px; padding: 4px 10px; font-size: 7px !important; font-weight: bold; white-space: nowrap; }
+  .mock-b .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-bottom: 8px; }
+  .mock-b .metric-card { background: #1e293b; border: 1px solid #334155; border-radius: 5px; padding: 6px; }
+  .mock-b .metric-label { color: #64748b; font-size: 6px !important; text-transform: uppercase; letter-spacing: 0.08em; }
+  .mock-b .metric-val { font-size: 18px !important; font-weight: bold; line-height: 1.2; }
+  .mock-b .metric-sub { font-size: 6px !important; color: #64748b; }
+  .mock-b .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .mock-b .panel { background: #1e293b; border: 1px solid #334155; border-radius: 5px; padding: 6px; }
+  .mock-b .panel-title { color: #94a3b8; font-size: 7px !important; margin-bottom: 4px; display: flex; justify-content: space-between; }
+  .mock-b .cve-item { display: flex; justify-content: space-between; padding: 2px 0; border-bottom: 1px solid #1e293b; font-size: 7px !important; }
+  .mock-b .dot-crit { width: 5px; height: 5px; border-radius: 50%; background: #e53935; display: inline-block; margin-right: 3px; }
+  .mock-b .chat-msg { font-size: 7px !important; padding: 3px 0; color: #94a3b8; line-height: 1.4; border-bottom: 1px solid #1e293b22; }
+  .mock-b .chat-user { color: #4a9eff; }
+  .mock-b .network-node { fill: #4a9eff22; stroke: #4a9eff; stroke-width: 1; }
+  .mock-b .network-line { stroke: #334155; stroke-width: 0.5; }
+
+  /* ── OPTION C: Minimal Intelligence ── */
+  .mock-c {
+    background: #09090b;
+    font-size: 9px !important;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+  }
+  .mock-c .topnav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px; border-bottom: 1px solid #18181b;
+  }
+  .mock-c .logo { color: #fff; font-weight: 700; font-size: 10px !important; letter-spacing: -0.02em; }
+  .mock-c .logo span { color: #4a9eff; }
+  .mock-c .nav-links { display: flex; gap: 10px; }
+  .mock-c .nav-link { color: #71717a; font-size: 7px !important; }
+  .mock-c .nav-link.active { color: #fff; }
+  .mock-c .body { flex: 1; display: flex; gap: 0; }
+  .mock-c .content { flex: 1; padding: 10px 12px; }
+  .mock-c .scan-hero { text-align: center; margin-bottom: 10px; }
+  .mock-c .hero-label { color: #52525b; font-size: 7px !important; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
+  .mock-c .scan-row { display: flex; gap: 4px; max-width: 200px; margin: 0 auto 8px; }
+  .mock-c .scan-input { flex: 1; background: #18181b; border: 1px solid #27272a; border-radius: 5px; padding: 5px 8px; color: #fff; font-size: 8px !important; }
+  .mock-c .scan-btn { background: #fff; color: #000; border-radius: 5px; padding: 5px 8px; font-size: 7px !important; font-weight: 700; white-space: nowrap; }
+  .mock-c .result-card { background: #18181b; border: 1px solid #27272a; border-radius: 6px; padding: 7px 8px; margin-bottom: 5px; }
+  .mock-c .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+  .mock-c .result-target { color: #fff; font-size: 9px !important; font-weight: 600; font-family: monospace; }
+  .mock-c .result-grade { font-size: 16px !important; font-weight: 800; color: #e53935; }
+  .mock-c .result-bars { display: flex; flex-direction: column; gap: 3px; }
+  .mock-c .bar-row { display: flex; align-items: center; gap: 4px; font-size: 6px !important; color: #71717a; }
+  .mock-c .bar-track { flex: 1; height: 3px; background: #27272a; border-radius: 2px; overflow: hidden; }
+  .mock-c .bar-fill { height: 100%; border-radius: 2px; }
+  .mock-c .ai-panel {
+    width: 110px; border-left: 1px solid #18181b;
+    display: flex; flex-direction: column;
+  }
+  .mock-c .ai-header {
+    padding: 8px 8px 4px; font-size: 7px !important;
+    color: #52525b; border-bottom: 1px solid #18181b;
+    font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+  }
+  .mock-c .ai-messages { flex: 1; padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; }
+  .mock-c .ai-bubble { background: #18181b; border-radius: 4px; padding: 4px 5px; font-size: 6.5px !important; color: #a1a1aa; line-height: 1.4; }
+  .mock-c .ai-bubble.user { background: #27272a; color: #e4e4e7; align-self: flex-end; max-width: 80px; }
+  .mock-c .ai-input { border-top: 1px solid #18181b; padding: 5px 8px; }
+  .mock-c .ai-input-field { width: 100%; background: #18181b; border: 1px solid #27272a; border-radius: 4px; padding: 3px 5px; color: #71717a; font-size: 6px !important; }
+
+  /* ── DESCRIPTION SECTION ── */
+  .desc { padding: 0.85rem 1rem; }
+  .desc h3 { font-size: 0.8rem; font-weight: 600; color: #e2e8f0; margin: 0 0 0.25rem; }
+  .desc p { font-size: 0.72rem; color: #64748b; line-height: 1.5; margin: 0 0 0.4rem; }
+  .desc .refs { font-size: 0.65rem; color: #334155; }
+  .desc .ref { display: inline-block; background: #1e2a3a; border-radius: 3px; padding: 1px 5px; margin-right: 3px; color: #4a9eff; }
+
+  .choose-note { text-align: center; color: #475569; font-size: 0.78rem; margin-top: 1.5rem; }
+  .choose-note strong { color: #94a3b8; }
+</style>
+
+<h1>AIVAS Web UI — Design Direction</h1>
+<p class="subtitle">Three distinct visual directions. Click one to select it, then we'll refine from there.</p>
+
+<div class="grid">
+
+  <!-- ══════════════════════════════════════════════
+       OPTION A: Terminal Pro
+  ═══════════════════════════════════════════════ -->
+  <div class="card" data-choice="terminal-pro" onclick="selectCard(this)">
+    <div class="card-label">A — Terminal Pro <span class="badge">Familiar</span></div>
+
+    <div class="mockup mock-a">
+      <div class="topbar">
+        <div class="dot" style="background:#e53935"></div>
+        <div class="dot" style="background:#fdd835"></div>
+        <div class="dot" style="background:#4caf50"></div>
+        <span style="color:#475569;font-size:7px;margin-left:4px;font-family:monospace">aivas — network dashboard</span>
+      </div>
+      <div class="ascii">
+█████╗ ██╗██╗   ██╗ █████╗ ███████╗<br>
+██╔══██╗██║██║   ██║██╔══██╗██╔════╝<br>
+███████║██║ ╚████╔╝ ███████║███████╗
+      </div>
+      <div class="scan-row">
+        <div class="scan-input">192.168.1.0/24</div>
+        <div class="scan-btn">[ SCAN ]</div>
+      </div>
+      <div class="row">
+        <div class="panel" style="width:50px;text-align:center">
+          <div class="panel-title">SCORE</div>
+          <div class="score-big">33</div>
+          <div class="grade">F</div>
+          <div style="color:#475569;font-size:6px;margin-top:2px">/ 100</div>
+        </div>
+        <div class="panel wide">
+          <div class="panel-title">CVE FINDINGS</div>
+          <div class="cve-row"><span class="sev-crit">CRIT</span><span class="cve-id">CVE-2023-38408</span><span style="color:#475569;font-size:7px">9.8</span></div>
+          <div class="cve-row"><span class="sev-crit">CRIT</span><span class="cve-id">CVE-2022-22720</span><span style="color:#475569;font-size:7px">9.8</span></div>
+          <div class="cve-row"><span class="sev-high">HIGH </span><span class="cve-id">CVE-2022-31813</span><span style="color:#475569;font-size:7px">9.8</span></div>
+          <div style="color:#334155;font-size:6px;margin-top:2px">+27 more findings</div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="panel wide">
+          <div class="panel-title">AI ASSISTANT</div>
+          <div class="chat-line">&gt; Scan port 80, found Apache 2.4.52 with 14 critical CVEs</div>
+          <div class="chat-resp">» Update Apache to 2.4.57. Patch SSH immediately.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="desc">
+      <h3>Terminal Pro</h3>
+      <p>Keeps the aesthetic of security tools. Dark, monospace, grid-panel layout. Users who run Metasploit or Kali feel at home. Clean structure over decoration.</p>
+      <div class="refs"><span class="ref">btop</span><span class="ref">lazydocker</span><span class="ref">HackTheBox</span></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       OPTION B: Security Dashboard
+  ═══════════════════════════════════════════════ -->
+  <div class="card" data-choice="security-dashboard" onclick="selectCard(this)">
+    <div class="card-label">B — Security Dashboard <span class="badge rec">Recommended</span></div>
+
+    <div class="mockup mock-b">
+      <div class="sidebar">
+        <div class="sidebar-icon active" title="Dashboard">⬡</div>
+        <div class="sidebar-icon" title="Scan">◎</div>
+        <div class="sidebar-icon" title="Network">⬡</div>
+        <div class="sidebar-icon" title="History">◳</div>
+        <div class="sidebar-icon" title="AI">✦</div>
+      </div>
+      <div class="main">
+        <div class="topbar">
+          <div class="search">192.168.1.0/24 — scan target</div>
+          <div class="btn-scan">▶ Scan Now</div>
+        </div>
+        <div class="metrics">
+          <div class="metric-card">
+            <div class="metric-label">Risk Score</div>
+            <div class="metric-val" style="color:#e53935">33</div>
+            <div class="metric-sub">Grade F · Critical</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Findings</div>
+            <div class="metric-val" style="color:#ff6d00">30</div>
+            <div class="metric-sub">14 critical · 16 high</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Network</div>
+            <div class="metric-val" style="color:#4a9eff">3</div>
+            <div class="metric-sub">hosts discovered</div>
+          </div>
+        </div>
+        <div class="panels">
+          <div class="panel">
+            <div class="panel-title"><span>CVE Findings</span><span style="color:#e53935">● 14 critical</span></div>
+            <div class="cve-item"><span><span class="dot-crit"></span>CVE-2023-38408</span><span style="color:#e53935">9.8</span></div>
+            <div class="cve-item"><span><span class="dot-crit"></span>CVE-2022-22720</span><span style="color:#e53935">9.8</span></div>
+            <div class="cve-item"><span><span class="dot-crit"></span>CVE-2022-31813</span><span style="color:#e53935">9.8</span></div>
+            <div style="color:#334155;font-size:6px;margin-top:3px">+27 more — click to expand</div>
+          </div>
+          <div class="panel">
+            <div class="panel-title"><span>AI Assistant</span><span style="color:#4caf50">● online</span></div>
+            <div class="chat-msg"><span class="chat-user">You: </span>What's most urgent?</div>
+            <div class="chat-msg">Update OpenSSH now — CVE-2023-38408 allows RCE. Apache patch is next priority.</div>
+            <div class="chat-msg"><span class="chat-user">You: </span>Swahili?</div>
+            <div class="chat-msg">Sasisha OpenSSH haraka iwezekanavyo — CVE hii inaruhusu mshambuliaji kudhibiti mfumo...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="desc">
+      <h3>Security Dashboard</h3>
+      <p>Sidebar nav + metric cards + AI chat panel. Familiar to anyone who's used Grafana or a cloud console. Data-dense but organized. Non-technical managers understand the score instantly.</p>
+      <div class="refs"><span class="ref">Grafana</span><span class="ref">Datadog</span><span class="ref">Vercel</span></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       OPTION C: Minimal Intelligence
+  ═══════════════════════════════════════════════ -->
+  <div class="card" data-choice="minimal-intelligence" onclick="selectCard(this)">
+    <div class="card-label">C — Minimal Intelligence <span class="badge">Modern</span></div>
+
+    <div class="mockup mock-c">
+      <div class="topnav">
+        <div class="logo">AI<span>VAS</span></div>
+        <div class="nav-links">
+          <span class="nav-link active">Dashboard</span>
+          <span class="nav-link">History</span>
+          <span class="nav-link">Settings</span>
+        </div>
+        <div style="width:36px;height:18px;background:#18181b;border-radius:9px;border:1px solid #27272a;"></div>
+      </div>
+      <div class="body">
+        <div class="content">
+          <div class="scan-hero">
+            <div class="hero-label">Scan a target</div>
+            <div class="scan-row">
+              <div class="scan-input">192.168.1.1</div>
+              <div class="scan-btn">Scan</div>
+            </div>
+          </div>
+          <div class="result-card">
+            <div class="result-header">
+              <span class="result-target">192.168.100.253</span>
+              <span class="result-grade">F</span>
+            </div>
+            <div class="result-bars">
+              <div class="bar-row">
+                <span style="width:35px">Critical</span>
+                <div class="bar-track"><div class="bar-fill" style="width:65%;background:#e53935"></div></div>
+                <span>14</span>
+              </div>
+              <div class="bar-row">
+                <span style="width:35px">High</span>
+                <div class="bar-track"><div class="bar-fill" style="width:48%;background:#ff6d00"></div></div>
+                <span>16</span>
+              </div>
+              <div class="bar-row">
+                <span style="width:35px">Medium</span>
+                <div class="bar-track"><div class="bar-fill" style="width:0%;background:#fdd835"></div></div>
+                <span>0</span>
+              </div>
+            </div>
+          </div>
+          <div class="result-card" style="opacity:0.4">
+            <div class="result-header">
+              <span class="result-target">192.168.1.1</span>
+              <span style="font-size:12px;font-weight:800;color:#4caf50">A</span>
+            </div>
+          </div>
+        </div>
+        <div class="ai-panel">
+          <div class="ai-header">✦ AIVAS</div>
+          <div class="ai-messages">
+            <div class="ai-bubble">Found 14 critical CVEs. OpenSSH and Apache need immediate patches.</div>
+            <div class="ai-bubble user">scan this pc</div>
+            <div class="ai-bubble">Scanning 192.168.100.253 now…</div>
+          </div>
+          <div class="ai-input">
+            <div class="ai-input-field">Ask anything…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="desc">
+      <h3>Minimal Intelligence</h3>
+      <p>AI chat is the primary interface — type to scan, ask, get results. Ultra-clean, no noise. Looks like a modern product, not a security tool. Best for non-technical users.</p>
+      <div class="refs"><span class="ref">Linear</span><span class="ref">Railway</span><span class="ref">Clerk</span></div>
+    </div>
+  </div>
+
+</div>
+
+<p class="choose-note"><strong>Click a card to select.</strong> You can also mix — e.g. "B layout with C's AI panel style"</p>
+
+<script>
+function selectCard(el) {
+  document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  if (window.__companion_select) {
+    window.__companion_select(el.dataset.choice);
+  }
+}
+</script>

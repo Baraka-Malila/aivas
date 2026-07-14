@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIVAS Web UI — Full Design Preview</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #050505;
+    color: #e0e0e0;
+    font-family: system-ui, -apple-system, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px 60px;
+    min-height: 100vh;
+  }
+
+  .page-title {
+    font-size: 13px;
+    color: #444;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin-bottom: 32px;
+    font-weight: 600;
+  }
+
+  /* ── The mock phone/browser shell ── */
+  .shell {
+    width: 420px;
+    max-width: 100%;
+    background: #0a0a0a;
+    border: 1px solid #1e1e1e;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 40px 80px rgba(0,0,0,.6);
+    display: flex;
+    flex-direction: column;
+    height: 720px;
+  }
+
+  /* header */
+  .app-header {
+    background: #0d0d0d;
+    border-bottom: 1px solid #1a1a1a;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .app-logo {
+    font-size: 14px;
+    font-weight: 700;
+    color: #4a9eff;
+    letter-spacing: .04em;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .app-logo .star { font-size: 13px; }
+  .app-logo .sub {
+    font-size: 10px;
+    color: #444;
+    font-weight: 400;
+    letter-spacing: .02em;
+  }
+  .header-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 6px;
+  }
+  .icon-btn {
+    width: 30px; height: 30px;
+    background: #161616;
+    border: 1px solid #222;
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    color: #555;
+    font-size: 13px;
+  }
+  .icon-btn:hover { border-color: #333; color: #888; }
+
+  /* chat area */
+  .chat-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    scrollbar-width: thin;
+    scrollbar-color: #1e1e1e transparent;
+  }
+
+  /* messages */
+  .msg { display: flex; flex-direction: column; gap: 4px; max-width: 92%; }
+  .msg.user { align-self: flex-end; align-items: flex-end; }
+  .msg.ai { align-self: flex-start; align-items: flex-start; }
+
+  .msg-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    color: #4a9eff;
+    text-transform: uppercase;
+    padding: 0 2px;
+  }
+  .msg.user .msg-label { color: #555; }
+
+  .bubble {
+    font-size: 13px;
+    line-height: 1.6;
+    color: #ccc;
+  }
+  .msg.user .bubble {
+    background: #0d1929;
+    border: 1px solid #1a2d45;
+    border-radius: 14px 14px 4px 14px;
+    padding: 9px 13px;
+    color: #90bde0;
+  }
+  .msg.ai .bubble {
+    color: #c8c8c8;
+  }
+
+  /* status / thinking */
+  .thinking {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 11px; color: #555;
+    font-style: italic;
+  }
+  .spinner { color: #4a9eff; font-size: 12px; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Scan Result Card ── */
+  .scan-card {
+    background: #111;
+    border: 1px solid #1e1e1e;
+    border-radius: 10px;
+    overflow: hidden;
+    width: 100%;
+    margin-top: 6px;
+  }
+  .scan-card-header {
+    padding: 12px 14px;
+    border-bottom: 1px solid #1a1a1a;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .scan-ip {
+    font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+    font-size: 12px;
+    color: #e0e0e0;
+    font-weight: 600;
+  }
+  .grade-badge {
+    font-size: 22px;
+    font-weight: 800;
+    color: #ef5350;
+    line-height: 1;
+  }
+  .grade-badge.a { color: #66bb6a; }
+
+  .severity-pills {
+    padding: 10px 14px;
+    display: flex;
+    gap: 6px;
+    border-bottom: 1px solid #1a1a1a;
+  }
+  .pill {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 5px;
+    letter-spacing: .04em;
+  }
+  .pill.crit { background: #1a0505; border: 1px solid #3a1010; color: #ef5350; }
+  .pill.high { background: #1a0e05; border: 1px solid #3a2010; color: #ff7043; }
+  .pill.med  { background: #1a1505; border: 1px solid #3a3010; color: #fdd835; }
+
+  .cve-list { padding: 8px 0; }
+  .cve-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    border-bottom: 1px solid #141414;
+    font-size: 11px;
+  }
+  .cve-row:last-child { border-bottom: none; }
+  .sev-dot {
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  }
+  .sev-dot.crit { background: #ef5350; }
+  .sev-dot.high { background: #ff7043; }
+  .sev-dot.med  { background: #fdd835; }
+  .cve-id {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    color: #888;
+    font-size: 10px;
+    flex-shrink: 0;
+    min-width: 110px;
+  }
+  .cve-desc { color: #aaa; font-size: 10px; flex: 1; }
+  .cvss {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 10px;
+    color: #555;
+    flex-shrink: 0;
+  }
+
+  .show-all {
+    padding: 8px 14px;
+    border-top: 1px solid #1a1a1a;
+    font-size: 10px;
+    color: #4a9eff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .card-actions {
+    padding: 10px 14px;
+    display: flex;
+    gap: 6px;
+    border-top: 1px solid #1a1a1a;
+  }
+  .act-btn {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 6px 11px;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 1px solid #2a2a2a;
+    background: #161616;
+    color: #888;
+    letter-spacing: .02em;
+  }
+  .act-btn.primary {
+    background: #0d1929;
+    border-color: #1a3050;
+    color: #4a9eff;
+  }
+
+  /* ── Second scan (good grade) ── */
+
+  /* history drawer hint */
+  .history-drawer-hint {
+    font-size: 10px;
+    color: #333;
+    text-align: center;
+    padding: 4px 0;
+    border-top: 1px solid #141414;
+    margin-top: 4px;
+  }
+
+  /* input bar */
+  .input-bar {
+    background: #0d0d0d;
+    border-top: 1px solid #1a1a1a;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .text-input {
+    flex: 1;
+    background: #161616;
+    border: 1px solid #222;
+    border-radius: 10px;
+    padding: 9px 13px;
+    font-size: 13px;
+    color: #888;
+    font-family: inherit;
+    outline: none;
+  }
+  .text-input:focus { border-color: #2a3a4a; color: #ccc; }
+  .send-btn {
+    width: 34px; height: 34px;
+    background: #4a9eff22;
+    border: 1px solid #4a9eff44;
+    border-radius: 9px;
+    color: #4a9eff;
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .send-btn:hover { background: #4a9eff33; }
+
+  /* ── Annotations ── */
+  .annotations {
+    width: 420px;
+    max-width: 100%;
+    margin-top: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .annotation {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .ann-num {
+    width: 22px; height: 22px;
+    background: #4a9eff22;
+    border: 1px solid #4a9eff44;
+    border-radius: 50%;
+    color: #4a9eff;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .ann-text { font-size: 12px; color: #666; line-height: 1.6; }
+  .ann-text strong { color: #999; }
+
+  /* confirm button */
+  .confirm-row {
+    margin-top: 32px;
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+  }
+  .confirm-btn {
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: .02em;
+  }
+  .confirm-btn.yes {
+    background: #0d1929;
+    border: 1px solid #4a9eff55;
+    color: #4a9eff;
+  }
+  .confirm-btn.no {
+    background: #161616;
+    border: 1px solid #2a2a2a;
+    color: #666;
+  }
+  .confirm-btn:hover { filter: brightness(1.2); }
+</style>
+</head>
+<body>
+
+<div class="page-title">AIVAS Web UI — Design Preview</div>
+
+<!-- THE MOCK -->
+<div class="shell">
+
+  <!-- Header -->
+  <div class="app-header">
+    <div class="app-logo">
+      <span class="star">✦</span>
+      AIVAS
+      <span class="sub">Network Security</span>
+    </div>
+    <div class="header-actions">
+      <div class="icon-btn" title="History">🕐</div>
+      <div class="icon-btn" title="Settings">⚙</div>
+    </div>
+  </div>
+
+  <!-- Chat -->
+  <div class="chat-area">
+
+    <!-- AI greeting (returning user) -->
+    <div class="msg ai">
+      <div class="msg-label">✦ AIVAS</div>
+      <div class="bubble">
+        Welcome back. Your last scan of <code style="font-family:monospace;color:#888;font-size:11px;">192.168.100.253</code> was 3 days ago — <span style="color:#ef5350;font-weight:600;">Grade F</span>, 14 critical vulnerabilities. Want me to rescan, or would you like a summary?
+      </div>
+    </div>
+
+    <!-- User reply -->
+    <div class="msg user">
+      <div class="msg-label">You</div>
+      <div class="bubble">scan it again</div>
+    </div>
+
+    <!-- AI: progress -->
+    <div class="msg ai">
+      <div class="msg-label">✦ AIVAS</div>
+      <div class="thinking">
+        <span class="spinner">⠸</span>
+        Running port discovery on 192.168.100.253…
+      </div>
+    </div>
+
+    <!-- AI: scan complete + card -->
+    <div class="msg ai">
+      <div class="msg-label">✦ AIVAS</div>
+      <div class="bubble">Scan complete. Here's what I found:</div>
+      <div class="scan-card">
+        <div class="scan-card-header">
+          <div>
+            <div class="scan-ip">192.168.100.253</div>
+            <div style="font-size:10px;color:#555;margin-top:2px;">6 open services · 30 findings</div>
+          </div>
+          <div class="grade-badge">F</div>
+        </div>
+        <div class="severity-pills">
+          <span class="pill crit">14 CRITICAL</span>
+          <span class="pill high">16 HIGH</span>
+          <span class="pill med">0 MEDIUM</span>
+        </div>
+        <div class="cve-list">
+          <div class="cve-row">
+            <div class="sev-dot crit"></div>
+            <div class="cve-id">CVE-2021-44228</div>
+            <div class="cve-desc">Apache Log4j RCE</div>
+            <div class="cvss">10.0</div>
+          </div>
+          <div class="cve-row">
+            <div class="sev-dot crit"></div>
+            <div class="cve-id">CVE-2022-0778</div>
+            <div class="cve-desc">OpenSSL infinite loop DoS</div>
+            <div class="cvss">9.8</div>
+          </div>
+          <div class="cve-row">
+            <div class="sev-dot high"></div>
+            <div class="cve-id">CVE-2023-1945</div>
+            <div class="cve-desc">OpenSSH pre-auth vuln</div>
+            <div class="cvss">7.5</div>
+          </div>
+        </div>
+        <div class="show-all">↓ Show all 30 findings</div>
+        <div class="card-actions">
+          <div class="act-btn primary">Narrate findings</div>
+          <div class="act-btn">Explain worst CVE</div>
+          <div class="act-btn">Rescan</div>
+        </div>
+      </div>
+      <div class="bubble" style="margin-top:8px;font-size:12px;color:#555;">
+        Ask me to explain any CVE, or say <em style="color:#4a9eff">"narrate in Swahili"</em> for a full report.
+      </div>
+    </div>
+
+    <!-- User follow-up -->
+    <div class="msg user">
+      <div class="msg-label">You</div>
+      <div class="bubble">explain the log4j one in swahili</div>
+    </div>
+
+    <!-- AI explanation -->
+    <div class="msg ai">
+      <div class="msg-label">✦ AIVAS</div>
+      <div class="bubble">
+        <strong style="font-family:monospace;font-size:11px;color:#888;">CVE-2021-44228</strong> ni udhaifu mkubwa katika maktaba ya Apache Log4j. Mshambuliaji anaweza kutuma ujumbe maalum ambao unasababisha seva yako kutekeleza amri za nje bila idhini yako. CVSS score ni 10.0 — hatari ya juu kabisa. Suluhisho: sasisha Log4j hadi toleo 2.17.1 au zaidi.
+      </div>
+    </div>
+
+  </div><!-- /chat-area -->
+
+  <!-- Input bar -->
+  <div class="input-bar">
+    <input class="text-input" placeholder="Ask anything, or scan a target…" readonly />
+    <div class="send-btn">↑</div>
+  </div>
+
+</div><!-- /shell -->
+
+<!-- Annotations -->
+<div class="annotations">
+  <div class="annotation">
+    <div class="ann-num">1</div>
+    <div class="ann-text"><strong>AI opens first</strong> — greets with context from last scan. User never lands on a blank screen. No menu to navigate.</div>
+  </div>
+  <div class="annotation">
+    <div class="ann-num">2</div>
+    <div class="ann-text"><strong>Natural language input</strong> — "scan it again", "explain in Swahili". No forms, no target fields to fill.</div>
+  </div>
+  <div class="annotation">
+    <div class="ann-num">3</div>
+    <div class="ann-text"><strong>Result card inline</strong> — grade, severity pills, top CVEs, action buttons all inside the conversation. Scan history is never more than a chat bubble away.</div>
+  </div>
+  <div class="annotation">
+    <div class="ann-num">4</div>
+    <div class="ann-text"><strong>Severity color language</strong> from security conventions — red/orange/yellow. Familiar to anyone who's seen a security tool, but in a minimal card instead of a sprawling table.</div>
+  </div>
+  <div class="annotation">
+    <div class="ann-num">5</div>
+    <div class="ann-text"><strong>Bilingual inline</strong> — AI responds in the language the user typed. No setting to toggle, no page reload.</div>
+  </div>
+  <div class="annotation">
+    <div class="ann-num">6</div>
+    <div class="ann-text"><strong>Header: only two controls</strong> — History (past scans drawer) and Settings (API key, language). Nothing else.</div>
+  </div>
+</div>
+
+<!-- Confirm buttons -->
+<div class="confirm-row">
+  <button class="confirm-btn yes" onclick="__companion_select('approve-design')">Looks good — proceed to plan</button>
+  <button class="confirm-btn no" onclick="__companion_select('request-changes')">Need changes</button>
+</div>
+
+</body>
+</html>
