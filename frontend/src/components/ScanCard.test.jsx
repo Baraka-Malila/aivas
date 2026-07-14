@@ -25,8 +25,7 @@ describe('ScanCard', () => {
     const gradeEl = container.querySelector('[data-testid="grade-badge"]')
     expect(gradeEl).toBeTruthy()
     expect(gradeEl.textContent).toBe('F')
-    // jsdom normalizes hex to rgb; #ef5350 = rgb(239, 83, 80)
-    expect(gradeEl.style.color).toBe('rgb(239, 83, 80)')
+    expect(gradeEl.getAttribute('style')).toContain('rgb(239, 83, 80)')
   })
 
   it('shows severity pills for non-zero counts', () => {
