@@ -60,7 +60,7 @@ export default function SessionDrawer({ open, sessions, onClose, onSelect, onDel
               key={s.id}
               style={{ borderBottom: '1px solid #141414' }}
               className="group flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors cursor-pointer"
-              onClick={() => { onSelect(s); onClose() }}
+              onClick={() => { onSelect(s.id); onClose() }}
             >
               <div className="flex-1 min-w-0 pr-2">
                 <div style={{ color: '#e0e0e0' }} className="text-xs truncate">
