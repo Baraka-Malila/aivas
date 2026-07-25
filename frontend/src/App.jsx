@@ -103,7 +103,7 @@ export default function App() {
 
   // --- Hooks ---
 
-  const { send } = useChat(sessionId, handleChatEvent)
+  const { send, status: chatStatus } = useChat(sessionId, handleChatEvent)
   const { start: startScan } = useScan(handleScanProgress, handleScanDone)
   const { sessions, refresh: refreshSessions, deleteSession } = useSessions()
 
@@ -153,6 +153,9 @@ export default function App() {
   }, [send])
 
   const handleSelectSession = useCallback(async (id) => {
+    thinkingIdRef.current = null
+    scanningIdRef.current = null
+    scanPendingRef.current = false
     try {
       const msgs = await fetch(`/api/sessions/${id}/messages`).then(r => r.json())
       dispatch({ type: 'SET_MESSAGES', messages: mapHistory(msgs) })
@@ -163,6 +166,9 @@ export default function App() {
   }, [])
 
   const handleNewConversation = useCallback(async () => {
+    thinkingIdRef.current = null
+    scanningIdRef.current = null
+    scanPendingRef.current = false
     try {
       const { id } = await fetch('/api/sessions', { method: 'POST' }).then(r => r.json())
       setSessionId(id)
@@ -180,7 +186,7 @@ export default function App() {
         onSettings={() => setSettingsOpen(true)}
       />
       <ChatArea messages={messages} onSend={handleSend} />
-      <ChatInput onSend={handleSend} />
+      <ChatInput onSend={handleSend} disabled={chatStatus !== 'open'} />
       <SessionDrawer
         open={drawerOpen}
         sessions={sessions}

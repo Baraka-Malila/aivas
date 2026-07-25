@@ -14,6 +14,8 @@ export function useScan(onProgress, onDone) {
   const start = useCallback((scanKey) => {
     if (wsRef.current) {
       wsRef.current.onmessage = null
+      wsRef.current.onerror = null
+      wsRef.current.onclose = null
       wsRef.current.close()
     }
     setIsScanning(true)
