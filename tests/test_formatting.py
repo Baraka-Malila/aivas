@@ -19,9 +19,10 @@ def test_cve_table_title():
     assert t.title == "My Title"
 
 
-def test_cve_table_has_five_columns():
+def test_cve_table_has_six_columns():
+    # #, CVE ID, CVSS, Severity, Confidence, Description
     t = cve_table("X", [])
-    assert len(t.columns) == 5
+    assert len(t.columns) == 6
 
 
 def test_cve_table_description_truncated():
@@ -39,7 +40,8 @@ def test_cve_table_none_score_shows_na():
              "cvss_severity": None, "confidence": "possible",
              "description": "test"}]
     t = cve_table("T", rows)
-    score_cell = t.columns[1]._cells[0]
+    # Column order: #(0), CVE ID(1), CVSS(2), Severity(3), Confidence(4), Description(5)
+    score_cell = t.columns[2]._cells[0]
     assert score_cell == "N/A"
 
 

@@ -1,3 +1,4 @@
+import socket
 import urllib.request
 import urllib.error
 
@@ -38,14 +39,16 @@ _SENSITIVE_PATHS = [
 ]
 
 
-def check_endpoints(url: str, timeout: int = 5) -> list[dict]:
+def check_endpoints(url: str, timeout: int = 5) -> dict:
     """Return misconfiguration findings for exposed sensitive paths."""
-    findings = []
+    findings: list[dict] = []
+    _any_reachable = False
     for path, title, severity, description, recommendation in _SENSITIVE_PATHS:
         full_url = url.rstrip("/") + path
         try:
             req = urllib.request.Request(full_url)
             with urllib.request.urlopen(req, timeout=timeout) as resp:
+                _any_reachable = True
                 if resp.status == 200:
                     findings.append({
                         "type": "misconfiguration",
@@ -55,8 +58,16 @@ def check_endpoints(url: str, timeout: int = 5) -> list[dict]:
                         "recommendation": recommendation,
                     })
         except urllib.error.HTTPError as e:
+            _any_reachable = True
             if e.code not in (401, 403, 404):
                 pass
+        except (urllib.error.URLError, socket.timeout, ConnectionRefusedError, OSError):
+            # Host is unreachable for this path; continue trying others
+            pass
         except Exception:
             pass
-    return findings
+
+    # If we never got a reachable response, report unreachable
+    if not _any_reachable:
+        return {"status": "unreachable", "findings": []}
+    return {"status": "ok", "findings": findings}

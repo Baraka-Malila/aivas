@@ -1,4 +1,5 @@
 import re
+import socket
 import urllib.request
 import urllib.error
 
@@ -20,16 +21,17 @@ _SERVER_VERSION_RE = re.compile(r'(apache|nginx|iis|lighttpd|openssl)[/\s]([\d.]
                                  re.IGNORECASE)
 
 
-def check_headers(url: str, timeout: int = 5) -> list[dict]:
+def check_headers(url: str, timeout: int = 5) -> dict:
     """Return misconfiguration findings from HTTP response headers."""
+    findings: list[dict] = []
     try:
         req = urllib.request.Request(url, method="HEAD")
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             headers = {k.lower(): v for k, v in resp.headers.items()}
-    except Exception:
-        return []
-
-    findings = []
+    except (urllib.error.URLError, socket.timeout, ConnectionRefusedError, OSError):
+        return {"status": "unreachable", "findings": []}
+    except Exception as exc:
+        return {"status": "error", "findings": [], "error": str(exc)}
 
     for header_name, severity, description, recommendation in _SECURITY_HEADERS:
         if header_name.lower() not in headers:
@@ -73,4 +75,4 @@ def check_headers(url: str, timeout: int = 5) -> list[dict]:
             ),
         })
 
-    return findings
+    return {"status": "ok", "findings": findings}

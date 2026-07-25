@@ -164,12 +164,12 @@ def scan(
         is_ssl = "ssl" in svc.get("service", "") or svc.get("port") in (443, 8443)
         if is_http:
             from aivas.prober import probe_http_service
+            scheme = "https" if is_ssl else "http"
             with console.status(
                 f"Config probe {svc['host']}:{svc['port']}..."
             ):
-                misconfigs.extend(
-                    probe_http_service(svc["host"], svc["port"], ssl=is_ssl)
-                )
+                result = probe_http_service(svc["host"], svc["port"], scheme=scheme)
+                misconfigs.extend(result["findings"])
     if misconfigs:
         console.print(misconfig_table("Configuration Issues", misconfigs))
 

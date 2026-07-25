@@ -36,7 +36,7 @@ from unittest.mock import AsyncMock, patch
 
 def test_chat_no_scan_intent(client, test_conn, monkeypatch):
     monkeypatch.setattr(_m, "_conn", test_conn)
-    with patch("aivas.server.chat_api.handle_chat",
+    with patch("aivas.server.main.handle_chat",
                new=AsyncMock(return_value=("No AI configured.", None))):
         r = client.post("/api/chat", json={"text": "hello"})
     assert r.status_code == 200
@@ -47,7 +47,7 @@ def test_chat_no_scan_intent(client, test_conn, monkeypatch):
 
 def test_chat_with_scan_intent(client, test_conn, monkeypatch):
     monkeypatch.setattr(_m, "_conn", test_conn)
-    with patch("aivas.server.chat_api.handle_chat",
+    with patch("aivas.server.main.handle_chat",
                new=AsyncMock(return_value=("Scanning now.", ("192.168.1.1", 2)))):
         r = client.post("/api/chat", json={"text": "scan 192.168.1.1"})
     assert r.status_code == 200

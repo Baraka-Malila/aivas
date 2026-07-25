@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .app import AIVASApp
 from .progress import StepProgress  # noqa: E402 — after TYPE_CHECKING block
-from aivas.formatting import cve_table, misconfig_table
+from aivas.formatting import misconfig_table
 from aivas.scorer import score_findings
 from aivas.scanner.nse import scripts_for_level
 from aivas.parser import parse_nmap_xml
@@ -98,9 +98,7 @@ async def _run_nmap_sudo(app: "AIVASApp", target: str, scripts: str,
     return xml
 
 async def _show_findings(app: "AIVASApp", target: str, findings: list) -> None:
-    """Display CVE table, score line, and save to history."""
-    table = cve_table("Vulnerability Findings", findings)
-    app.tui_print(table); app.store_scan_output(table)
+    """Show risk score line and save scan to history (CVE table via modal)."""
     s = score_findings(findings)
     parts = [f"{v} {k.lower()}" for k, v in s.get("sev_counts", {}).items() if v]
     grade_col = "red" if s["grade"] in ("D", "F") else "green"
@@ -125,9 +123,11 @@ async def _probe_misconfigs(app: "AIVASApp", services: list) -> list[dict]:
         if (svc.get("service", "") in ("http", "https", "ssl")
                 or svc.get("port") in (80, 443, 8080, 8443)):
             from aivas.prober import probe_http_service
-            misconfigs.extend(await asyncio.to_thread(
-                probe_http_service, svc["host"], svc["port"],
-                "ssl" in svc.get("service", "")))
+            _is_ssl = "ssl" in svc.get("service", "") or svc.get("port") in (443, 8443)
+            _scheme = "https" if _is_ssl else "http"
+            _result = await asyncio.to_thread(
+                probe_http_service, svc["host"], svc["port"], _scheme)
+            misconfigs.extend(_result["findings"])
     if misconfigs:
         mc_table = misconfig_table("Configuration Issues", misconfigs)
         app.tui_print(mc_table); app.store_scan_output(mc_table)
@@ -136,9 +136,6 @@ async def _probe_misconfigs(app: "AIVASApp", services: list) -> list[dict]:
 async def run_scan_pipeline(app: "AIVASApp", target: str,
                              level: int = 2, udp: bool = False) -> None:
     """Run the full scan pipeline: validate → nmap → correlate → display."""
-    if app._scan_task is not None and not app._scan_task.done():
-        app.tui_print("[yellow]A scan is already running. Press ESC to cancel it first.[/yellow]")
-        return
     ip_err = _bad_ip(target)
     if ip_err:
         app.tui_print(f"[red]Invalid target:[/red] {ip_err}")
@@ -157,8 +154,7 @@ async def run_scan_pipeline(app: "AIVASApp", target: str,
     app._scan_task = asyncio.current_task()
 
     prog = StepProgress(app)
-    prog.step("Port discovery + service detection")
-    await asyncio.sleep(0)
+    await prog.step("Port discovery + service detection")
     use_sudo = await _nmap_needs_sudo(udp)
     try:
         xml = (await _run_nmap_sudo(app, target, scripts_for_level(level), udp)
@@ -178,23 +174,59 @@ async def run_scan_pipeline(app: "AIVASApp", target: str,
 
     try: services = parse_nmap_xml(xml)
     except Exception: prog.fail("Port discovery + service detection", "nmap output not valid XML"); return
-    if not services: app.tui_print("[yellow]No open services found.[/yellow]"); return
-    prog.done("Port discovery + service detection", f"{len(services)} service(s)")
-    prog.step("CVE correlation")
-    await asyncio.sleep(0)
+    if not services:
+        prog.fail("Port discovery + service detection", "host unreachable or no open ports")
+        app.tui_print(f"[yellow]{target}[/yellow]: no open ports — host may be offline or firewalled.\n"
+                      "[dim]Tip: scan a known-active IP, e.g. your router or default gateway.[/dim]")
+        return
+    await prog.done("Port discovery + service detection", f"{len(services)} open port(s)")
+    for svc in services:
+        port = svc.get("port", "?")
+        proto = svc.get("protocol", "tcp")
+        product = svc.get("product") or svc.get("service") or "unknown"
+        version = svc.get("version") or ""
+        label = f"{product} {version}".strip()
+        app.tui_print(f"    [dim]{port}/{proto}[/dim]  OPEN  [cyan]{label}[/cyan]")
+        await asyncio.sleep(0.03)
+    await prog.step("CVE correlation")
     os_hint = services[0].get("os_family") or None
-    findings = [f for f in correlate(app.conn, services, os_hint=os_hint)
-                if f.get("confidence") in ("probable", "confirmed")][:30]
-    prog.done("CVE correlation", f"{len(findings)} CVE(s)" if findings else "0 CVEs")
+    all_findings: list[dict] = []
+    for svc in services:
+        port = svc.get("port", "?")
+        product = svc.get("product") or svc.get("service") or "unknown"
+        version = svc.get("version") or ""
+        label = f"{product} {version}".strip()
+        app.tui_print(f"    [dim]querying:[/dim] {label} (port {port})…")
+        await asyncio.sleep(0.02)
+        svc_findings = await asyncio.to_thread(correlate, app.conn, [svc], os_hint)
+        probable = [f for f in svc_findings if f.get("confidence") in ("probable", "confirmed")]
+        if probable:
+            worst = max(probable, key=lambda f: f.get("cvss_score") or 0)
+            sev_col = {"CRITICAL": "red", "HIGH": "yellow", "MEDIUM": "magenta"}.get(
+                worst.get("cvss_severity", ""), "white"
+            )
+            app.tui_print(
+                f"    [dim]→[/dim] {len(probable)} CVE(s) — worst: "
+                f"[{sev_col}]{worst.get('cve_id','')}[/{sev_col}] "
+                f"({worst.get('cvss_severity','')} {worst.get('cvss_score','')})"
+            )
+        else:
+            app.tui_print("    [dim]→ no CVEs matched[/dim]")
+        all_findings.extend(svc_findings)
+        await asyncio.sleep(0.02)
+    findings = [f for f in all_findings if f.get("confidence") in ("probable", "confirmed")][:30]
+    await prog.done("CVE correlation", f"{len(findings)} CVE(s)" if findings else "0 CVEs")
     if findings: await _show_findings(app, target, findings)
     else: app.tui_print("[green]No CVEs matched at probable confidence.[/green]")
-    prog.step("Configuration checks")
-    await asyncio.sleep(0)
+    await prog.step("Configuration checks")
     misconfigs = await _probe_misconfigs(app, services)
-    prog.done("Configuration checks", f"{len(misconfigs)} issue(s)" if misconfigs else "none")
+    await prog.done("Configuration checks", f"{len(misconfigs)} issue(s)" if misconfigs else "none")
     app._last_findings = findings
     app._last_misconfigs = misconfigs
     app._last_target = target
-    app.tui_print(
-        "[dim]── [bold]/narrate[/bold] AI summary · [bold]/report[/bold] full table · [bold]/copy[/bold] clipboard[/dim]"
-    )
+    from .screens import ScanResultScreen
+    grade = score_findings(findings)["grade"] if findings else "A+"
+    choice = await app.push_screen_wait(ScanResultScreen(target, grade, len(findings)))
+    if choice:
+        from .handlers import post_scan_handler
+        await post_scan_handler(app, choice)

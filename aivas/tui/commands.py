@@ -27,9 +27,7 @@ REGISTRY: dict[str, tuple[str, str]] = {
     "scan":    ("/scan <target> [--level 1-3] [--udp]", "Full CVE + config probe scan"),
     "quick":   ("/quick <target>",                       "Quick service scan (level 1)"),
     "deep":    ("/deep <target>",                         "Deep scan with UDP (level 2, UDP always on)"),
-    "narrate": ("/narrate",                              "AI narration of last scan (top 5 findings)"),
-    "report":  ("/report",                               "Re-print full CVE + config table"),
-    "doctor":  ("/doctor",                               "Check dependencies and configuration"),
+"doctor":  ("/doctor",                               "Check dependencies and configuration"),
     "history": ("/history [list|show <id>]",             "View past scan results"),
     "config":  ("/config [set <key> <value>|show]",      "Manage configuration"),
     "clear":   ("/clear",                                "Clear the output pane"),
@@ -113,7 +111,7 @@ async def _cmd_scan(app: "AIVASApp", args: str) -> None:
             return
         else:
             i += 1
-    await run_scan_pipeline(app, target, level, udp)
+    app.run_worker(run_scan_pipeline(app, target, level, udp), exclusive=True)
 
 
 async def _cmd_quick(app: "AIVASApp", args: str) -> None:
@@ -121,30 +119,7 @@ async def _cmd_quick(app: "AIVASApp", args: str) -> None:
     if not target or target.startswith("-"):
         app.tui_print("[red]Usage:[/red] /quick <target>  e.g. /quick 192.168.100.253")
         return
-    await run_scan_pipeline(app, target, level=1)
-
-
-async def _cmd_narrate(app: "AIVASApp", _args: str) -> None:
-    if not app._last_findings:
-        app.tui_print("[yellow]No scan results yet — run a scan first.[/yellow]"); return
-    from aivas import config as _cfg
-    import os
-    cfg = _cfg.load()
-    api_key = cfg.get("api_key") or os.environ.get("GROQ_API_KEY")
-    if not api_key:
-        app.tui_print("[dim]No API key — set one with [bold]/config set api_key ...[/bold][/dim]"); return
-    from .ai import narrate_findings
-    await narrate_findings(app, app._last_findings[:5], api_key, lang=cfg.get("lang", "en"))
-
-
-async def _cmd_report(app: "AIVASApp", _args: str) -> None:
-    if not app._last_findings and not app._last_misconfigs:
-        app.tui_print("[yellow]No scan results yet — run a scan first.[/yellow]"); return
-    from aivas.formatting import cve_table, misconfig_table
-    if app._last_findings:
-        app.tui_print(cve_table("Vulnerability Findings", app._last_findings))
-    if app._last_misconfigs:
-        app.tui_print(misconfig_table("Configuration Issues", app._last_misconfigs))
+    app.run_worker(run_scan_pipeline(app, target, level=1), exclusive=True)
 
 
 async def _cmd_deep(app: "AIVASApp", args: str) -> None:
@@ -152,15 +127,13 @@ async def _cmd_deep(app: "AIVASApp", args: str) -> None:
     if not parts or parts[0].startswith("-"):
         app.tui_print("[red]Usage:[/red] /deep <target>  e.g. /deep 192.168.100.253")
         return
-    await run_scan_pipeline(app, parts[0], level=2, udp=True)
+    app.run_worker(run_scan_pipeline(app, parts[0], level=2, udp=True), exclusive=True)
 
 
 _HANDLERS: dict[str, object] = {
     "scan":    _cmd_scan,
     "quick":   _cmd_quick,
     "deep":    _cmd_deep,
-    "narrate": _cmd_narrate,
-    "report":  _cmd_report,
     "doctor":  cmd_doctor,
     "history": cmd_history,
     "config":  cmd_config,

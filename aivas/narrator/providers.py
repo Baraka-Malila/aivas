@@ -16,13 +16,13 @@ class GroqProvider:
         m = re.search(r"try again in ([\d.]+)s", str(error), re.IGNORECASE)
         return float(m.group(1)) if m else None
 
-    def generate(self, prompt: str) -> str:
+    def generate(self, prompt: str, max_tokens: int = 300) -> str:
         for attempt, backoff in enumerate(_RETRY_DELAYS + (None,)):
             try:
                 resp = self._client.chat.completions.create(
                     model=self._model,
                     messages=[{"role": "user", "content": prompt}],
-                    max_tokens=300,
+                    max_tokens=max_tokens,
                 )
                 return resp.choices[0].message.content
             except Exception as exc:
@@ -39,10 +39,18 @@ class OllamaProvider:
         self._model = model
         self._base_url = base_url.rstrip("/")
 
-    def generate(self, prompt: str) -> str:
+    def generate(self, prompt: str, max_tokens: int = 300) -> str:
+        # max_tokens is accepted for API symmetry with GroqProvider.
+        # Ollama's /api/generate uses "num_predict" — pass it through so callers
+        # that set a higher limit (e.g. cve_advice) also benefit here.
         resp = requests.post(
             f"{self._base_url}/api/generate",
-            json={"model": self._model, "prompt": prompt, "stream": False},
+            json={
+                "model": self._model,
+                "prompt": prompt,
+                "stream": False,
+                "options": {"num_predict": max_tokens},
+            },
             timeout=60,
         )
         resp.raise_for_status()
