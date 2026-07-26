@@ -95,6 +95,7 @@ def _exec_tool(
 async def run_agent(
     app: "AIVASApp", text: str, api_key: str,
     context: str = "", history: list[dict] | None = None,
+    shodan_key: str | None = None,
 ) -> tuple[str, tuple | None, list[dict]]:
     """Run Groq tool-calling loop with optional prior history.
 
@@ -172,7 +173,7 @@ async def run_agent(
                 args = json.loads(raw) or {}
             except (json.JSONDecodeError, TypeError):
                 args = {}
-            result, si = _exec_tool(tc.function.name, args, app.conn)
+            result, si = _exec_tool(tc.function.name, args, app.conn, shodan_key=shodan_key)
             if si:
                 scan_intent = si
             tool_msg = {"role": "tool", "tool_call_id": tc.id, "content": result}

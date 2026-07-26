@@ -129,6 +129,7 @@ def test_tools_include_shodan():
     from aivas.tui.agent_prompts import TOOLS
     names = [t["function"]["name"] for t in TOOLS]
     assert "query_shodan" in names
+    assert names.index("query_shodan") == 5
 
 
 def test_exec_tool_query_shodan_no_key():
