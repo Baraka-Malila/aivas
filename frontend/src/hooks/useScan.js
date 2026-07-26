@@ -38,7 +38,7 @@ export function useScan(onProgress, onDone) {
         ws.close()
       }
     }
-    ws.onerror = () => { wsRef.current.onerror = null; setIsScanning(false) }
+    ws.onerror = () => { ws.onerror = null; setIsScanning(false) }
     wsRef.current = ws
   }, [])
 

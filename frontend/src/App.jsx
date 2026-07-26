@@ -80,18 +80,15 @@ export default function App() {
     } else if (event.type === 'done') {
       if (thinkingIdRef.current) {
         dispatch({ type: 'SET_STREAMING', id: thinkingIdRef.current, streaming: false })
-        // If a scan was triggered, open a slot for scan progress
-        if (scanPendingRef.current) {
-          const sid = uid()
-          scanningIdRef.current = sid
-          dispatch({ type: 'APPEND', msg: { id: sid, type: 'scan-progress', text: 'Scanning…' } })
-        }
         thinkingIdRef.current = null
         streamingTextRef.current = ''
       }
 
     } else if (event.type === 'scan_triggered') {
       scanPendingRef.current = true
+      const slotId = uid()
+      scanningIdRef.current = slotId
+      dispatch({ type: 'APPEND', msg: { id: slotId, type: 'scan-progress', text: 'Scanning…' } })
       if (startScanRef.current) startScanRef.current(event.scan_key, event.target)
 
     } else if (event.type === 'error') {
