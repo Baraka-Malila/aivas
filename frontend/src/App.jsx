@@ -18,11 +18,12 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   // Refs to break circular dep: handleChatEvent → startScan, and onDone → refresh
-  const thinkingIdRef  = useRef(null)
-  const scanningIdRef  = useRef(null)
-  const scanPendingRef = useRef(false)
-  const startScanRef   = useRef(null)
-  const refreshSessRef = useRef(null)
+  const thinkingIdRef    = useRef(null)
+  const streamingTextRef = useRef('')
+  const scanningIdRef    = useRef(null)
+  const scanPendingRef   = useRef(false)
+  const startScanRef     = useRef(null)
+  const refreshSessRef   = useRef(null)
 
   // --- Scan callbacks (stable refs) ---
 
@@ -65,35 +66,44 @@ export default function App() {
   // --- Chat event handler (uses startScanRef to avoid stale closure) ---
 
   const handleChatEvent = useCallback((event) => {
-    if (event.type === 'scan_intent') {
-      scanPendingRef.current = true
-      dispatch({
-        type: 'UPDATE_TEXT',
-        id: thinkingIdRef.current,
-        text: `Starting scan on ${event.target}…`,
-      })
-      startScanRef.current?.(event.scan_key)
+    if (event.type === 'thinking') {
+      const id = uid()
+      thinkingIdRef.current = id
+      streamingTextRef.current = ''
+      dispatch({ type: 'APPEND', msg: { id, type: 'ai', text: '', streaming: true } })
 
-    } else if (event.type === 'complete') {
-      // Replace "Thinking…" slot with the AI's conversational reply
-      dispatch({
-        type: 'REPLACE',
-        id: thinkingIdRef.current,
-        msg: { id: thinkingIdRef.current, type: 'ai', text: event.text },
-      })
-      // If a scan was triggered, open a second slot for scan progress
-      if (scanPendingRef.current) {
-        const sid = uid()
-        scanningIdRef.current = sid
-        dispatch({ type: 'APPEND', msg: { id: sid, type: 'scan-progress', text: 'Scanning…' } })
+    } else if (event.type === 'token') {
+      if (!thinkingIdRef.current) return
+      streamingTextRef.current += event.text
+      dispatch({ type: 'UPDATE_TEXT', id: thinkingIdRef.current, text: streamingTextRef.current })
+
+    } else if (event.type === 'done') {
+      if (thinkingIdRef.current) {
+        dispatch({ type: 'SET_STREAMING', id: thinkingIdRef.current, streaming: false })
+        // If a scan was triggered, open a slot for scan progress
+        if (scanPendingRef.current) {
+          const sid = uid()
+          scanningIdRef.current = sid
+          dispatch({ type: 'APPEND', msg: { id: sid, type: 'scan-progress', text: 'Scanning…' } })
+        }
+        thinkingIdRef.current = null
+        streamingTextRef.current = ''
       }
 
+    } else if (event.type === 'scan_triggered') {
+      scanPendingRef.current = true
+      if (startScanRef.current) startScanRef.current(event.scan_key, event.target)
+
     } else if (event.type === 'error') {
-      dispatch({
-        type: 'REPLACE',
-        id: thinkingIdRef.current,
-        msg: { id: thinkingIdRef.current, type: 'ai', text: `Error: ${event.text}` },
-      })
+      if (thinkingIdRef.current) {
+        dispatch({
+          type: 'REPLACE',
+          id: thinkingIdRef.current,
+          msg: { id: thinkingIdRef.current, type: 'ai', text: `Error: ${event.text}` },
+        })
+        thinkingIdRef.current = null
+        streamingTextRef.current = ''
+      }
       if (scanningIdRef.current) {
         dispatch({ type: 'REMOVE', id: scanningIdRef.current })
         scanningIdRef.current = null
@@ -103,7 +113,19 @@ export default function App() {
 
   // --- Hooks ---
 
-  const { send, status: chatStatus } = useChat(sessionId, handleChatEvent)
+  const storedProvider = localStorage.getItem('aivas_provider') || 'groq'
+  const storedModel = localStorage.getItem('aivas_model') || undefined
+  const storedKey = localStorage.getItem('aivas_api_key') || undefined
+  const storedShodan = localStorage.getItem('aivas_shodan_key') || undefined
+
+  const { send, status: chatStatus } = useChat({
+    sessionId,
+    onEvent: handleChatEvent,
+    provider: storedProvider,
+    model: storedModel,
+    apiKey: storedKey,
+    shodanKey: storedShodan,
+  })
   const { start: startScan } = useScan(handleScanProgress, handleScanDone)
   const { sessions, refresh: refreshSessions, deleteSession } = useSessions()
 
@@ -144,11 +166,8 @@ export default function App() {
   // --- User actions ---
 
   const handleSend = useCallback((text) => {
-    const tid = uid()
-    thinkingIdRef.current = tid
     scanPendingRef.current = false
     dispatch({ type: 'APPEND', msg: { id: uid(), type: 'user', text } })
-    dispatch({ type: 'APPEND', msg: { id: tid, type: 'scan-progress', text: 'Thinking…' } })
     send(text)
   }, [send])
 

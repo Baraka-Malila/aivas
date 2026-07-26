@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 
-export function useChat(sessionId, onEvent) {
+export function useChat({ sessionId, onEvent, provider = 'groq', model, apiKey, shodanKey }) {
   const onEventRef = useRef(onEvent)
   useEffect(() => { onEventRef.current = onEvent })
 
@@ -10,8 +10,16 @@ export function useChat(sessionId, onEvent) {
   useEffect(() => {
     if (!sessionId) return
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
-    const ws = new WebSocket(`${proto}://${window.location.host}/ws/chat/${sessionId}`)
-    ws.onopen = () => setStatus('open')
+    const params = new URLSearchParams({ provider })
+    if (model) params.set('model', model)
+    const ws = new WebSocket(`${proto}://${window.location.host}/ws/chat/${sessionId}?${params}`)
+    ws.onopen = () => {
+      setStatus('open')
+      const auth = { type: 'auth' }
+      if (apiKey) auth.api_key = apiKey
+      if (shodanKey) auth.shodan_key = shodanKey
+      ws.send(JSON.stringify(auth))
+    }
     ws.onclose = () => setStatus('closed')
     ws.onerror = () => setStatus('error')
     ws.onmessage = (e) => {
@@ -22,7 +30,7 @@ export function useChat(sessionId, onEvent) {
       ws.onopen = ws.onclose = ws.onerror = ws.onmessage = null
       ws.close()
     }
-  }, [sessionId])
+  }, [sessionId, provider, model])
 
   const send = useCallback((text) => {
     if (wsRef.current?.readyState === 1) {

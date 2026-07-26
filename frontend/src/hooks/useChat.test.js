@@ -1,46 +1,56 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useChat } from './useChat'
 
-class MockWS {
-  constructor(url) {
-    this.url = url
-    this.readyState = 1  // OPEN
-    this.sent = []
-    MockWS.last = this
-  }
-  send(data) { this.sent.push(data) }
-  close() { this.onclose?.() }
+class FakeWS {
+  constructor(url) { this.url = url; this.sent = []; this.readyState = 0 }
+  send(data) { this.sent.push(JSON.parse(data)) }
+  close() { this.readyState = 3 }
 }
-MockWS.last = null
 
-beforeEach(() => { vi.stubGlobal('WebSocket', MockWS) })
-afterEach(() => { vi.unstubAllGlobals() })
+let fakeWs
+beforeEach(() => {
+  fakeWs = null
+  vi.stubGlobal('WebSocket', function(url) {
+    fakeWs = new FakeWS(url)
+    return fakeWs
+  })
+})
 
 describe('useChat', () => {
-  it('opens WebSocket with correct session URL', () => {
-    renderHook(() => useChat('sess-1', vi.fn()))
-    expect(MockWS.last.url).toContain('/ws/chat/sess-1')
+  it('opens WS with provider/model query params', () => {
+    renderHook(() => useChat({
+      sessionId: 'abc', onEvent: vi.fn(),
+      provider: 'groq', model: 'llama-3.3-70b-versatile'
+    }))
+    expect(fakeWs.url).toContain('provider=groq')
+    expect(fakeWs.url).toContain('model=llama-3.3-70b-versatile')
   })
 
-  it('does not open WebSocket when sessionId is null', () => {
-    MockWS.last = null
-    renderHook(() => useChat(null, vi.fn()))
-    expect(MockWS.last).toBeNull()
+  it('sends auth message on open with api key', () => {
+    renderHook(() => useChat({
+      sessionId: 'abc', onEvent: vi.fn(),
+      apiKey: 'gsk_test', shodanKey: 'shodan_key_123'
+    }))
+    act(() => { fakeWs.onopen?.() })
+    const authMsg = fakeWs.sent.find(m => m.type === 'auth')
+    expect(authMsg).toBeTruthy()
+    expect(authMsg.api_key).toBe('gsk_test')
+    expect(authMsg.shodan_key).toBe('shodan_key_123')
   })
 
-  it('send() dispatches user message over WS', () => {
-    const { result } = renderHook(() => useChat('s1', vi.fn()))
-    act(() => result.current.send('hello'))
-    expect(JSON.parse(MockWS.last.sent[0])).toEqual({ type: 'user', text: 'hello' })
-  })
-
-  it('calls onEvent with parsed message on WS message', () => {
+  it('calls onEvent for token messages', () => {
     const onEvent = vi.fn()
-    renderHook(() => useChat('s1', onEvent))
-    act(() => {
-      MockWS.last.onmessage({ data: '{"type":"complete","text":"hi"}' })
-    })
-    expect(onEvent).toHaveBeenCalledWith({ type: 'complete', text: 'hi' })
+    renderHook(() => useChat({ sessionId: 'abc', onEvent }))
+    act(() => { fakeWs.onmessage?.({ data: JSON.stringify({ type: 'token', text: 'Hi' }) }) })
+    expect(onEvent).toHaveBeenCalledWith({ type: 'token', text: 'Hi' })
+  })
+
+  it('send() dispatches user message when open', () => {
+    const { result } = renderHook(() => useChat({ sessionId: 'abc', onEvent: vi.fn() }))
+    act(() => { fakeWs.readyState = 1; fakeWs.onopen?.() })
+    act(() => result.current.send('hello') )
+    const userMsg = fakeWs.sent.find(m => m.type === 'user')
+    expect(userMsg?.text).toBe('hello')
   })
 })
