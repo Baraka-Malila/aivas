@@ -4,6 +4,7 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
+import aivas.server.chat_api
 from aivas.server.main import app, _conn as _module_conn
 import aivas.server.main as main_mod
 from aivas.database.schema import create_schema
@@ -61,9 +62,11 @@ def test_delete_missing_session_404(client):
 
 
 def test_post_chat_creates_session_when_missing(client):
-    async def fake_handle(conn, sid, text, scan_id=None):
-        return ("hello reply", None)
-    with patch("aivas.server.main.handle_chat", side_effect=fake_handle):
+    async def fake_handle(conn, pending, session_id, text):
+        from aivas.server.chat_memory import create_session
+        sid = session_id or create_session(conn)
+        return {"response": "hello reply", "scan_id": None, "session_id": sid}
+    with patch("aivas.server.chat_api.handle_chat_rest", side_effect=fake_handle):
         resp = client.post("/api/chat", json={"text": "hi"})
     assert resp.status_code == 200
     data = resp.json()
@@ -73,10 +76,10 @@ def test_post_chat_creates_session_when_missing(client):
 
 def test_post_chat_uses_existing_session(client):
     sid = client.post("/api/sessions").json()["id"]
-    async def fake_handle(conn, session_id, text, scan_id=None):
+    async def fake_handle(conn, pending, session_id, text):
         assert session_id == sid
-        return ("ok", None)
-    with patch("aivas.server.main.handle_chat", side_effect=fake_handle):
+        return {"response": "ok", "scan_id": None, "session_id": sid}
+    with patch("aivas.server.chat_api.handle_chat_rest", side_effect=fake_handle):
         resp = client.post(
             "/api/chat", json={"text": "hi", "session_id": sid},
         )

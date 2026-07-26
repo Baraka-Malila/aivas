@@ -1,4 +1,5 @@
 from aivas.history import save_scan
+import aivas.server.chat_api
 import aivas.server.main as _m
 
 
@@ -36,8 +37,8 @@ from unittest.mock import AsyncMock, patch
 
 def test_chat_no_scan_intent(client, test_conn, monkeypatch):
     monkeypatch.setattr(_m, "_conn", test_conn)
-    with patch("aivas.server.main.handle_chat",
-               new=AsyncMock(return_value=("No AI configured.", None))):
+    with patch("aivas.server.chat_api.handle_chat_rest",
+               new=AsyncMock(return_value={"response": "No AI configured.", "scan_id": None, "session_id": "s1"})):
         r = client.post("/api/chat", json={"text": "hello"})
     assert r.status_code == 200
     data = r.json()
@@ -47,8 +48,8 @@ def test_chat_no_scan_intent(client, test_conn, monkeypatch):
 
 def test_chat_with_scan_intent(client, test_conn, monkeypatch):
     monkeypatch.setattr(_m, "_conn", test_conn)
-    with patch("aivas.server.main.handle_chat",
-               new=AsyncMock(return_value=("Scanning now.", ("192.168.1.1", 2)))):
+    with patch("aivas.server.chat_api.handle_chat_rest",
+               new=AsyncMock(return_value={"response": "Scanning now.", "scan_id": "some-key", "session_id": "s1"})):
         r = client.post("/api/chat", json={"text": "scan 192.168.1.1"})
     assert r.status_code == 200
     data = r.json()

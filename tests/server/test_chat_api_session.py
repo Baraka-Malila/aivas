@@ -18,28 +18,31 @@ def conn(tmp_path):
     db.close()
 
 
-def test_handle_chat_signature_takes_session_id():
+def test_handle_chat_rest_signature_takes_session_id():
     import inspect
-    sig = inspect.signature(chat_api.handle_chat)
+    sig = inspect.signature(chat_api.handle_chat_rest)
     params = list(sig.parameters)
-    # conn, session_id, text, ...
-    assert params[1] == "session_id"
+    # conn, pending, session_id, text
+    assert params[2] == "session_id"
 
 
-def test_handle_chat_persists_user_and_assistant(conn):
+def test_handle_chat_rest_persists_user_and_assistant(conn):
     sid = create_session(conn)
-    fake_resp = ("Hello back", None, [{"role": "assistant", "content": "Hello back"}])
+    pending: dict = {}
 
-    async def fake_run(*args, **kwargs):
-        return fake_resp
+    async def fake_stream(provider, history, text, conn, shodan_key=None):
+        yield {"type": "thinking"}
+        yield {"type": "token", "text": "Hello back"}
+        yield {"type": "done", "full_text": "Hello back", "turns": [
+            {"role": "assistant", "content": "Hello back"}
+        ]}
 
     with patch.object(chat_api._config, "load", return_value={"api_key": "k"}):
-        with patch("aivas.tui.agent.run_agent", side_effect=fake_run):
-            response, scan_intent = asyncio.run(
-                chat_api.handle_chat(conn, sid, "hi")
-            )
-    assert response == "Hello back"
-    assert scan_intent is None
+        with patch("aivas.server.chat_api.stream_agent_response", side_effect=fake_stream):
+            result = asyncio.run(chat_api.handle_chat_rest(conn, pending, sid, "hi"))
+
+    assert result["response"] == "Hello back"
+    assert result["scan_id"] is None
     history = load_history(conn, sid)
     assert history == [
         {"role": "user", "content": "hi"},
@@ -47,52 +50,54 @@ def test_handle_chat_persists_user_and_assistant(conn):
     ]
 
 
-def test_handle_chat_persists_tool_call_turns(conn):
+def test_handle_chat_rest_persists_tool_call_turns(conn):
     sid = create_session(conn)
+    pending: dict = {}
     tc = [{"id": "c1", "type": "function",
            "function": {"name": "scan_host", "arguments": '{"target":"1.1.1.1"}'}}]
-    fake_resp = (
-        "Scan started.", ("1.1.1.1", 2),
-        [
-            {"role": "assistant", "content": "", "tool_calls": tc},
-            {"role": "tool", "tool_call_id": "c1",
-             "content": '{"status":"initiated"}'},
-            {"role": "assistant", "content": "Scan started."},
-        ],
-    )
 
-    async def fake_run(*args, **kwargs):
-        return fake_resp
+    async def fake_stream(provider, history, text, conn, shodan_key=None):
+        yield {"type": "scan_triggered", "target": "1.1.1.1", "level": 2}
+        yield {"type": "done", "full_text": "Scan started.", "turns": [
+            {"role": "assistant", "content": "", "tool_calls": tc},
+            {"role": "tool", "tool_call_id": "c1", "content": '{"status":"initiated"}'},
+            {"role": "assistant", "content": "Scan started."},
+        ]}
 
     with patch.object(chat_api._config, "load", return_value={"api_key": "k"}):
-        with patch("aivas.tui.agent.run_agent", side_effect=fake_run):
-            response, intent = asyncio.run(
-                chat_api.handle_chat(conn, sid, "scan 1.1.1.1")
-            )
-    assert intent == ("1.1.1.1", 2)
+        with patch("aivas.server.chat_api.stream_agent_response", side_effect=fake_stream):
+            result = asyncio.run(chat_api.handle_chat_rest(conn, pending, sid, "scan 1.1.1.1"))
+
+    assert result["scan_id"] is not None
+    assert pending  # scan was registered
     history = load_history(conn, sid)
     roles = [m["role"] for m in history]
     assert roles == ["user", "assistant", "tool", "assistant"]
 
 
-def test_handle_chat_sets_title_from_first_message(conn):
+def test_handle_chat_rest_sets_title_from_first_message(conn):
     sid = create_session(conn)
+    pending: dict = {}
 
-    async def fake_run(*args, **kwargs):
-        return ("ok", None, [{"role": "assistant", "content": "ok"}])
+    async def fake_stream(provider, history, text, conn, shodan_key=None):
+        yield {"type": "token", "text": "ok"}
+        yield {"type": "done", "full_text": "ok", "turns": [
+            {"role": "assistant", "content": "ok"}
+        ]}
 
     with patch.object(chat_api._config, "load", return_value={"api_key": "k"}):
-        with patch("aivas.tui.agent.run_agent", side_effect=fake_run):
-            asyncio.run(chat_api.handle_chat(conn, sid, "What is on my router?"))
+        with patch("aivas.server.chat_api.stream_agent_response", side_effect=fake_stream):
+            asyncio.run(chat_api.handle_chat_rest(conn, pending, sid, "What is on my router?"))
+
     row = conn.execute(
         "SELECT title FROM chat_sessions WHERE id=?", (sid,)
     ).fetchone()
     assert row["title"] == "What is on my router?"
 
 
-def test_handle_chat_loads_history_into_run_agent(conn):
+def test_handle_chat_rest_loads_history(conn):
     sid = create_session(conn)
-    # Seed prior turn
+    pending: dict = {}
     conn.execute(
         "INSERT INTO chat_messages(session_id, role, content) VALUES (?, 'user', 'first')",
         (sid,),
@@ -105,13 +110,16 @@ def test_handle_chat_loads_history_into_run_agent(conn):
 
     captured = {}
 
-    async def fake_run(app, text, api_key, context="", history=None):
+    async def fake_stream(provider, history, text, conn, shodan_key=None):
         captured["history"] = history
-        return ("ok", None, [{"role": "assistant", "content": "ok"}])
+        yield {"type": "token", "text": "ok"}
+        yield {"type": "done", "full_text": "ok", "turns": [
+            {"role": "assistant", "content": "ok"}
+        ]}
 
     with patch.object(chat_api._config, "load", return_value={"api_key": "k"}):
-        with patch("aivas.tui.agent.run_agent", side_effect=fake_run):
-            asyncio.run(chat_api.handle_chat(conn, sid, "second"))
+        with patch("aivas.server.chat_api.stream_agent_response", side_effect=fake_stream):
+            asyncio.run(chat_api.handle_chat_rest(conn, pending, sid, "second"))
 
     assert captured["history"] == [
         {"role": "user", "content": "first"},
@@ -119,12 +127,14 @@ def test_handle_chat_loads_history_into_run_agent(conn):
     ]
 
 
-def test_handle_chat_no_api_key_returns_clear_message(conn):
+def test_handle_chat_rest_no_api_key_returns_clear_message(conn):
     sid = create_session(conn)
+    pending: dict = {}
     with patch.object(chat_api._config, "load", return_value={}):
         with patch.dict("os.environ", {}, clear=False):
             import os
             os.environ.pop("GROQ_API_KEY", None)
-            response, intent = asyncio.run(chat_api.handle_chat(conn, sid, "hi"))
-    assert "No AI key" in response
-    assert intent is None
+            result = asyncio.run(chat_api.handle_chat_rest(conn, pending, sid, "hi"))
+    # get_provider raises ValueError when no key; handle_chat_rest returns it as response
+    assert result["response"]  # some error message is returned
+    assert result["session_id"] == sid

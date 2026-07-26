@@ -8,7 +8,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from aivas.server.chat_stream import stream_agent_response
 from aivas.server.chat_memory import (
-    save_user, save_assistant, save_tool_result,
+    load_history, save_user, save_assistant, save_tool_result,
     update_title_if_unset, touch_session,
 )
 from aivas.narrator.providers.factory import get_provider
@@ -64,7 +64,6 @@ async def chat_ws(
             save_user(_main._conn, session_id, text)
             update_title_if_unset(_main._conn, session_id, text)
 
-            from aivas.server.chat_memory import load_history
             history = load_history(_main._conn, session_id, max_turns=6)
 
             try:
