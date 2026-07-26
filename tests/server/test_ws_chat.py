@@ -1,5 +1,6 @@
 import sqlite3
-from unittest.mock import patch
+import asyncio
+from unittest.mock import patch, AsyncMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -20,41 +21,52 @@ def client(tmp_path, monkeypatch):
 
 def test_ws_chat_unknown_session_closes_with_error(client):
     with client.websocket_connect("/ws/chat/no-such-id") as ws:
-        ws.send_json({"type": "user", "text": "hi"})
         msg = ws.receive_json()
         assert msg["type"] == "error"
 
 
-def test_ws_chat_complete_event(client):
+def test_ws_chat_streams_tokens(client):
+    """User sends a message → receives thinking, token(s), done."""
     sid = client.post("/api/sessions").json()["id"]
 
-    async def fake_handle(conn, session_id, text, scan_id=None):
-        return ("Hello back", None)
+    async def fake_stream(provider, history, text, conn, shodan_key=None):
+        yield {"type": "thinking"}
+        yield {"type": "token", "text": "Hello"}
+        yield {"type": "token", "text": " back"}
+        yield {"type": "done", "full_text": "Hello back", "turns": [
+            {"role": "assistant", "content": "Hello back"}
+        ]}
 
-    with patch("aivas.server.main.handle_chat", side_effect=fake_handle):
+    with patch("aivas.server.ws_chat.stream_agent_response", side_effect=fake_stream):
         with client.websocket_connect(f"/ws/chat/{sid}") as ws:
             ws.send_json({"type": "user", "text": "hi"})
-            msg = ws.receive_json()
-            assert msg["type"] == "complete"
-            assert msg["text"] == "Hello back"
+            msgs = [ws.receive_json() for _ in range(4)]
+
+    types = [m["type"] for m in msgs]
+    assert "thinking" in types
+    assert "token" in types
+    assert "done" in types
+    tokens = [m["text"] for m in msgs if m["type"] == "token"]
+    assert "".join(tokens) == "Hello back"
 
 
-def test_ws_chat_scan_intent_event(client):
+def test_ws_chat_scan_triggered_registers_key(client):
+    """scan_triggered event gets a scan_key registered in _pending."""
     sid = client.post("/api/sessions").json()["id"]
 
-    async def fake_handle(conn, session_id, text, scan_id=None):
-        return ("Scan started.", ("1.1.1.1", 2))
+    async def fake_stream(provider, history, text, conn, shodan_key=None):
+        yield {"type": "thinking"}
+        yield {"type": "scan_triggered", "target": "10.0.0.1", "level": 2}
+        yield {"type": "done", "full_text": "Scan started.", "turns": [
+            {"role": "assistant", "content": "Scan started."}
+        ]}
 
-    with patch("aivas.server.main.handle_chat", side_effect=fake_handle):
+    with patch("aivas.server.ws_chat.stream_agent_response", side_effect=fake_stream):
         with client.websocket_connect(f"/ws/chat/{sid}") as ws:
-            ws.send_json({"type": "user", "text": "scan 1.1.1.1"})
-            msg1 = ws.receive_json()
-            msg2 = ws.receive_json()
-            kinds = {msg1["type"], msg2["type"]}
-            assert "scan_intent" in kinds
-            assert "complete" in kinds
-            # scan_intent carries scan_key + target + level
-            intent_msg = msg1 if msg1["type"] == "scan_intent" else msg2
-            assert intent_msg["target"] == "1.1.1.1"
-            assert intent_msg["level"] == 2
-            assert "scan_key" in intent_msg
+            ws.send_json({"type": "user", "text": "scan 10.0.0.1"})
+            msgs = [ws.receive_json() for _ in range(3)]
+
+    scan_ev = next(m for m in msgs if m["type"] == "scan_triggered")
+    assert scan_ev["target"] == "10.0.0.1"
+    assert "scan_key" in scan_ev
+    assert scan_ev["scan_key"] in main_mod._pending

@@ -1,8 +1,4 @@
-"""Wraps the Groq agent for HTTP context — no TUI runtime dependency.
-
-Session-aware: loads prior conversation history per session_id and persists
-new turns after the LLM call.
-"""
+"""HTTP chat helpers — session-aware multi-turn chat and stateless narration."""
 from __future__ import annotations
 
 import os
@@ -72,17 +68,12 @@ async def handle_chat(
             None,
         )
 
-    # 1. Load history
     history = load_history(conn, session_id, max_turns=_HISTORY_TURNS)
-
-    # 2. Build context (scan summary) — separate from history
     context = _build_context(conn, scan_id=scan_id)
 
-    # 3. Persist the user message BEFORE the LLM call so it survives errors
     save_user(conn, session_id, text)
     update_title_if_unset(conn, session_id, text)
 
-    # 4. Call the agent with full history
     from aivas.tui.agent import run_agent
     holder = types.SimpleNamespace(conn=conn)
     try:
@@ -95,7 +86,6 @@ async def handle_chat(
             return "API key rejected by Groq. Update: aivas config set api_key KEY", None
         return f"AI error: {exc}", None
 
-    # 5. Persist new turns
     for turn in assistant_turns:
         role = turn.get("role")
         if role == "assistant":
@@ -113,28 +103,50 @@ async def handle_chat(
 
 
 async def handle_narrate(conn: sqlite3.Connection, scan_id: int) -> str:
-    """Generate a 3-paragraph AI security assessment for a completed scan.
-
-    Stateless single-shot call — does NOT use session history.
-    """
+    """Generate a security assessment for a completed scan (stateless single-shot)."""
     cfg = _config.load()
     api_key = cfg.get("api_key") or os.environ.get("GROQ_API_KEY")
     if not api_key:
         return "No AI key configured. Run: aivas config set api_key YOUR_GROQ_KEY"
-    context = _build_context(conn, scan_id=scan_id)
-    prompt = (
-        "Write a 3-paragraph professional security assessment for the scan above. "
-        "Paragraph 1: overall risk posture and grade justification. "
-        "Paragraph 2: most critical findings and their real-world impact. "
-        "Paragraph 3: prioritised remediation actions. "
-        "Use **bold** for CVE IDs and severity labels. Do not initiate a new scan."
-    )
-    holder = types.SimpleNamespace(conn=conn)
-    try:
-        from aivas.tui.agent import run_agent
-        response, _intent, _turns = await run_agent(
-            holder, prompt, api_key, context=context, history=None,
+
+    scans = list_scans(conn, limit=5)
+    scan_ref = next((s for s in scans if s["id"] == scan_id), None)
+    if not scan_ref:
+        return f"Scan #{scan_id} not found."
+
+    findings = get_scan_findings(conn, scan_id)
+    if not findings:
+        return f"No findings for scan #{scan_id}."
+
+    lines = [
+        f"Scan #{scan_id}: {scan_ref['target']} — Grade {scan_ref.get('grade','?')} "
+        f"({scan_ref.get('risk_score','?')}/100)",
+        "",
+        "Findings:",
+    ]
+    for f in findings[:15]:
+        lines.append(
+            f"  {f['cve_id']} CVSS {f.get('cvss_score','N/A')} ({f.get('cvss_severity','?')}): "
+            f"{(f.get('description') or '')[:120]}"
         )
-        return response or "Assessment could not be generated."
+    context = "\n".join(lines)
+
+    prompt = (
+        f"{context}\n\nWrite a 3-paragraph professional security assessment. "
+        "Paragraph 1: overall risk and grade justification. "
+        "Paragraph 2: most critical findings and real-world impact. "
+        "Paragraph 3: prioritised remediation actions. "
+        "Use **bold** for CVE IDs. Do not initiate a new scan."
+    )
+
+    try:
+        from groq import Groq
+        client = Groq(api_key=api_key)
+        resp = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=800,
+        )
+        return resp.choices[0].message.content or "Assessment could not be generated."
     except Exception as exc:
         return f"Assessment error: {exc}"
