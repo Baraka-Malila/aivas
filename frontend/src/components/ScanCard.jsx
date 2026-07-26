@@ -8,7 +8,7 @@ const SEV_ORDER  = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
 
 export default function ScanCard({ scanData, onSend }) {
   const [expanded, setExpanded] = useState(false)
-  const { scan_id, target, grade, service_count, findings, counts } = scanData
+  const { scan_id, target, grade, service_count, findings, counts, log } = scanData
 
   const shown = expanded ? findings : findings.slice(0, 5)
   const gradeColor = GRADE_COLOR[grade] || '#e0e0e0'
@@ -135,6 +135,28 @@ export default function ScanCard({ scanData, onSend }) {
           View full report <ExternalLink size={10} />
         </a>
       </div>
+
+      {/* Scan Log */}
+      {log && log.length > 0 && (
+        <details style={{ borderTop: '1px solid #1e1e1e' }}>
+          <summary
+            style={{ color: '#666', cursor: 'pointer', userSelect: 'none' }}
+            className="px-3 py-2 text-xs hover:text-white transition-colors"
+          >
+            Scan Log ({log.length} events)
+          </summary>
+          <div
+            style={{ background: '#0a0a0a', maxHeight: 200, overflowY: 'auto' }}
+            className="px-3 py-2"
+          >
+            {log.map((entry, i) => (
+              <div key={i} style={{ color: '#555', fontFamily: 'monospace' }} className="text-xs py-0.5">
+                {entry}
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
     </div>
   )
 }

@@ -64,4 +64,34 @@ describe('ScanCard', () => {
     fireEvent.click(screen.getByText('Rescan'))
     expect(onSend).toHaveBeenCalledWith('Scan 192.168.1.1 again')
   })
+
+  it('renders Scan Log section when log is provided', () => {
+    const { container } = render(
+      <ScanCard
+        scanData={{ ...base, log: ['PORT SCANNING', 'Found 3 ports'] }}
+        onSend={vi.fn()}
+      />
+    )
+    expect(container.textContent).toContain('Scan Log')
+  })
+
+  it('log items are accessible via details element', () => {
+    const { container } = render(
+      <ScanCard
+        scanData={{ ...base, log: ['CVE LOOKUP', 'Found 2 CVEs'] }}
+        onSend={vi.fn()}
+      />
+    )
+    const details = container.querySelector('details')
+    expect(details).not.toBeNull()
+    expect(details.textContent).toContain('CVE LOOKUP')
+    expect(details.textContent).toContain('Found 2 CVEs')
+  })
+
+  it('does not render Scan Log when log is empty or absent', () => {
+    const { container } = render(
+      <ScanCard scanData={{ ...base }} onSend={vi.fn()} />
+    )
+    expect(container.textContent).not.toContain('Scan Log')
+  })
 })
