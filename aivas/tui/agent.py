@@ -36,7 +36,9 @@ def _as_str(v, default: str = "") -> str:
 
 
 
-def _exec_tool(name: str, args: dict, conn: sqlite3.Connection) -> tuple[str, tuple | None]:
+def _exec_tool(
+    name: str, args: dict, conn: sqlite3.Connection, shodan_key: str | None = None
+) -> tuple[str, tuple | None]:
     """Execute a tool call. Returns (result_json, scan_intent) or (error_json, None)."""
     from aivas.history import list_scans, get_scan_findings
 
@@ -78,6 +80,14 @@ def _exec_tool(name: str, args: dict, conn: sqlite3.Connection) -> tuple[str, tu
         if not row:
             return json.dumps({"error": f"{cve_id} not found in local database."}), None
         return json.dumps(dict(row)), None
+
+    if name == "query_shodan":
+        ip = _as_str(args.get("ip"))
+        if not ip:
+            return json.dumps({"error": "ip is required."}), None
+        from aivas.narrator.shodan_client import query_shodan
+        result = query_shodan(ip, shodan_key or "")
+        return json.dumps(result), None
 
     return json.dumps({"error": f"Unknown tool: {name}"}), None
 
