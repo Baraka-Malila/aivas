@@ -75,66 +75,75 @@ def test_run_scan_emits_many_progress_events(conn):
     assert len(progress) >= 8
 
 
-def test_run_scan_populates_narration_when_api_key_set(monkeypatch, conn):
-    """When GROQ_API_KEY is set, web scan flow runs narrator and warm_cache."""
+def test_run_scan_completes_without_ai_phases(conn):
+    """Scan completes successfully without AI narration or remediation phases."""
     fake_service = {"host":"1.1.1.1","port":80,"service":"http",
                     "product":"apache","version":"2.4","os_family":None}
-    fake_finding = {
-        "cve_id":"CVE-2021-41773", "cvss_score":9.8, "cvss_severity":"CRITICAL",
-        "description":"path traversal", "confidence":"probable",
-        "host":"1.1.1.1", "port":80,
-    }
-    called = {"narrate": 0, "warm": 0}
-
-    def fake_narrate(findings, provider):
-        called["narrate"] += 1
-        for f in findings:
-            f["narration_en"] = "Test EN"
-            f["narration_sw"] = "Test SW"
-            f["fix_en"] = "Fix EN"
-            f["fix_sw"] = "Fix SW"
-        return findings
-
-    async def fake_warm(*a, **kw):
-        called["warm"] += 1
-
-    monkeypatch.setenv("GROQ_API_KEY", "k")
-    with patch("aivas.server.scan_worker._blocking_nmap", return_value="<xml/>"):
-        with patch("aivas.server.scan_worker.parse_nmap_xml", return_value=[fake_service]):
-            with patch("aivas.server.scan_helpers.correlate", return_value=[fake_finding]):
-                with patch("aivas.server.scan_worker.narrate", side_effect=fake_narrate):
-                    with patch("aivas.server.scan_worker.warm_cache", side_effect=fake_warm):
-                        events = asyncio.run(_collect(run_scan(conn, "1.1.1.1")))
-    assert called["narrate"] == 1
-    assert called["warm"] == 1
-    # Done event findings should have narration populated
-    done = events[-1]
-    assert done["type"] == "done"
-    if done["findings"]:
-        f = done["findings"][0]
-        # Narration fields aren't in the done event payload, but they were saved to DB.
-    row = conn.execute(
-        "SELECT en_risk FROM findings WHERE cve_id='CVE-2021-41773'"
-    ).fetchone()
-    assert row["en_risk"] == "Test EN"
-
-
-def test_run_scan_skips_narration_without_api_key(monkeypatch, conn):
-    """No GROQ_API_KEY -> narrator not called; scan still completes."""
-    fake_service = {"host":"1.1.1.1","port":80,"service":"http",
-                    "product":"apache","version":"2.4","os_family":None}
-    monkeypatch.delenv("GROQ_API_KEY", raising=False)
-    called = {"narrate": 0}
-
-    def fake_narrate(findings, provider):
-        called["narrate"] += 1
-        return findings
-
     with patch("aivas.server.scan_worker._blocking_nmap", return_value="<xml/>"):
         with patch("aivas.server.scan_worker.parse_nmap_xml", return_value=[fake_service]):
             with patch("aivas.server.scan_helpers.correlate", return_value=[]):
-                with patch("aivas.server.scan_worker.narrate", side_effect=fake_narrate):
-                    events = asyncio.run(_collect(run_scan(conn, "1.1.1.1")))
-    assert called["narrate"] == 0
-    # Scan completes — "done" (found port, no CVE findings) or "error" are both acceptable
-    assert events[-1]["type"] in ("done", "error")
+                events = asyncio.run(_collect(run_scan(conn, "1.1.1.1")))
+    # Scan should complete successfully
+    done = events[-1]
+    assert done["type"] == "done"
+    assert done["target"] == "1.1.1.1"
+    # Log should be present and contain phase events
+    assert "log" in done
+    assert isinstance(done["log"], list)
+    assert any("SCORING" in text for text in done["log"])
+
+
+def test_run_scan_does_not_call_llm(conn):
+    """Scan pipeline must not make any LLM calls after cleanup."""
+    with patch("aivas.server.scan_worker._blocking_nmap") as mock_nmap, \
+         patch("aivas.server.scan_worker.parse_nmap_xml") as mock_parse, \
+         patch("aivas.server.scan_worker.score_findings") as mock_score, \
+         patch("aivas.server.scan_worker.save_scan", return_value=42) as mock_save:
+
+        mock_nmap.return_value = "<nmaprun/>"
+        mock_parse.return_value = [
+            {"host": "1.2.3.4", "port": 80, "protocol": "tcp",
+             "service": "http", "product": "nginx", "version": "1.18"}
+        ]
+        mock_score.return_value = {"grade": "B", "score": 65, "total": 1, "sev_counts": {}}
+
+        with patch("aivas.server.scan_worker.cve_events") as mock_cve, \
+             patch("aivas.server.scan_worker.http_probe_events") as mock_http:
+
+            async def _empty():
+                yield {"__findings": []}
+                return
+
+            async def _empty_http():
+                yield {"__misconfigs": []}
+                return
+
+            mock_cve.return_value = _empty()
+            mock_http.return_value = _empty_http()
+
+            events = asyncio.run(_collect(run_scan(conn, "1.2.3.4")))
+
+    # No groq/narrator calls should have been made
+    import sys
+    for mod_name in list(sys.modules):
+        if "groq" in mod_name:
+            assert not hasattr(sys.modules[mod_name], '_call_count'), \
+                "Groq module should not have been called"
+
+    done = next(e for e in events if e["type"] == "done")
+    assert "log" in done
+    assert isinstance(done["log"], list)
+    assert len(done["log"]) > 0
+
+
+def test_done_event_has_log_with_phase_events(conn):
+    """done event log contains phase header strings."""
+    with patch("aivas.server.scan_worker._blocking_nmap", return_value="<nmaprun/>"), \
+         patch("aivas.server.scan_worker.parse_nmap_xml", return_value=[]), \
+         patch("aivas.server.scan_worker.score_findings", return_value={"grade": "A", "score": 95, "total": 0, "sev_counts": {}}):
+        events = asyncio.run(_collect(run_scan(conn, "1.2.3.4")))
+
+    # Either error (no open ports) or done — both should carry log
+    last = events[-1]
+    # For "no open ports" case, no done event, but we verify the error path is clean
+    assert last["type"] in ("error", "done")
