@@ -47,8 +47,14 @@ def _exec_tool(
         level = _as_int(args.get("level"), default=2) or 2
         if not target:
             return json.dumps({"error": "No target specified."}), None
-        msg = f"Scan initiated for {target} (level {level}). Results will appear below."
-        return json.dumps({"status": "initiated", "message": msg}), (target, level)
+        return json.dumps({
+            "status": "running_in_background",
+            "instruction": (
+                "The scan is running in a separate process. "
+                "Results are NOT available yet — do NOT describe or predict findings. "
+                "Tell the user the scan has started and results will appear in the scan card below."
+            ),
+        }), (target, level)
 
     if name == "get_history":
         limit = _as_int(args.get("limit"), default=5) or 5

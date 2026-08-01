@@ -123,7 +123,7 @@ export default function App() {
     apiKey: storedKey,
     shodanKey: storedShodan,
   })
-  const { start: startScan } = useScan(handleScanProgress, handleScanDone)
+  const { start: startScan, stop: stopScan } = useScan(handleScanProgress, handleScanDone)
   const { sessions, refresh: refreshSessions, deleteSession } = useSessions()
 
   // Wire refs after hooks resolve
@@ -201,7 +201,7 @@ export default function App() {
         onHistory={() => { setDrawerOpen(true); refreshSessions() }}
         onSettings={() => setSettingsOpen(true)}
       />
-      <ChatArea messages={messages} onSend={handleSend} />
+      <ChatArea messages={messages} onSend={handleSend} onStopScan={stopScan} />
       <ChatInput onSend={handleSend} disabled={chatStatus !== 'open'} />
       <SessionDrawer
         open={drawerOpen}

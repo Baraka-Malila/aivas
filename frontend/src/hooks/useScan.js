@@ -12,6 +12,17 @@ export function useScan(onProgress, onDone) {
   const logRef = useRef([])
   const [isScanning, setIsScanning] = useState(false)
 
+  const stop = useCallback(() => {
+    if (wsRef.current) {
+      wsRef.current.onmessage = null
+      wsRef.current.onerror = null
+      wsRef.current.onclose = null
+      wsRef.current.close()
+      wsRef.current = null
+    }
+    setIsScanning(false)
+  }, [])
+
   const start = useCallback((scanKey) => {
     if (wsRef.current) {
       wsRef.current.onmessage = null
@@ -26,10 +37,13 @@ export function useScan(onProgress, onDone) {
     ws.onmessage = (e) => {
       let msg
       try { msg = JSON.parse(e.data) } catch { return }
-      if (msg.text) logRef.current = [...logRef.current, msg.text]
-      if (msg.type === 'phase_header') {
-        onProgressRef.current(msg.text || '')
-      } else if (msg.type === 'done') {
+      if (msg.text) {
+        logRef.current = [...logRef.current, msg.text]
+        if (msg.type !== 'done' && msg.type !== 'error') {
+          onProgressRef.current(msg.text)
+        }
+      }
+      if (msg.type === 'done') {
         setIsScanning(false)
         onDoneRef.current({ ...msg, log: logRef.current })
         ws.close()
@@ -42,5 +56,5 @@ export function useScan(onProgress, onDone) {
     wsRef.current = ws
   }, [])
 
-  return { isScanning, start }
+  return { isScanning, start, stop }
 }

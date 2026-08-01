@@ -78,9 +78,9 @@ async def stream_agent_response(
     turns_to_persist: list[dict] = []
     full_text = ""
 
-    for _step in range(_MAX_STEPS):
-        yield {"type": "thinking"}
+    yield {"type": "thinking"}
 
+    for _step in range(_MAX_STEPS):
         try:
             resp = await asyncio.to_thread(
                 lambda: groq.chat.completions.create(

@@ -12,7 +12,10 @@ A narration request gets a structured assessment.
 
 Tools available:
 - scan_host: trigger a network scan. Call this when the user asks to scan.
-  Confirm you have started it, then wait for the results to appear.
+  CRITICAL: This tool returns {"status": "running_in_background"} — the scan has
+  STARTED but NOT completed. You MUST NOT describe, predict, or fabricate any scan
+  results. Tell the user the scan has started and they should watch the scan card
+  below for live progress and final results.
 - get_history: list recent scans.
 - get_last_scan: get findings from the most recent scan.
 - get_findings: get CVE findings for a specific scan ID.
