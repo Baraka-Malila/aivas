@@ -35,6 +35,23 @@ export default function App() {
 
   const handleScanDone = useCallback(async (doneEvent) => {
     scanPendingRef.current = false
+
+    if (doneEvent.type === 'error') {
+      if (scanningIdRef.current) {
+        dispatch({
+          type: 'REPLACE',
+          id: scanningIdRef.current,
+          msg: {
+            id: scanningIdRef.current,
+            type: 'ai',
+            text: `**Scan failed:** ${doneEvent.text || 'Unknown error. Check target and try again.'}`,
+          },
+        })
+        scanningIdRef.current = null
+      }
+      return
+    }
+
     let findings = doneEvent.findings || []
     try {
       const res = await fetch(`/api/scan/${doneEvent.scan_id}`)

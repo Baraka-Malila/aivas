@@ -95,6 +95,40 @@ def _exec_tool(
         result = query_shodan(ip, shodan_key or "")
         return json.dumps(result), None
 
+    if name == "get_local_info":
+        import socket
+        import subprocess as _sp
+        info: dict = {}
+        try:
+            info["hostname"] = socket.gethostname()
+        except Exception:
+            info["hostname"] = "unknown"
+        # Primary outbound IP — UDP connect trick, sends no packet
+        for _dest in ("8.8.8.8", "192.168.1.1", "10.0.0.1"):
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as _s:
+                    _s.connect((_dest, 80))
+                    _ip = _s.getsockname()[0]
+                    if not _ip.startswith("127."):
+                        info["primary_ip"] = _ip
+                        break
+            except Exception:
+                continue
+        # Full interface list from ip addr
+        try:
+            _r = _sp.run(
+                ["ip", "-4", "addr", "show"],
+                capture_output=True, text=True, timeout=3,
+            )
+            if _r.returncode == 0:
+                info["interfaces"] = [
+                    ln.strip() for ln in _r.stdout.splitlines()
+                    if ln.strip().startswith("inet ") and "127.0.0.1" not in ln
+                ]
+        except Exception:
+            pass
+        return json.dumps(info), None
+
     return json.dumps({"error": f"Unknown tool: {name}"}), None
 
 

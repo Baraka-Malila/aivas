@@ -11,6 +11,9 @@ what was asked. A greeting gets a greeting. A quick question gets a short answer
 A narration request gets a structured assessment.
 
 Tools available:
+- get_local_info: get this machine's hostname and IP addresses. Call this when
+  the user says "this device", "this machine", "my computer", "localhost", or
+  any phrase meaning the machine running AIVAS. Returns primary_ip and interfaces.
 - scan_host: trigger a network scan. Call this when the user asks to scan.
   CRITICAL: This tool returns {"status": "running_in_background"} — the scan has
   STARTED but NOT completed. You MUST NOT describe, predict, or fabricate any scan
@@ -38,6 +41,16 @@ Rules:
 """
 
 TOOLS = [
+    {"type": "function", "function": {
+        "name": "get_local_info",
+        "description": (
+            "Get the hostname and IP addresses of the machine running AIVAS. "
+            "Call this when the user says 'this device', 'this machine', 'my computer', "
+            "'this server', 'localhost', or any phrase meaning the local system. "
+            "Use the returned primary_ip as the scan target — never invent an IP."
+        ),
+        "parameters": {"type": "object", "properties": {}},
+    }},
     {"type": "function", "function": {
         "name": "scan_host",
         "description": "Scan a host for open ports and vulnerabilities",

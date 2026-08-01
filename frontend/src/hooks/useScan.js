@@ -39,7 +39,7 @@ export function useScan(onProgress, onDone) {
       try { msg = JSON.parse(e.data) } catch { return }
       if (msg.text) {
         logRef.current = [...logRef.current, msg.text]
-        if (msg.type !== 'done' && msg.type !== 'error') {
+        if (msg.type !== 'done') {
           onProgressRef.current([...logRef.current])
         }
       }
@@ -49,6 +49,7 @@ export function useScan(onProgress, onDone) {
         ws.close()
       } else if (msg.type === 'error') {
         setIsScanning(false)
+        onDoneRef.current({ type: 'error', text: msg.text, log: logRef.current })
         ws.close()
       }
     }

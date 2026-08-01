@@ -101,7 +101,13 @@ async def http_probe_events(
         label = f"{host}:{port}"
         yield _ev("http_probe", f"  {label} — probing headers, paths, methods…")
         try:
-            result = await asyncio.to_thread(probe_http_service, host, port, scheme)
+            result = await asyncio.wait_for(
+                asyncio.to_thread(probe_http_service, host, port, scheme),
+                timeout=12.0,
+            )
+        except asyncio.TimeoutError:
+            yield _ev("http_timeout", f"  {label} — HTTP probe timed out (12s), skipping")
+            continue
         except Exception as exc:
             yield _ev("http_error", f"  {label} — probe error: {exc}")
             continue

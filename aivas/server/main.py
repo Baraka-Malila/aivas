@@ -165,11 +165,31 @@ async def scan_ws(websocket: WebSocket, scan_key: str):
     target, level = entry
     from aivas.server.scan_worker import run_scan
     scan_gen = run_scan(_conn, target, level)
-    try:
+
+    async def _stream():
         async for event in scan_gen:
             await websocket.send_json(event)
-    except WebSocketDisconnect:
-        pass
+
+    async def _watch_disconnect():
+        # Blocks until the client closes the connection or sends a stop frame
+        try:
+            await websocket.receive_bytes()
+        except (WebSocketDisconnect, Exception):
+            pass
+
+    stream_task = asyncio.create_task(_stream())
+    watch_task = asyncio.create_task(_watch_disconnect())
+    try:
+        _, pending_tasks = await asyncio.wait(
+            {stream_task, watch_task},
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        for task in pending_tasks:
+            task.cancel()
+            try:
+                await task
+            except (asyncio.CancelledError, Exception):
+                pass
     finally:
         await scan_gen.aclose()
 
