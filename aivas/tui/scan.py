@@ -32,7 +32,9 @@ async def _resolves(host: str) -> bool:
     except (socket.gaierror, OSError):
         return False
 async def _nmap_needs_sudo(udp: bool) -> bool:
-    import os, shutil, subprocess
+    import os
+    import shutil
+    import subprocess
     if not udp or os.geteuid() == 0:
         return False
     caps = subprocess.run(["getcap", shutil.which("nmap") or "nmap"],
@@ -41,12 +43,16 @@ async def _nmap_needs_sudo(udp: bool) -> bool:
 async def _run_nmap_threaded(app: "AIVASApp", target: str, scripts: str,
                               udp: bool, os_detect: bool, timeout: int = 300) -> str:
     """Run nmap via Popen; stores handle on app._scan_proc for ESC cancel."""
-    import subprocess, shutil
+    import subprocess
+    import shutil
     nmap_bin = shutil.which("nmap") or "nmap"
     cmd = [nmap_bin, "-sV", "-oX", "-", target]
-    if udp: cmd += ["-sU"]
-    if os_detect: cmd += ["-O"]
-    if scripts: cmd += ["--script", scripts]
+    if udp:
+        cmd += ["-sU"]
+    if os_detect:
+        cmd += ["-O"]
+    if scripts:
+        cmd += ["--script", scripts]
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     app._scan_proc = proc
     def _communicate() -> str:
@@ -73,11 +79,15 @@ async def _run_nmap_threaded(app: "AIVASApp", target: str, scripts: str,
 async def _run_nmap_sudo(app: "AIVASApp", target: str, scripts: str,
                           udp: bool, timeout: int = 300) -> str:
     """Run sudo nmap with stdout XML capture (-oX -), return XML string."""
-    import sys, subprocess, shutil
+    import sys
+    import subprocess
+    import shutil
     nmap_bin = shutil.which("nmap") or "nmap"
     cmd = ["sudo", nmap_bin, "-sV", "-oX", "-", target]
-    if udp: cmd += ["-sU"]
-    if scripts: cmd += ["--script", scripts]
+    if udp:
+        cmd += ["-sU"]
+    if scripts:
+        cmd += ["--script", scripts]
     result = None
     with app.suspend():
         sys.stdout.write(f"\n[AIVAS] UDP scan requires root privileges.\n"
@@ -105,16 +115,19 @@ async def _show_findings(app: "AIVASApp", target: str, findings: list) -> None:
     line = (f"Risk Score: {s['score']}/100  Grade [{grade_col}]{s['grade']}[/{grade_col}]"
             f"  [dim]— {s['total']} findings"
             + (" (" + ", ".join(parts) + ")" if parts else "") + "[/dim]")
-    app.tui_print(line); app.store_scan_output(line)
+    app.tui_print(line)
+    app.store_scan_output(line)
     try:
         save_scan(app.conn, target, findings)
         app.tui_print("[dim]Scan saved to history (/history list)[/dim]")
-    except Exception: app.tui_print("[dim]History save unavailable.[/dim]")
+    except Exception:
+        app.tui_print("[dim]History save unavailable.[/dim]")
     hist = getattr(app, "_scan_history", None)
     if hist is not None:
         hist.append({"target": target, "score": s["score"], "grade": s["grade"],
                      "top_cves": [f["cve_id"] for f in findings[:3]]})
-        if len(hist) > 3: app._scan_history = hist[-3:]
+        if len(hist) > 3:
+            app._scan_history = hist[-3:]
 
 async def _probe_misconfigs(app: "AIVASApp", services: list) -> list[dict]:
     """Probe HTTP services for misconfigs, display results, return list."""
@@ -130,7 +143,8 @@ async def _probe_misconfigs(app: "AIVASApp", services: list) -> list[dict]:
             misconfigs.extend(_result["findings"])
     if misconfigs:
         mc_table = misconfig_table("Configuration Issues", misconfigs)
-        app.tui_print(mc_table); app.store_scan_output(mc_table)
+        app.tui_print(mc_table)
+        app.store_scan_output(mc_table)
     return misconfigs
 
 async def run_scan_pipeline(app: "AIVASApp", target: str,
@@ -161,19 +175,28 @@ async def run_scan_pipeline(app: "AIVASApp", target: str,
                if use_sudo else
                await _run_nmap_threaded(app, target, scripts=scripts_for_level(level), udp=udp, os_detect=True))
     except asyncio.CancelledError:
-        prog.fail("Port discovery + service detection", "cancelled"); app.set_scan_idle(); return
+        prog.fail("Port discovery + service detection", "cancelled")
+        app.set_scan_idle()
+        return
     except RuntimeError as exc:
-        prog.fail("Port discovery + service detection", str(exc)); app.set_scan_idle(); return
+        prog.fail("Port discovery + service detection", str(exc))
+        app.set_scan_idle()
+        return
     finally:
         app._scan_task = None
         if app._scan_proc:
-            try: app._scan_proc.kill()
-            except OSError: pass
+            try:
+                app._scan_proc.kill()
+            except OSError:
+                pass
             app._scan_proc = None
         app.set_scan_idle()
 
-    try: services = parse_nmap_xml(xml)
-    except Exception: prog.fail("Port discovery + service detection", "nmap output not valid XML"); return
+    try:
+        services = parse_nmap_xml(xml)
+    except Exception:
+        prog.fail("Port discovery + service detection", "nmap output not valid XML")
+        return
     if not services:
         prog.fail("Port discovery + service detection", "host unreachable or no open ports")
         app.tui_print(f"[yellow]{target}[/yellow]: no open ports — host may be offline or firewalled.\n"
@@ -216,8 +239,10 @@ async def run_scan_pipeline(app: "AIVASApp", target: str,
         await asyncio.sleep(0.02)
     findings = [f for f in all_findings if f.get("confidence") in ("probable", "confirmed")][:30]
     await prog.done("CVE correlation", f"{len(findings)} CVE(s)" if findings else "0 CVEs")
-    if findings: await _show_findings(app, target, findings)
-    else: app.tui_print("[green]No CVEs matched at probable confidence.[/green]")
+    if findings:
+        await _show_findings(app, target, findings)
+    else:
+        app.tui_print("[green]No CVEs matched at probable confidence.[/green]")
     await prog.step("Configuration checks")
     misconfigs = await _probe_misconfigs(app, services)
     await prog.done("Configuration checks", f"{len(misconfigs)} issue(s)" if misconfigs else "none")

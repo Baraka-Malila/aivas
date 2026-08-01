@@ -93,10 +93,10 @@ def doctor(ctx: click.Context) -> None:
             perm_hint = f"sudo setcap cap_net_raw,cap_net_admin+eip {nmap_bin}"
     lines.append(_check("permissions", perm_ok, perm_detail, perm_hint))
 
-    all_ok = all("✗" not in l.plain for l in lines)
+    all_ok = all("✗" not in ln.plain for ln in lines)
     status_color = "green" if all_ok else "yellow"
     status = "All checks passed" if all_ok else "Some checks need attention"
-    body = "\n".join(l.markup for l in lines)
+    body = "\n".join(ln.markup for ln in lines)
 
     console.print(Panel(
         Text.from_markup(body),

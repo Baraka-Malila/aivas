@@ -1,5 +1,6 @@
+from unittest.mock import AsyncMock, patch
+
 from aivas.history import save_scan
-import aivas.server.chat_api
 import aivas.server.main as _m
 
 
@@ -30,9 +31,6 @@ def test_history_returns_scans(client, test_conn, monkeypatch):
 def test_get_scan_not_found(client):
     r = client.get("/api/scan/9999")
     assert r.status_code == 404
-
-
-from unittest.mock import AsyncMock, patch
 
 
 def test_chat_no_scan_intent(client, test_conn, monkeypatch):

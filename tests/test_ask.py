@@ -66,7 +66,7 @@ def test_ask_command_invokes_scan_on_confirm(db_path):
          patch("aivas.commands.scan_cmd.run_scan", return_value=EMPTY_NMAP_XML) as mock_run_scan:
         mock_prov.return_value = MagicMock()
         mock_intent.return_value = {"target": "192.168.1.1", "level": 1, "focus": "web"}
-        result = runner.invoke(
+        runner.invoke(
             cli,
             ["--db", str(db_path), "ask", "--api-key", "x", "check router"],
             input="y\n",
