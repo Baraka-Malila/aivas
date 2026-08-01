@@ -15,7 +15,7 @@ from aivas.tui.agent_prompts import SYSTEM as _SYSTEM, TOOLS as _TOOLS
 _MAX_STEPS = 5
 _SUMMARIZE_THRESHOLD = 4000
 _SUMMARIZE_TOKENS = 500
-_XML_CALL_RE = re.compile(r"<function=\w[^>]*>.*?</function>", re.DOTALL)
+_XML_CALL_RE = re.compile(r"<function(?:=\w[^>]*)?>.*?</function>", re.DOTALL)
 
 
 def _load_groq_key() -> str | None:

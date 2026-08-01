@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 from .agent_prompts import SYSTEM as _SYSTEM, TOOLS as _TOOLS
 
-_XML_CALL_RE = _re.compile(r'<function=\w[^>]*>.*?</function>', _re.DOTALL)
+_XML_CALL_RE = _re.compile(r'<function(?:=\w[^>]*)?>.*?</function>', _re.DOTALL)
 
 if TYPE_CHECKING:
     from .app import AIVASApp

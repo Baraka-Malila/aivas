@@ -6,10 +6,12 @@ import ScanCard from './ScanCard'
 
 export default function ChatArea({ messages, onSend, onStopScan }) {
   const bottomRef = useRef(null)
+  // Scroll when list grows OR when a message changes type (e.g. scan-progress → scan-card)
+  const typeKey = messages.map(m => m.type).join(',')
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages.length])
+  }, [messages.length, typeKey])
 
   return (
     <div data-testid="chat-area" className="flex-1 overflow-y-auto">
