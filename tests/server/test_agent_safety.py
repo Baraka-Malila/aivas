@@ -1,3 +1,4 @@
+import inspect
 import json
 import sqlite3
 
@@ -98,9 +99,6 @@ def test_detect_lang_is_removed():
     assert not hasattr(a, "_detect_lang")
     assert not hasattr(a, "_SWAHILI_HINTS")
     assert not hasattr(a, "_lang_instruction")
-
-
-import inspect
 
 
 def test_run_agent_has_history_param():

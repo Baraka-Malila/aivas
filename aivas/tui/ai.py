@@ -77,7 +77,8 @@ async def dispatch(app: "AIVASApp", text: str, api_key: str | None) -> None:
         from .agent import run_agent
         _busy = getattr(app, 'set_busy', None)
         _idle = getattr(app, 'set_scan_idle', None)
-        if _busy: _busy("AIVAS thinking…")
+        if _busy:
+            _busy("AIVAS thinking…")
         try:
             response, scan_intent, _ = await run_agent(app, text, api_key, context=context)
             if response:
@@ -101,7 +102,8 @@ async def dispatch(app: "AIVASApp", text: str, api_key: str | None) -> None:
                 app.tui_print(f"[#e53935]AI error:[/#e53935] {exc}")
                 return
         finally:
-            if _idle: _idle()
+            if _idle:
+                _idle()
 
     if use_local:
         prompt = f"{context}\n\nUser: {text}"
@@ -134,7 +136,8 @@ async def narrate_findings(app: "AIVASApp", findings: list[dict],
     app.tui_print(f"[dim]Generating AI narration ({src})...[/dim]")
     _busy = getattr(app, 'set_busy', None)
     _idle = getattr(app, 'set_scan_idle', None)
-    if _busy: _busy("Generating narration…")
+    if _busy:
+        _busy("Generating narration…")
     try:
         prov = GroqProvider(api_key=api_key) if api_key else OllamaProvider(model="llama3")
         enriched = await asyncio.to_thread(narrate, findings[:5], prov)
@@ -142,7 +145,8 @@ async def narrate_findings(app: "AIVASApp", findings: list[dict],
     except Exception as exc:
         app.tui_print(f"[#e53935]Narration failed:[/#e53935] {exc}")
     finally:
-        if _idle: _idle()
+        if _idle:
+            _idle()
 
 
 def _call_local(user_msg: str) -> str:

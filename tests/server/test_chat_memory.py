@@ -1,4 +1,3 @@
-import json
 import sqlite3
 
 import pytest
@@ -39,7 +38,7 @@ def test_get_session_returns_dict_after_create(conn):
 
 def test_list_sessions_orders_by_updated_desc(conn):
     s1 = create_session(conn, title="first")
-    s2 = create_session(conn, title="second")
+    create_session(conn, title="second")
     touch_session(conn, s1)
     rows = list_sessions(conn)
     assert rows[0]["id"] == s1

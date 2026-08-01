@@ -1,11 +1,9 @@
-import asyncio
 from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
 
-import aivas.server.chat_api
-from aivas.server.main import app, _conn as _module_conn
+from aivas.server.main import app
 import aivas.server.main as main_mod
 from aivas.database.schema import create_schema
 import sqlite3

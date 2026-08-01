@@ -18,10 +18,14 @@ def _penalty_for(f: dict) -> float:
 
 
 def _grade_for_score(score: int) -> str:
-    if score >= 90: return "A"
-    if score >= 75: return "B"
-    if score >= 60: return "C"
-    if score >= 40: return "D"
+    if score >= 90:
+        return "A"
+    if score >= 75:
+        return "B"
+    if score >= 60:
+        return "C"
+    if score >= 40:
+        return "D"
     return "F"
 
 
@@ -34,7 +38,6 @@ def score_findings(findings: list[dict]) -> dict:
         key=lambda x: x[1],
         reverse=True,
     )[:_SCORE_TOP_N]
-    top = [f for f, _ in top_with_pen]
     penalty = sum(min(p, _MAX_PER_FINDING) for _, p in top_with_pen)
     score = max(0, 100 - int(penalty))
     grade = _grade_for_score(score)

@@ -98,7 +98,7 @@ def test_run_scan_does_not_call_llm(conn):
     with patch("aivas.server.scan_worker._blocking_nmap") as mock_nmap, \
          patch("aivas.server.scan_worker.parse_nmap_xml") as mock_parse, \
          patch("aivas.server.scan_worker.score_findings") as mock_score, \
-         patch("aivas.server.scan_worker.save_scan", return_value=42) as mock_save:
+         patch("aivas.server.scan_worker.save_scan", return_value=42):
 
         mock_nmap.return_value = "<nmaprun/>"
         mock_parse.return_value = [
