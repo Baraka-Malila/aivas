@@ -40,7 +40,7 @@ export function useScan(onProgress, onDone) {
       if (msg.text) {
         logRef.current = [...logRef.current, msg.text]
         if (msg.type !== 'done' && msg.type !== 'error') {
-          onProgressRef.current(msg.text)
+          onProgressRef.current([...logRef.current])
         }
       }
       if (msg.type === 'done') {

@@ -27,9 +27,9 @@ export default function App() {
 
   // --- Scan callbacks (stable refs) ---
 
-  const handleScanProgress = useCallback((text) => {
+  const handleScanProgress = useCallback((log) => {
     if (scanningIdRef.current) {
-      dispatch({ type: 'UPDATE_TEXT', id: scanningIdRef.current, text })
+      dispatch({ type: 'UPDATE_LOG', id: scanningIdRef.current, log })
     }
   }, [])
 
@@ -88,7 +88,7 @@ export default function App() {
       scanPendingRef.current = true
       const slotId = uid()
       scanningIdRef.current = slotId
-      dispatch({ type: 'APPEND', msg: { id: slotId, type: 'scan-progress', text: 'Scanning…' } })
+      dispatch({ type: 'APPEND', msg: { id: slotId, type: 'scan-progress', log: ['Initializing scan…'] } })
       if (startScanRef.current) startScanRef.current(event.scan_key, event.target)
 
     } else if (event.type === 'error') {

@@ -29,7 +29,12 @@ Rules:
 - Match the user's language (Swahili or English). Mixed language — prefer the
   majority. Default to English when unclear.
 - Keep CVE IDs (e.g. CVE-2021-44228), IP addresses, port numbers, product names,
-  and version numbers in their original Latin form — never translate identifiers.\
+  and version numbers in their original Latin form — never translate identifiers.
+- SCAN TARGET RULE: Before calling scan_host, you MUST have a specific real IP
+  address or CIDR range from the user (e.g. 192.168.1.1 or 192.168.1.0/24).
+  NEVER use placeholder text, examples, or addresses you invented. If the user
+  says "yes", "go ahead", "scan it", or similar without providing a target,
+  ask them: "What is the IP address or network range you want me to scan?"\
 """
 
 TOOLS = [

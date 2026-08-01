@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import shutil
 import sqlite3
-import subprocess
 import xml.etree.ElementTree as ET
 from typing import AsyncGenerator
 
@@ -19,29 +18,50 @@ from aivas.server.scan_helpers import (
 )
 
 
-def _blocking_nmap(target: str, scripts: str, timeout: int = 300) -> str:
+async def _async_nmap(target: str, scripts: str, timeout: int = 300) -> str:
+    """Run nmap as a cancellable async subprocess."""
     nmap_bin = shutil.which("nmap") or "nmap"
     cmd = [nmap_bin, "-sV", "-oX", "-", target]
     if scripts:
         cmd += ["--script", scripts]
-    result = subprocess.run(cmd, capture_output=True, timeout=timeout)
-    if result.returncode != 0:
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    try:
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+    except (asyncio.TimeoutError, asyncio.CancelledError):
+        proc.kill()
+        await proc.wait()
+        raise
+    if proc.returncode != 0:
         raise RuntimeError(
-            f"nmap exited {result.returncode}: {result.stderr.decode()[:300]}"
+            f"nmap exited {proc.returncode}: {stderr.decode()[:300]}"
         )
-    return result.stdout.decode()
+    return stdout.decode()
 
 
-def _ping_sweep(target: str, timeout: int = 60) -> list[str]:
+async def _ping_sweep(target: str, timeout: int = 60) -> list[str]:
     """Return list of live host IPs via nmap -sn ping sweep."""
     nmap_bin = shutil.which("nmap") or "nmap"
-    result = subprocess.run(
-        [nmap_bin, "-sn", "-oX", "-", target], capture_output=True, timeout=timeout
+    proc = await asyncio.create_subprocess_exec(
+        nmap_bin, "-sn", "-oX", "-", target,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
     )
-    if result.returncode != 0:
+    try:
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+    except (asyncio.TimeoutError, asyncio.CancelledError):
+        proc.kill()
+        await proc.wait()
+        return []
+    except Exception:
+        return []
+    if proc.returncode != 0:
         return []
     try:
-        root = ET.fromstring(result.stdout.decode())
+        root = ET.fromstring(stdout.decode())
         return [
             h.find("address[@addrtype='ipv4']").get("addr")
             for h in root.findall("host")
@@ -77,7 +97,7 @@ async def run_scan(
     if is_net:
         yield _emit(_ev("phase_header", "HOST DISCOVERY"))
         yield _emit(_ev("discovery", f"Pinging {target} …"))
-        live = await asyncio.to_thread(_ping_sweep, target)
+        live = await _ping_sweep(target)
         if live:
             yield _emit(_ev("hosts_found", f"  ▸ {len(live)} live host(s) found:"))
             for h in live:
@@ -87,7 +107,7 @@ async def run_scan(
             live = [target]
         for host_ip in live:
             yield _emit(_ev("phase_header", "PORT SCANNING"))
-            async for ev in scan_host(conn, host_ip, scripts, _blocking_nmap):
+            async for ev in scan_host(conn, host_ip, scripts, _async_nmap):
                 if "__svcs" in ev:
                     all_services.extend(ev["__svcs"])
                     all_findings.extend(ev["__findings"])
@@ -100,20 +120,27 @@ async def run_scan(
     else:
         yield _emit(_ev("phase_header", "PORT SCANNING"))
         yield _emit(_ev("ports", "Starting TCP port scan (top 1000 ports)…"))
-        fut = asyncio.ensure_future(asyncio.to_thread(_blocking_nmap, target, scripts))
+        nmap_task = asyncio.create_task(_async_nmap(target, scripts))
         start = asyncio.get_event_loop().time()
         xml: str | None = None
-        while True:
-            done, _ = await asyncio.wait({fut}, timeout=3.0)
-            if done:
+        try:
+            while not nmap_task.done():
                 try:
-                    xml = fut.result()
-                except Exception as exc:
-                    yield {"type": "error", "text": str(exc)}
-                    return
-                break
-            elapsed = int(asyncio.get_event_loop().time() - start)
-            yield _emit(_ev("scanning", f"Port scan running… {elapsed}s elapsed"))
+                    await asyncio.wait_for(asyncio.shield(nmap_task), timeout=3.0)
+                except asyncio.TimeoutError:
+                    elapsed = int(asyncio.get_event_loop().time() - start)
+                    yield _emit(_ev("scanning", f"Port scan running… {elapsed}s elapsed"))
+            xml = await nmap_task
+        except Exception as exc:
+            yield {"type": "error", "text": str(exc)}
+            return
+        finally:
+            if not nmap_task.done():
+                nmap_task.cancel()
+                try:
+                    await nmap_task
+                except (asyncio.CancelledError, Exception):
+                    pass
         yield _emit(_ev("ports_done", "Port scan complete — parsing results"))
         try:
             services = parse_nmap_xml(xml)
