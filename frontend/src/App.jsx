@@ -36,16 +36,15 @@ export default function App() {
   const handleScanDone = useCallback(async (doneEvent) => {
     scanPendingRef.current = false
 
-    if (doneEvent.type === 'error') {
+    if (doneEvent.type === 'error' || doneEvent.type === 'stopped') {
       if (scanningIdRef.current) {
+        const text = doneEvent.type === 'stopped'
+          ? "Scan stopped. What would you like to do — scan a different target, review the last results, or something else?"
+          : `**Scan failed:** ${doneEvent.text || 'Unknown error. Check the target and try again.'}`
         dispatch({
           type: 'REPLACE',
           id: scanningIdRef.current,
-          msg: {
-            id: scanningIdRef.current,
-            type: 'ai',
-            text: `**Scan failed:** ${doneEvent.text || 'Unknown error. Check target and try again.'}`,
-          },
+          msg: { id: scanningIdRef.current, type: 'ai', text },
         })
         scanningIdRef.current = null
       }

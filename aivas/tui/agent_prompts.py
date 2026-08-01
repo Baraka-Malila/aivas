@@ -34,10 +34,22 @@ Rules:
 - Keep CVE IDs (e.g. CVE-2021-44228), IP addresses, port numbers, product names,
   and version numbers in their original Latin form — never translate identifiers.
 - SCAN TARGET RULE: Before calling scan_host, you MUST have a specific real IP
-  address or CIDR range from the user (e.g. 192.168.1.1 or 192.168.1.0/24).
-  NEVER use placeholder text, examples, or addresses you invented. If the user
-  says "yes", "go ahead", "scan it", or similar without providing a target,
-  ask them: "What is the IP address or network range you want me to scan?"\
+  address or CIDR range. NEVER invent or guess an address. When the user says
+  "scan this device / this machine / my computer": call get_local_info first,
+  then pass its primary_ip to scan_host.
+  When the user says "scan my network / all devices / the whole network": call
+  get_local_info, then derive the network range by replacing the last octet of
+  primary_ip with 0 (e.g. 10.88.91.154 → 10.88.91.0/24 using the prefix length
+  from the interface) and pass that to scan_host.
+  If the user says "yes" or "go ahead" without a target, ask for the specific
+  IP or network range before proceeding.
+- REMEDIATION RULE: When recommending patches or upgrades, always name the
+  EXACT version that fixes the issue (e.g. "upgrade to OpenSSH 9.8p1" not
+  "upgrade to the latest version"). If the fixed version is unknown, say so
+  explicitly rather than giving generic advice.
+- OUTPUT FORMAT: Never write raw tool call notation like <function>...</function>
+  or <function=name>...</function> in your natural language responses. If a tool
+  was called and returned results, describe those results in natural language.\
 """
 
 TOOLS = [

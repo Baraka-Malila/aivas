@@ -21,6 +21,7 @@ export function useScan(onProgress, onDone) {
       wsRef.current = null
     }
     setIsScanning(false)
+    onDoneRef.current({ type: 'stopped', log: logRef.current })
   }, [])
 
   const start = useCallback((scanKey) => {

@@ -105,7 +105,14 @@ export default function ScanCard({ scanData, onSend }) {
       {/* Action buttons */}
       <div className="flex flex-wrap items-center gap-2 px-3 py-2.5">
         <button
-          onClick={() => onSend(`Narrate the findings from scan ${scan_id}`)}
+          onClick={() => onSend(
+            `Review findings from scan ${scan_id}. ` +
+            `Group by severity (CRITICAL and KEV-flagged first, then HIGH, MEDIUM, LOW). ` +
+            `For each CVE: name the affected software and version found, explain the risk ` +
+            `in one plain sentence a non-expert can understand, and state the EXACT version ` +
+            `where the issue is fixed (not "latest version" — find the specific release number). ` +
+            `Close with a short remediation priority list. Be complete — cover every finding.`
+          )}
           style={{ background: '#0d1929', border: '1px solid #1a2d45', color: '#4a9eff' }}
           className="text-xs px-3 py-1.5 rounded hover:opacity-80 transition-opacity"
         >
