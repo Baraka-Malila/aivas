@@ -12,7 +12,7 @@ export default function ScanProgress({ text, onStop }) {
   }, [])
 
   return (
-    <div className="py-3">
+    <div className="py-3" data-testid="scan-progress">
       <div className="flex items-center justify-between mb-1.5">
         <div style={{ color: '#4a9eff' }} className="text-xs font-medium select-none">
           ✦ AIVAS
