@@ -39,13 +39,20 @@ class GroqProvider(BaseProvider):
 
     async def stream(self, messages: list[dict], max_tokens: int = 1024):
         client = AsyncGroq(api_key=self._api_key)
-        resp = await client.chat.completions.create(
-            model=self._model,
-            messages=messages,
-            max_tokens=max_tokens,
-            stream=True,
-        )
-        async for chunk in resp:
-            delta = chunk.choices[0].delta.content
-            if delta:
-                yield delta
+        try:
+            resp = await client.chat.completions.create(
+                model=self._model,
+                messages=messages,
+                max_tokens=max_tokens,
+                stream=True,
+            )
+            async for chunk in resp:
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    yield delta
+        except Exception as exc:
+            s = str(exc)
+            if "429" in s or "rate_limit" in s.lower():
+                yield "\n\n*Rate limit reached — please wait a moment and try again.*"
+            else:
+                raise

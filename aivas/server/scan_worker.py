@@ -125,7 +125,7 @@ async def run_scan(
             return
         for host_ip in live:
             yield _emit(_ev("phase_header", "PORT SCANNING"))
-            async for ev in scan_host(conn, host_ip, scripts, _async_nmap, host_timeout=60, fast=True):
+            async for ev in scan_host(conn, host_ip, scripts, _async_nmap, host_timeout=90, fast=True):
                 if "__svcs" in ev:
                     all_services.extend(ev["__svcs"])
                     all_findings.extend(ev["__findings"])

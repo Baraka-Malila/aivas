@@ -16,7 +16,7 @@ from aivas.narrator.providers.factory import get_provider
 router = APIRouter()
 
 _PROVIDER_DEFAULTS = {
-    "groq": "llama-3.3-70b-versatile",
+    "groq": "llama-3.1-8b-instant",
     "claude": "claude-haiku-4-5-20251001",
     "ollama": "llama3",
 }
@@ -67,7 +67,7 @@ async def chat_ws(
             history = load_history(_main._conn, session_id, max_turns=6)
 
             try:
-                chosen_model = model or _PROVIDER_DEFAULTS.get(provider, "llama-3.3-70b-versatile")
+                chosen_model = model or _PROVIDER_DEFAULTS.get(provider, "llama-3.1-8b-instant")
                 llm = get_provider(provider, model=chosen_model, api_key=api_key)
             except ValueError as exc:
                 await websocket.send_json({"type": "error", "text": str(exc)})
