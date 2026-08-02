@@ -3,8 +3,9 @@ import { useEffect, useRef, useState } from 'react'
 const FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 
 const STATUS_LABEL = {
-  stopped: 'SCAN STOPPED',
-  failed:  'SCAN FAILED',
+  complete: 'SCAN COMPLETE',
+  stopped:  'SCAN STOPPED',
+  failed:   'SCAN FAILED',
 }
 
 export default function ScanProgress({ log = [], onStop, scanStatus }) {

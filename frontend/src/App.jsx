@@ -69,11 +69,9 @@ export default function App() {
     }
 
     if (scanningIdRef.current) {
-      dispatch({
-        type: 'REPLACE',
-        id: scanningIdRef.current,
-        msg: { id: scanningIdRef.current, type: 'scan-card', scanData },
-      })
+      // Keep scan-progress visible (collapsed) then append the scan-card below it
+      dispatch({ type: 'MARK_SCAN_DONE', id: scanningIdRef.current, status: 'complete' })
+      dispatch({ type: 'APPEND', msg: { id: uid(), type: 'scan-card', scanData } })
       scanningIdRef.current = null
     }
     refreshSessRef.current?.()
