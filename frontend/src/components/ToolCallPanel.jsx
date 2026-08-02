@@ -59,7 +59,7 @@ export default function ToolCallPanel({ toolCalls, text }) {
               <span style={{ color: 'rgba(200,200,200,0.35)', marginLeft: 8 }}>{tc.summary}</span>
             )}
           </div>
-          {expandedRows[i] && tc.args && Object.keys(tc.args).length > 0 && (
+          {expandedRows[i] && (
             <div
               data-testid={`tool-call-detail-${i}`}
               style={{
@@ -69,7 +69,10 @@ export default function ToolCallPanel({ toolCalls, text }) {
                 color: 'rgba(200,200,200,0.4)', whiteSpace: 'pre-wrap', wordBreak: 'break-all',
               }}
             >
-              {JSON.stringify(tc.args, null, 2)}
+              {tc.args && Object.keys(tc.args).length > 0
+                ? JSON.stringify(tc.args, null, 2)
+                : <span style={{ color: 'rgba(200,200,200,0.2)', fontStyle: 'italic' }}>no parameters</span>
+              }
             </div>
           )}
         </div>

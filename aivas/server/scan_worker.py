@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import shutil
 import sqlite3
 import xml.etree.ElementTree as ET
 from typing import AsyncGenerator
+
+_log = logging.getLogger("aivas.scan")
 
 from aivas.history import save_scan
 from aivas.parser import parse_nmap_xml
@@ -112,6 +115,11 @@ async def run_scan(
                     all_services.extend(ev["__svcs"])
                     all_findings.extend(ev["__findings"])
                     all_misconfigs.extend(ev["__misconfigs"])
+                elif ev.get("type") == "error":
+                    # One host failing shouldn't kill the whole network scan
+                    err_text = ev.get("text", "scan failed")
+                    _log.warning("host %s: %s", host_ip, err_text)
+                    yield _emit(_ev("host_error", f"  {host_ip}: {err_text} — skipping host"))
                 else:
                     yield _emit(ev)
         if not all_services:

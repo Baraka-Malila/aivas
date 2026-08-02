@@ -3,10 +3,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import re
 import sqlite3
 from typing import AsyncGenerator
+
+_log = logging.getLogger("aivas.chat")
 
 from groq import Groq
 from aivas.narrator.providers.base import BaseProvider
@@ -161,12 +164,14 @@ async def stream_agent_response(
             except (json.JSONDecodeError, TypeError):
                 args = {}
 
+            _log.info("tool_call: %s %s", tc.function.name, args)
             if tc.function.name not in _SILENT_TOOLS:
                 yield {"type": "tool_call", "name": tc.function.name, "args": args}
 
             try:
                 result, scan_intent = await _exec_tool_local(tc.function.name, args, conn, shodan_key)
             except Exception as exc:
+                _log.error("tool_error: %s — %s", tc.function.name, exc)
                 result = json.dumps({"error": f"Tool execution failed: {exc}"})
                 scan_intent = None
 

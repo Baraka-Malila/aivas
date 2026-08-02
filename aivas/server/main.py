@@ -2,10 +2,18 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import sqlite3
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
+    datefmt="%H:%M:%S",
+)
+_log = logging.getLogger("aivas.server")
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse, Response
@@ -176,11 +184,17 @@ async def scan_ws(websocket: WebSocket, scan_key: str):
         await websocket.close()
         return
     target, level = entry
+    _log.info("Scan started: %s (level %d)", target, level)
     from aivas.server.scan_worker import run_scan
     scan_gen = run_scan(_conn, target, level)
 
     async def _stream():
         async for event in scan_gen:
+            if event.get("type") == "error":
+                _log.error("Scan error [%s]: %s", target, event.get("text", ""))
+            elif event.get("type") == "done":
+                _log.info("Scan done: %s — scan_id=%s grade=%s", target,
+                          event.get("scan_id"), event.get("grade"))
             await websocket.send_json(event)
 
     async def _watch_disconnect():

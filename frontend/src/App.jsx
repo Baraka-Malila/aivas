@@ -109,11 +109,7 @@ export default function App() {
 
     } else if (event.type === 'error') {
       if (thinkingIdRef.current) {
-        dispatch({
-          type: 'REPLACE',
-          id: thinkingIdRef.current,
-          msg: { id: thinkingIdRef.current, type: 'ai', text: `Error: ${event.text}` },
-        })
+        dispatch({ type: 'ERROR_MESSAGE', id: thinkingIdRef.current, text: `Error: ${event.text}` })
         thinkingIdRef.current = null
         streamingTextRef.current = ''
       }

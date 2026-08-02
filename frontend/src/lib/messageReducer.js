@@ -20,6 +20,12 @@ export function reducer(state, action) {
       return state.map(m => m.id === action.id ? { ...m, log: [...(m.log || []), action.entry] } : m)
     case 'SET_STREAMING':
       return state.map(m => m.id === action.id ? { ...m, streaming: action.streaming } : m)
+    case 'ERROR_MESSAGE':
+      // Like REPLACE but preserves toolCalls so the tool panel stays visible
+      return state.map(m => m.id === action.id
+        ? { ...m, text: action.text, streaming: false }
+        : m
+      )
     case 'TOOL_CALL':
       return state.map(m => m.id === action.id
         ? { ...m, toolCalls: [...(m.toolCalls || []), { name: action.name, args: action.args, status: 'running' }] }
