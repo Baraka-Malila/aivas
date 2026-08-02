@@ -54,7 +54,15 @@ export function useScan(onProgress, onDone) {
         ws.close()
       }
     }
-    ws.onerror = () => { ws.onerror = null; setIsScanning(false) }
+    ws.onerror = () => {
+      ws.onerror = null
+      setIsScanning(false)
+      onDoneRef.current({
+        type: 'error',
+        text: 'Connection to scan service lost. Check that the server is running and try again.',
+        log: logRef.current,
+      })
+    }
     wsRef.current = ws
   }, [])
 

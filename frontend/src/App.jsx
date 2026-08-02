@@ -163,11 +163,14 @@ export default function App() {
           const scan = history[0]
           const grade = (scan.grade || '').replace('Grade ', '')
           const days = daysAgo(scan.started_at)
-          const critical = scan.counts?.CRITICAL ?? 0
+          const critical = scan.critical_count ?? 0
+          const kev = scan.kev_count ?? 0
           text =
-            `Welcome back. Your last scan of ${scan.target} was ${days} days ago` +
-            ` — Grade ${grade}, ${critical} critical vulnerabilities.` +
-            ` Want me to rescan, or would you like a summary?`
+            `Welcome back. Your last scan of ${scan.target} was ${days} day${days !== 1 ? 's' : ''} ago` +
+            ` — Grade ${grade}, ${scan.finding_count ?? 0} findings` +
+            (critical > 0 ? `, ${critical} critical` : '') +
+            (kev > 0 ? `, ${kev} actively exploited` : '') +
+            `. Want me to rescan, or would you like a summary?`
         }
       } catch (_) {}
 
