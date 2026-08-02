@@ -114,8 +114,9 @@ async def _exec_tool(
                         break
             except Exception:
                 continue
-        # Full interface list from ip addr
+        # Full interface list from ip addr; also derive network CIDR
         try:
+            import ipaddress as _ipa
             _r = _sp.run(
                 ["ip", "-4", "addr", "show"],
                 capture_output=True, text=True, timeout=3,
@@ -125,8 +126,23 @@ async def _exec_tool(
                     ln.strip() for ln in _r.stdout.splitlines()
                     if ln.strip().startswith("inet ") and "127.0.0.1" not in ln
                 ]
+                # Derive "network" = CIDR range for the primary IP
+                primary = info.get("primary_ip", "")
+                for iface_line in info.get("interfaces", []):
+                    parts = iface_line.split()
+                    if len(parts) >= 2 and primary and primary in parts[1]:
+                        try:
+                            info["network"] = str(_ipa.ip_interface(parts[1]).network)
+                            break
+                        except ValueError:
+                            pass
         except Exception:
             pass
+        # Fallback: /24 from primary_ip if no prefix found
+        if "network" not in info and info.get("primary_ip"):
+            octets = info["primary_ip"].rsplit(".", 1)
+            if len(octets) == 2:
+                info["network"] = f"{octets[0]}.0/24"
         return json.dumps(info), None
 
     if name == "discover_hosts":

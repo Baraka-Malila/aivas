@@ -134,6 +134,7 @@ export default function App() {
   const storedModel = localStorage.getItem('aivas_model') || undefined
   const storedKey = localStorage.getItem('aivas_api_key') || undefined
   const storedShodan = localStorage.getItem('aivas_shodan_key') || undefined
+  const storedLang = localStorage.getItem('aivas_lang') || 'auto'
 
   const { send, status: chatStatus } = useChat({
     sessionId,
@@ -142,6 +143,7 @@ export default function App() {
     model: storedModel,
     apiKey: storedKey,
     shodanKey: storedShodan,
+    lang: storedLang,
   })
   const { start: startScan, stop: stopScan } = useScan(handleScanProgress, handleScanDone)
   const { sessions, refresh: refreshSessions, deleteSession } = useSessions()

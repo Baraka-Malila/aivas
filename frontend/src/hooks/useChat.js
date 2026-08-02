@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 
-export function useChat({ sessionId, onEvent, provider = 'groq', model, apiKey, shodanKey }) {
+export function useChat({ sessionId, onEvent, provider = 'groq', model, apiKey, shodanKey, lang }) {
   const onEventRef = useRef(onEvent)
   useEffect(() => { onEventRef.current = onEvent })
 
@@ -18,6 +18,7 @@ export function useChat({ sessionId, onEvent, provider = 'groq', model, apiKey, 
       const auth = { type: 'auth' }
       if (apiKey) auth.api_key = apiKey
       if (shodanKey) auth.shodan_key = shodanKey
+      if (lang) auth.lang = lang
       ws.send(JSON.stringify(auth))
     }
     ws.onclose = () => setStatus('closed')

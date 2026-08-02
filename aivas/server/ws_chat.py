@@ -41,6 +41,7 @@ async def chat_ws(
     cfg = _cfg.load()
     api_key = cfg.get("api_key") or os.environ.get("GROQ_API_KEY")
     shodan_key: str | None = None
+    lang: str = "auto"
 
     try:
         while True:
@@ -52,6 +53,7 @@ async def chat_ws(
             if msg.get("type") == "auth":
                 api_key = msg.get("api_key") or api_key
                 shodan_key = msg.get("shodan_key") or shodan_key
+                lang = msg.get("lang") or lang
                 continue
 
             if msg.get("type") != "user":
@@ -74,7 +76,7 @@ async def chat_ws(
                 continue
 
             async for event in stream_agent_response(
-                llm, history, text, _main._conn, shodan_key=shodan_key
+                llm, history, text, _main._conn, shodan_key=shodan_key, lang=lang
             ):
                 if event["type"] == "scan_triggered":
                     scan_key = str(uuid.uuid4())

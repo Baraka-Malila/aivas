@@ -33,9 +33,12 @@ _PHASE_A_SYSTEM = (
     "scan_host directly with that target. Do NOT call get_local_info first.\n"
     "(2) User explicitly says 'my machine', 'my IP', 'local IP', or 'what is my IP' "
     "→ call get_local_info.\n"
-    "(3) User says 'scan my network', 'scan my machine', or 'scan local' with no "
-    "explicit IP → call get_local_info first, then IMMEDIATELY call scan_host with "
-    "the result. Never respond with text between those two calls.\n"
+    "(3a) User says 'scan my machine', 'scan this device', 'scan local machine' → "
+    "call get_local_info, then call scan_host(target=<primary_ip>).\n"
+    "(3b) User says 'scan my network', 'scan the network', 'scan all devices', "
+    "'scan the whole network' → call get_local_info, then call "
+    "scan_host(target=<network>) where <network> is the 'network' field from the "
+    "result (e.g. '192.168.1.0/24'). NEVER use primary_ip for a network scan.\n"
     "(4) User only wants to see what devices are online (discovery, not a port scan) "
     "→ call discover_hosts.\n"
     "(5) Complete multi-step tasks without stopping to explain between tool calls."
@@ -89,12 +92,19 @@ async def _exec_tool_local(
     return await _exec_tool(name, args, conn, shodan_key=shodan_key)
 
 
+_LANG_DIRECTIVES = {
+    "en": "Always respond in English. Do not mix in Swahili words, greetings, or phrases.",
+    "sw": "Always respond in Swahili. Do not mix in English greetings or phrases.",
+}
+
+
 async def stream_agent_response(
     provider: BaseProvider,
     session_history: list[dict],
     user_text: str,
     conn: sqlite3.Connection,
     shodan_key: str | None = None,
+    lang: str = "auto",
 ) -> AsyncGenerator[dict, None]:
     """Yield WebSocket events for one user turn.
 
@@ -108,7 +118,8 @@ async def stream_agent_response(
 
     groq = Groq(api_key=groq_key)
     ctx = _build_web_context(conn)
-    full_system = "\n\n".join(filter(None, [_SYSTEM, ctx]))
+    lang_directive = _LANG_DIRECTIVES.get(lang, "")
+    full_system = "\n\n".join(filter(None, [_SYSTEM, lang_directive, ctx]))
     # messages keeps the full system prompt — used for Phase B (narrative response)
     messages: list[dict] = [{"role": "system", "content": full_system}]
     if session_history:
