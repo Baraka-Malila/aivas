@@ -27,11 +27,15 @@ _XML_CALL_RE = re.compile(r"<function(?:=\w[^>]*)?>.*?</function>", re.DOTALL)
 # Phase B gets the full _SYSTEM prompt for quality narrative.
 _PHASE_A_SYSTEM = (
     "You are a network security tool router. Call the correct tool(s) to fulfil "
-    "the user's request. Rules: (1) For scan requests, first call get_local_info "
-    "if no IP is given, then IMMEDIATELY call scan_host — never respond with text "
-    "between those two calls. (2) Complete multi-step tasks; don't stop to explain "
-    "what you are about to do. (3) Call discover_hosts before scan_host when the "
-    "user asks about devices on their network."
+    "the user's request. Routing rules:\n"
+    "(1) User gives an explicit target (IP, hostname, CIDR, remote host) → call "
+    "scan_host directly with that target. No need to call get_local_info first.\n"
+    "(2) User says 'my network', 'my machine', 'local', or gives no target → call "
+    "get_local_info first, then IMMEDIATELY call scan_host with the result. Never "
+    "respond with text between those two calls.\n"
+    "(3) User only wants to know what devices are online (not a full port scan) → "
+    "call discover_hosts.\n"
+    "(4) Complete multi-step tasks without stopping to explain between tool calls."
 )
 
 
