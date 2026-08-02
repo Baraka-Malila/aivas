@@ -104,11 +104,11 @@ async def stream_agent_response(
         try:
             resp = await asyncio.to_thread(
                 lambda: groq.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
+                    model="llama-3.1-8b-instant",
                     messages=messages,
                     tools=_TOOLS,
                     tool_choice="auto",
-                    max_tokens=600,
+                    max_tokens=300,
                 )
             )
         except Exception as exc:
@@ -120,9 +120,9 @@ async def stream_agent_response(
                 try:
                     resp = await asyncio.to_thread(
                         lambda: groq.chat.completions.create(
-                            model="llama-3.3-70b-versatile",
+                            model="llama-3.1-8b-instant",
                             messages=messages,
-                            max_tokens=600,
+                            max_tokens=300,
                         )
                     )
                 except Exception as inner:
