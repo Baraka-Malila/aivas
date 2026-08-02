@@ -193,6 +193,10 @@ export default function App() {
     send(text)
   }, [send])
 
+  const handleSilentSend = useCallback((text) => {
+    send(text)
+  }, [send])
+
   const handleSelectSession = useCallback(async (id) => {
     thinkingIdRef.current = null
     scanningIdRef.current = null
@@ -226,7 +230,7 @@ export default function App() {
         onHistory={() => { setDrawerOpen(true); refreshSessions() }}
         onSettings={() => setSettingsOpen(true)}
       />
-      <ChatArea messages={messages} onSend={handleSend} onStopScan={stopScan} />
+      <ChatArea messages={messages} onSend={handleSend} onSilentSend={handleSilentSend} onStopScan={stopScan} />
       <ChatInput onSend={handleSend} disabled={chatStatus !== 'open'} />
       <SessionDrawer
         open={drawerOpen}

@@ -5,7 +5,7 @@ const GRADE_COLOR = { A: '#66bb6a', B: '#aed581', C: '#fdd835', D: '#ff7043', F:
 const SEV_TEXT    = { CRITICAL: '#ef5350', HIGH: '#ff7043', MEDIUM: '#fdd835', LOW: '#66bb6a' }
 const SEV_ORDER   = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
 
-export default function ScanCard({ scanData, onSend }) {
+export default function ScanCard({ scanData, onSend, onSilentSend }) {
   const { scan_id, target, grade, service_count, findings = [], log } = scanData
 
   const hasCritical = findings.some(f => (f.cvss_severity || '').toUpperCase() === 'CRITICAL')
@@ -129,7 +129,7 @@ export default function ScanCard({ scanData, onSend }) {
       {/* Action buttons */}
       <div className="flex flex-wrap items-center gap-2 px-3 py-2.5">
         <button
-          onClick={() => onSend(
+          onClick={() => onSilentSend(
             `Give a 3-sentence executive risk summary for scan ${scan_id}. ` +
             `Sentence 1: overall grade and the count of findings by severity. ` +
             `Sentence 2: the single most dangerous finding — name the CVE ID, the affected software and version, and the specific risk in plain language. ` +
@@ -142,7 +142,7 @@ export default function ScanCard({ scanData, onSend }) {
           Risk Summary
         </button>
         <button
-          onClick={() => onSend(
+          onClick={() => onSilentSend(
             `Give a priority-ordered remediation plan for scan ${scan_id}. ` +
             `For each finding from most to least severe: state the CVE ID, the affected package and version found, ` +
             `the EXACT version that fixes it (not "latest" — find the specific release number), ` +

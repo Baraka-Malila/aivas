@@ -39,8 +39,11 @@ _PHASE_A_SYSTEM = (
     "'scan the whole network' → call get_local_info, then call "
     "scan_host(target=<network>) where <network> is the 'network' field from the "
     "result (e.g. '192.168.1.0/24'). NEVER use primary_ip for a network scan.\n"
-    "(4) User only wants to see what devices are online (discovery, not a port scan) "
-    "→ call discover_hosts.\n"
+    "(4) User wants to see what devices are online (discovery, not a port scan) → "
+    "if the user gave an explicit CIDR/range, call discover_hosts(target=<that>). "
+    "If no explicit target, call get_local_info first, then call "
+    "discover_hosts(target=<network>) using the 'network' field. "
+    "Never guess a network address.\n"
     "(5) Complete multi-step tasks without stopping to explain between tool calls."
 )
 
@@ -93,8 +96,15 @@ async def _exec_tool_local(
 
 
 _LANG_DIRECTIVES = {
-    "en": "Always respond in English. Do not mix in Swahili words, greetings, or phrases.",
-    "sw": "Always respond in Swahili. Do not mix in English greetings or phrases.",
+    "auto": (
+        "Detect the user's language from their message. "
+        "If they write in English, respond ONLY in English. "
+        "If they write in Swahili, respond ONLY in Swahili. "
+        "Never mix languages in a single response — no Swahili phrases inside an English reply "
+        "and no English phrases inside a Swahili reply."
+    ),
+    "en": "Always respond in English. Do not include any Swahili words, greetings, or phrases.",
+    "sw": "Always respond in Swahili. Do not include any English greetings or phrases.",
 }
 
 
@@ -118,7 +128,7 @@ async def stream_agent_response(
 
     groq = Groq(api_key=groq_key)
     ctx = _build_web_context(conn)
-    lang_directive = _LANG_DIRECTIVES.get(lang, "")
+    lang_directive = _LANG_DIRECTIVES.get(lang) or _LANG_DIRECTIVES["auto"]
     full_system = "\n\n".join(filter(None, [_SYSTEM, lang_directive, ctx]))
     # messages keeps the full system prompt — used for Phase B (narrative response)
     messages: list[dict] = [{"role": "system", "content": full_system}]
