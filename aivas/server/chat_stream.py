@@ -22,6 +22,18 @@ _SUMMARIZE_THRESHOLD = 4000
 _SUMMARIZE_TOKENS = 500
 _XML_CALL_RE = re.compile(r"<function(?:=\w[^>]*)?>.*?</function>", re.DOTALL)
 
+# Short system prompt used only for Phase A (tool routing).
+# Keeps per-call token cost low (fits 8b's 20k TPM budget).
+# Phase B gets the full _SYSTEM prompt for quality narrative.
+_PHASE_A_SYSTEM = (
+    "You are a network security tool router. Call the correct tool(s) to fulfil "
+    "the user's request. Rules: (1) For scan requests, first call get_local_info "
+    "if no IP is given, then IMMEDIATELY call scan_host — never respond with text "
+    "between those two calls. (2) Complete multi-step tasks; don't stop to explain "
+    "what you are about to do. (3) Call discover_hosts before scan_host when the "
+    "user asks about devices on their network."
+)
+
 
 def _load_groq_key() -> str | None:
     try:
@@ -89,8 +101,9 @@ async def stream_agent_response(
 
     groq = Groq(api_key=groq_key)
     ctx = _build_web_context(conn)
-    system = "\n\n".join(filter(None, [_SYSTEM, ctx]))
-    messages: list[dict] = [{"role": "system", "content": system}]
+    full_system = "\n\n".join(filter(None, [_SYSTEM, ctx]))
+    # messages keeps the full system prompt — used for Phase B (narrative response)
+    messages: list[dict] = [{"role": "system", "content": full_system}]
     if session_history:
         messages.extend(session_history)
     messages.append({"role": "user", "content": user_text})
@@ -101,11 +114,16 @@ async def stream_agent_response(
     yield {"type": "thinking"}
 
     for _step in range(_MAX_STEPS):
+        # Phase A uses a short routing-only system prompt to stay within 8b's TPM budget.
+        # Append scan context (if any) so the model can make informed tool choices.
+        # messages[1:] carries history + user message + any accumulated tool turns.
+        phase_a_system = _PHASE_A_SYSTEM + (f"\n\n{ctx}" if ctx else "")
+        phase_a_msgs = [{"role": "system", "content": phase_a_system}] + messages[1:]
         try:
             resp = await asyncio.to_thread(
                 lambda: groq.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=messages,
+                    model="llama-3.1-8b-instant",
+                    messages=phase_a_msgs,
                     tools=_TOOLS,
                     tool_choice="auto",
                     max_tokens=400,
@@ -120,8 +138,8 @@ async def stream_agent_response(
                 try:
                     resp = await asyncio.to_thread(
                         lambda: groq.chat.completions.create(
-                            model="llama-3.3-70b-versatile",
-                            messages=messages,
+                            model="llama-3.1-8b-instant",
+                            messages=phase_a_msgs,
                             max_tokens=400,
                         )
                     )
