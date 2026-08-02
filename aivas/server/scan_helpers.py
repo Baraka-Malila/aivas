@@ -134,10 +134,10 @@ async def http_probe_events(
 
 async def scan_host(
     conn: sqlite3.Connection, host_ip: str, scripts: str,
-    nmap_fn,
+    nmap_fn, *, host_timeout: int = 120, fast: bool = False,
 ) -> AsyncGenerator[dict, None]:
     """Scan one host; yield events then sentinel with __svcs/__findings/__misconfigs."""
-    fut = asyncio.create_task(nmap_fn(host_ip, scripts, 120))
+    fut = asyncio.create_task(nmap_fn(host_ip, scripts, host_timeout, fast=fast))
     start = asyncio.get_running_loop().time()
     xml: str | None = None
     try:

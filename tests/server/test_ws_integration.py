@@ -168,9 +168,11 @@ def test_chat_ws_auth_sets_api_key(client):
 # ---------------------------------------------------------------------------
 
 def test_chat_ws_scan_triggered(client):
-    """First Groq call returns scan_host tool call; second returns plain text.
+    """Groq call returns scan_host tool call.
 
-    Assert: thinking, scan_triggered (with target + scan_key), token(s), done.
+    Assert: thinking → scan_triggered (with target + scan_key) → done.
+    No token events: agent exits immediately after triggering the scan so
+    the Groq loop does not continue making extra calls.
     Also assert scan_key is registered in main_mod._pending.
     """
     tc, _db = client
@@ -178,17 +180,9 @@ def test_chat_ws_scan_triggered(client):
 
     scan_tc = make_tool_call("call_abc", "scan_host", {"target": "10.0.0.1", "level": "2"})
     first_resp = make_groq_resp(tool_calls=[scan_tc])
-    second_resp = make_groq_resp(content="Scan has started.")
 
-    async def _stream(messages, max_tokens=1024):
-        yield "Scan has started."
-
-    with patch("aivas.server.chat_stream.Groq") as MockGroq, \
-         patch("aivas.narrator.providers.groq.GroqProvider.stream", side_effect=_stream):
-
-        MockGroq.return_value.chat.completions.create.side_effect = [
-            first_resp, second_resp
-        ]
+    with patch("aivas.server.chat_stream.Groq") as MockGroq:
+        MockGroq.return_value.chat.completions.create.side_effect = [first_resp]
 
         with tc.websocket_connect(f"/ws/chat/{sid}?provider=groq") as ws:
             ws.send_json({"type": "auth", "api_key": "test-key"})
@@ -198,7 +192,7 @@ def test_chat_ws_scan_triggered(client):
     types = [e["type"] for e in events]
     assert "thinking" in types, f"Missing thinking event, got: {types}"
     assert "scan_triggered" in types, f"Missing scan_triggered event, got: {types}"
-    assert "token" in types, f"Missing token events, got: {types}"
+    assert "token" not in types, f"No tokens expected after scan_triggered, got: {types}"
     assert types[-1] == "done", f"Last event must be done, got: {types}"
 
     scan_ev = next(e for e in events if e["type"] == "scan_triggered")

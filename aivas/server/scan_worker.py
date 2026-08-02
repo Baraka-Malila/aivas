@@ -21,10 +21,19 @@ from aivas.server.scan_helpers import (
 )
 
 
-async def _async_nmap(target: str, scripts: str, timeout: int = 300) -> str:
+async def _async_nmap(target: str, scripts: str, timeout: int = 300, fast: bool = False) -> str:
     """Run nmap as a cancellable async subprocess."""
     nmap_bin = shutil.which("nmap") or "nmap"
     cmd = [nmap_bin, "-sV", "-oX", "-", target]
+    if fast:
+        # Network scan per-host mode: capped version probing + nmap-side host timeout
+        # so nmap exits cleanly (returns data it found) rather than being killed by asyncio.
+        nmap_host_timeout = max(timeout - 15, 30)
+        cmd += [
+            "-T4", "--version-intensity", "5",
+            "--max-retries", "1",
+            "--host-timeout", f"{nmap_host_timeout}s",
+        ]
     if scripts:
         cmd += ["--script", scripts]
     proc = await asyncio.create_subprocess_exec(
@@ -84,11 +93,11 @@ async def run_scan(
     """Yield granular progress events then a single done or error event."""
     is_net = "/" in target
     scripts = scripts_for_level(level)
-    _log: list[str] = []
+    _progress: list[str] = []
 
     def _emit(ev: dict) -> dict:
         if ev.get("text"):
-            _log.append(ev["text"])
+            _progress.append(ev["text"])
         return ev
 
     yield _emit(_ev("phase_header", "INITIALIZING"))
@@ -116,7 +125,7 @@ async def run_scan(
             return
         for host_ip in live:
             yield _emit(_ev("phase_header", "PORT SCANNING"))
-            async for ev in scan_host(conn, host_ip, scripts, _async_nmap):
+            async for ev in scan_host(conn, host_ip, scripts, _async_nmap, host_timeout=60, fast=True):
                 if "__svcs" in ev:
                     all_services.extend(ev["__svcs"])
                     all_findings.extend(ev["__findings"])
@@ -212,7 +221,7 @@ async def run_scan(
         "score": score,
         "grade": grade,
         "service_count": len(all_services),
-        "log": _log,
+        "log": _progress,
         "services": [
             {
                 "port": s.get("port"),
