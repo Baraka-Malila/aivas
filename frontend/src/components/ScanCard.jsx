@@ -1,20 +1,31 @@
 import { useState } from 'react'
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink, ChevronRight, ChevronDown, MessageSquare } from 'lucide-react'
 
 const GRADE_COLOR = { A: '#66bb6a', B: '#aed581', C: '#fdd835', D: '#ff7043', F: '#ef5350' }
 const SEV_TEXT    = { CRITICAL: '#ef5350', HIGH: '#ff7043', MEDIUM: '#fdd835', LOW: '#66bb6a' }
 const SEV_ORDER   = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
-const SHOW_DEFAULT = 5
 
 export default function ScanCard({ scanData, onSend }) {
-  const { scan_id, target, grade, service_count, findings = [], counts = {}, log } = scanData
-  const [showAll, setShowAll] = useState(false)
+  const { scan_id, target, grade, service_count, findings = [], log } = scanData
 
-  const ranked = [...findings].sort((a, b) => (b.cvss_score ?? 0) - (a.cvss_score ?? 0))
-  const visible = showAll ? ranked : ranked.slice(0, SHOW_DEFAULT)
-  const hasMore = ranked.length > SHOW_DEFAULT
+  const hasCritical = findings.some(f => (f.cvss_severity || '').toUpperCase() === 'CRITICAL')
+  const [expanded, setExpanded] = useState({
+    CRITICAL: hasCritical,
+    HIGH: false,
+    MEDIUM: false,
+    LOW: false,
+  })
+  const toggleGroup = (sev) => setExpanded(e => ({ ...e, [sev]: !e[sev] }))
+
+  const grouped = SEV_ORDER.reduce((acc, sev) => {
+    acc[sev] = findings
+      .filter(f => (f.cvss_severity || 'LOW').toUpperCase() === sev)
+      .sort((a, b) => (b.cvss_score ?? 0) - (a.cvss_score ?? 0))
+    return acc
+  }, {})
 
   const gradeColor = GRADE_COLOR[grade] || '#e0e0e0'
+  const totalFindings = findings.length
 
   return (
     <div
@@ -31,7 +42,7 @@ export default function ScanCard({ scanData, onSend }) {
             {target}
           </span>
           <div style={{ color: '#666' }} className="text-xs mt-0.5">
-            {service_count} service{service_count !== 1 ? 's' : ''} · {findings.length} finding{findings.length !== 1 ? 's' : ''}
+            {service_count} service{service_count !== 1 ? 's' : ''} · {totalFindings} finding{totalFindings !== 1 ? 's' : ''}
           </div>
         </div>
         <span
@@ -42,85 +53,107 @@ export default function ScanCard({ scanData, onSend }) {
         </span>
       </div>
 
-      {/* Severity pills */}
-      {SEV_ORDER.some(s => counts[s] > 0) && (
-        <div style={{ borderBottom: '1px solid #1e1e1e' }} className="flex flex-wrap gap-3 px-3 py-2">
-          {SEV_ORDER.filter(s => counts[s] > 0).map(s => (
-            <span
-              key={s}
-              style={{ color: SEV_TEXT[s], fontSize: 11, fontFamily: 'monospace', fontWeight: 600 }}
-            >
-              {counts[s]} {s}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* CVE flat list */}
-      {findings.length === 0 ? (
+      {/* CVE groups */}
+      {totalFindings === 0 ? (
         <div style={{ borderBottom: '1px solid #1e1e1e' }} className="px-3 py-2">
           <span style={{ color: '#66bb6a' }} className="text-xs">No vulnerabilities found</span>
         </div>
       ) : (
         <div style={{ borderBottom: '1px solid #1e1e1e' }}>
-          {visible.map((f, i) => {
-            const sev = (f.cvss_severity || 'LOW').toUpperCase()
-            return (
-              <div
-                key={f.cve_id || i}
-                style={{ borderBottom: '1px solid #141414' }}
-                className="flex items-center gap-2 px-3 py-1.5"
+          {SEV_ORDER.filter(sev => grouped[sev].length > 0).map(sev => (
+            <div key={sev} style={{ borderBottom: '1px solid #1e1e1e' }}>
+              <button
+                data-testid={`group-header-${sev}`}
+                onClick={() => toggleGroup(sev)}
+                style={{ background: 'transparent', border: 'none' }}
+                className="w-full flex items-center gap-2 px-3 py-2 cursor-pointer hover:opacity-80 transition-opacity"
               >
-                {f.kev && (
-                  <span style={{ color: '#ff7043', fontSize: 10, fontWeight: 700 }} className="shrink-0">
-                    ⚠ KEV
+                {expanded[sev]
+                  ? <ChevronDown size={12} color="#555" />
+                  : <ChevronRight size={12} color="#555" />
+                }
+                <span style={{ color: SEV_TEXT[sev], fontFamily: 'monospace', fontSize: 11, fontWeight: 600 }}>
+                  {sev}
+                </span>
+                <span style={{ color: '#555', fontSize: 11 }}>
+                  ({grouped[sev].length})
+                </span>
+              </button>
+
+              {expanded[sev] && grouped[sev].map((f, i) => (
+                <div
+                  key={f.cve_id || i}
+                  data-testid={`cve-row-${f.cve_id}`}
+                  style={{ borderTop: '1px solid #141414' }}
+                  className="flex items-center gap-2 px-3 py-1.5"
+                >
+                  <button
+                    data-testid={`ask-${f.cve_id}`}
+                    onClick={() => onSend(
+                      `Explain ${f.cve_id} from scan ${scan_id}. ` +
+                      `What is the risk, what exact version fixes it, and what is the fastest remediation path?`
+                    )}
+                    style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', color: '#666', lineHeight: 1 }}
+                    className="shrink-0 hover:text-blue-400 transition-colors"
+                    title={`Ask about ${f.cve_id}`}
+                  >
+                    <MessageSquare size={12} />
+                  </button>
+                  {f.kev && (
+                    <span style={{ color: '#ff7043', fontSize: 10, fontWeight: 700 }} className="shrink-0">
+                      ⚠ KEV
+                    </span>
+                  )}
+                  <span
+                    style={{ color: '#e0e0e0', fontFamily: 'monospace', fontSize: 11 }}
+                    className="shrink-0 w-36 truncate"
+                  >
+                    {f.cve_id}
                   </span>
-                )}
-                <span
-                  style={{ color: SEV_TEXT[sev] || '#e0e0e0', fontFamily: 'monospace', fontSize: 11 }}
-                  className="shrink-0 w-36 truncate"
-                >
-                  {f.cve_id}
-                </span>
-                <span style={{ color: '#888', fontSize: 11 }} className="flex-1 truncate">
-                  {f.description}
-                </span>
-                <span
-                  style={{ color: SEV_TEXT[sev] || '#e0e0e0', fontFamily: 'monospace', fontSize: 11 }}
-                  className="shrink-0"
-                >
-                  {f.cvss_score != null ? f.cvss_score.toFixed(1) : '—'}
-                </span>
-              </div>
-            )
-          })}
-          {hasMore && !showAll && (
-            <button
-              onClick={() => setShowAll(true)}
-              style={{ background: 'transparent', border: 'none', color: '#555', width: '100%', textAlign: 'left' }}
-              className="text-xs px-3 py-1.5 hover:text-white transition-colors cursor-pointer"
-            >
-              Show all {ranked.length}
-            </button>
-          )}
+                  <span style={{ color: '#888', fontSize: 11 }} className="flex-1 truncate">
+                    {f.description}
+                  </span>
+                  <span
+                    style={{ color: SEV_TEXT[sev], fontFamily: 'monospace', fontSize: 11 }}
+                    className="shrink-0"
+                  >
+                    {f.cvss_score != null ? f.cvss_score.toFixed(1) : '—'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ))}
         </div>
       )}
 
       {/* Action buttons */}
       <div className="flex flex-wrap items-center gap-2 px-3 py-2.5">
         <button
-          onClick={() => onSend(`Narrate the findings from scan ${scan_id}`)}
+          onClick={() => onSend(
+            `Give a 3-sentence executive risk summary for scan ${scan_id}. ` +
+            `Sentence 1: overall grade and the count of findings by severity. ` +
+            `Sentence 2: the single most dangerous finding — name the CVE ID, the affected software and version, and the specific risk in plain language. ` +
+            `Sentence 3: the immediate action the business owner should take today. ` +
+            `No lists, no headers — three sentences only.`
+          )}
           style={{ background: '#0d1929', border: '1px solid #1a2d45', color: '#4a9eff' }}
           className="text-xs px-3 py-1.5 rounded hover:opacity-80 transition-opacity"
         >
-          Narrate
+          Risk Summary
         </button>
         <button
-          onClick={() => onSend(`Explain the worst vulnerability from scan ${scan_id}`)}
+          onClick={() => onSend(
+            `Give a priority-ordered remediation plan for scan ${scan_id}. ` +
+            `For each finding from most to least severe: state the CVE ID, the affected package and version found, ` +
+            `the EXACT version that fixes it (not "latest" — find the specific release number), ` +
+            `and one concrete action (upgrade command or config change). ` +
+            `If the fixed version is unknown for any CVE, say so explicitly. ` +
+            `Cover all findings. Group by severity: CRITICAL and KEV-flagged first, then HIGH, MEDIUM, LOW.`
+          )}
           style={{ background: '#161616', border: '1px solid #1e1e1e', color: '#e0e0e0' }}
           className="text-xs px-3 py-1.5 rounded hover:opacity-80 transition-opacity"
         >
-          Explain worst
+          What to do
         </button>
         <button
           onClick={() => onSend(`Scan ${target} again`)}
@@ -134,7 +167,7 @@ export default function ScanCard({ scanData, onSend }) {
             href={`/api/report/${scan_id}/fix.sh`}
             download={`fix-scan-${scan_id}.sh`}
             style={{ color: '#555' }}
-            className="text-xs flex items-center gap-1 hover:text-white transition-colors"
+            className="text-xs hover:text-white transition-colors"
           >
             Fix Script
           </a>

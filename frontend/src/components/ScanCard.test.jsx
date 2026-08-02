@@ -28,41 +28,82 @@ describe('ScanCard', () => {
     expect(gradeEl.getAttribute('style')).toContain('rgb(239, 83, 80)')
   })
 
-  it('shows severity pills for non-zero counts', () => {
+  it('auto-expands CRITICAL group when CRITICAL findings exist', () => {
     render(<ScanCard scanData={base} onSend={vi.fn()} />)
-    expect(screen.getByText('2 CRITICAL')).toBeTruthy()
-    expect(screen.getByText('2 HIGH')).toBeTruthy()
-    expect(screen.getByText('1 MEDIUM')).toBeTruthy()
+    expect(screen.getByTestId('cve-row-CVE-2021-44228')).toBeTruthy()
+    expect(screen.getByTestId('cve-row-CVE-2022-0778')).toBeTruthy()
   })
 
-  it('shows top 5 CVEs by default, hides the 6th', () => {
+  it('collapses HIGH group by default', () => {
     render(<ScanCard scanData={base} onSend={vi.fn()} />)
-    expect(screen.getByText('CVE-2021-44228')).toBeTruthy()
-    expect(screen.getByText('CVE-2023-0003')).toBeTruthy()
-    expect(screen.queryByText('CVE-2023-0004')).toBeNull()
+    expect(screen.queryByTestId('cve-row-CVE-2023-0001')).toBeNull()
   })
 
-  it('expands to all findings when toggle clicked', () => {
+  it('expands HIGH group when header is clicked', () => {
     render(<ScanCard scanData={base} onSend={vi.fn()} />)
-    fireEvent.click(screen.getByText(/Show all 6/))
-    expect(screen.getByText('CVE-2023-0004')).toBeTruthy()
+    fireEvent.click(screen.getByTestId('group-header-HIGH'))
+    expect(screen.getByTestId('cve-row-CVE-2023-0001')).toBeTruthy()
+    expect(screen.getByTestId('cve-row-CVE-2023-0002')).toBeTruthy()
+  })
+
+  it('collapses CRITICAL group when header clicked again', () => {
+    render(<ScanCard scanData={base} onSend={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('group-header-CRITICAL'))
+    expect(screen.queryByTestId('cve-row-CVE-2021-44228')).toBeNull()
+  })
+
+  it('shows group headers for non-empty severity buckets', () => {
+    render(<ScanCard scanData={base} onSend={vi.fn()} />)
+    expect(screen.getByTestId('group-header-CRITICAL')).toBeTruthy()
+    expect(screen.getByTestId('group-header-HIGH')).toBeTruthy()
+    expect(screen.getByTestId('group-header-MEDIUM')).toBeTruthy()
+    expect(screen.getByTestId('group-header-LOW')).toBeTruthy()
   })
 
   it('shows KEV badge only for KEV findings', () => {
     render(<ScanCard scanData={base} onSend={vi.fn()} />)
     const kevBadges = screen.getAllByText('⚠ KEV')
-    expect(kevBadges).toHaveLength(1)  // only CVE-2021-44228 has kev:true
+    expect(kevBadges).toHaveLength(1)
   })
 
-  it('action buttons call onSend with correct text', () => {
+  it('ask icon sends explain prompt for that CVE', () => {
     const onSend = vi.fn()
     render(<ScanCard scanData={base} onSend={onSend} />)
-    fireEvent.click(screen.getByText('Narrate'))
-    expect(onSend).toHaveBeenCalledWith('Narrate the findings from scan 42')
-    fireEvent.click(screen.getByText('Explain worst'))
-    expect(onSend).toHaveBeenCalledWith('Explain the worst vulnerability from scan 42')
+    fireEvent.click(screen.getByTestId('ask-CVE-2021-44228'))
+    expect(onSend).toHaveBeenCalledWith(
+      expect.stringContaining('Explain CVE-2021-44228 from scan 42')
+    )
+  })
+
+  it('Risk Summary button sends summary prompt', () => {
+    const onSend = vi.fn()
+    render(<ScanCard scanData={base} onSend={onSend} />)
+    fireEvent.click(screen.getByText('Risk Summary'))
+    expect(onSend).toHaveBeenCalledWith(
+      expect.stringContaining('3-sentence executive risk summary for scan 42')
+    )
+  })
+
+  it('What to do button sends remediation prompt', () => {
+    const onSend = vi.fn()
+    render(<ScanCard scanData={base} onSend={onSend} />)
+    fireEvent.click(screen.getByText('What to do'))
+    expect(onSend).toHaveBeenCalledWith(
+      expect.stringContaining('priority-ordered remediation plan for scan 42')
+    )
+  })
+
+  it('Rescan button sends rescan prompt', () => {
+    const onSend = vi.fn()
+    render(<ScanCard scanData={base} onSend={onSend} />)
     fireEvent.click(screen.getByText('Rescan'))
     expect(onSend).toHaveBeenCalledWith('Scan 192.168.1.1 again')
+  })
+
+  it('has Fix Script download link', () => {
+    const { container } = render(<ScanCard scanData={base} onSend={vi.fn()} />)
+    const link = container.querySelector('a[href="/api/report/42/fix.sh"]')
+    expect(link).toBeTruthy()
   })
 
   it('renders Scan Log section when log is provided', () => {
@@ -93,5 +134,10 @@ describe('ScanCard', () => {
       <ScanCard scanData={{ ...base }} onSend={vi.fn()} />
     )
     expect(container.textContent).not.toContain('Scan Log')
+  })
+
+  it('shows no-vulnerabilities message when findings is empty', () => {
+    render(<ScanCard scanData={{ ...base, findings: [] }} onSend={vi.fn()} />)
+    expect(screen.getByText('No vulnerabilities found')).toBeTruthy()
   })
 })
