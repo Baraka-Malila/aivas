@@ -80,7 +80,11 @@ async def dispatch(app: "AIVASApp", text: str, api_key: str | None) -> None:
         if _busy:
             _busy("AIVAS thinking…")
         try:
-            response, scan_intent, _ = await run_agent(app, text, api_key, context=context)
+            history = getattr(app, '_chat_history', [])
+            response, scan_intent, turns = await run_agent(
+                app, text, api_key, context=context, history=history
+            )
+            app._chat_history = (history + turns)[-12:]
             if response:
                 app.tui_print(f"[dim]AIVAS:[/dim] {response}")
             if scan_intent:
