@@ -1,5 +1,4 @@
 from unittest.mock import patch, MagicMock
-import pytest
 from aivas.narrator.shodan_client import query_shodan
 
 

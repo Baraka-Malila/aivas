@@ -7,7 +7,8 @@ if TYPE_CHECKING:
 
 
 async def cmd_copy(app: "AIVASApp", _args: str) -> None:
-    import shutil, subprocess
+    import shutil
+    import subprocess
     text = app._last_scan_text
     if not text.strip():
         app.tui_print(
@@ -36,7 +37,9 @@ async def cmd_copy(app: "AIVASApp", _args: str) -> None:
 
 
 async def cmd_doctor(app: "AIVASApp", _args: str) -> None:
-    import shutil, os, subprocess
+    import shutil
+    import os
+    import subprocess
     from aivas.database.kev import get_kev_status
     from aivas import config as _config
     conn = app.conn

@@ -1,4 +1,3 @@
-import pytest
 from aivas.server.scan_helpers import device_type_from_ports
 
 

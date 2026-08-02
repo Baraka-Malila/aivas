@@ -1,4 +1,3 @@
-from pathlib import Path
 from unittest.mock import patch, MagicMock
 from click.testing import CliRunner
 from aivas.cli import cli
@@ -47,7 +46,7 @@ def test_scan_live_raises_without_nmap():
 
 
 def test_scan_import_shows_findings(tmp_path):
-    from aivas.database import insert_cve, get_db, create_schema
+    from aivas.database import insert_cve, create_schema
     from aivas.database.nvd_ingest import parse_cve_data
     db_path = tmp_path / "test.db"
     # Use --db flag to point CLI at our temp DB

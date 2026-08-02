@@ -1,6 +1,5 @@
 import sqlite3
-import asyncio
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient

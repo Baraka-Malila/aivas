@@ -1,7 +1,6 @@
 from unittest.mock import patch, MagicMock
 from http.client import HTTPMessage
 
-import pytest
 
 from aivas.prober.headers import check_headers
 from aivas.prober.endpoints import check_endpoints

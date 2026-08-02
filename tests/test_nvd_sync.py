@@ -1,5 +1,4 @@
 from unittest.mock import patch
-import pytest
 from aivas.database.nvd_sync import (
     get_last_sync,
     set_last_sync,

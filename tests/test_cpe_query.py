@@ -1,4 +1,3 @@
-import pytest
 from aivas.database.nvd_ingest import parse_cve_data, insert_cve
 from aivas.database.cpe_query import normalize_product, find_cves
 

@@ -1,5 +1,4 @@
 from unittest.mock import MagicMock
-import pytest
 from aivas.narrator.narrator import narrate, _parse_narration
 
 

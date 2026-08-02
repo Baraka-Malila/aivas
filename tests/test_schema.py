@@ -1,4 +1,3 @@
-import sqlite3
 from aivas.database.schema import create_schema, get_db
 
 

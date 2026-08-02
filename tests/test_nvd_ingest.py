@@ -1,6 +1,4 @@
 import json
-import pytest
-from pathlib import Path
 from aivas.database.nvd_ingest import parse_cve_data, insert_cve, ingest_feeds
 
 

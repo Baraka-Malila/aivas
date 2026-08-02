@@ -14,7 +14,6 @@ from aivas.commands.scan_cmd import scan
 from aivas.commands.report_cmd import report
 from aivas.commands.ask_cmd import ask
 from aivas.commands.doctor_cmd import doctor
-from aivas.commands.interactive_cmd import interactive  # kept for fallback
 from aivas import config as _config
 
 console = Console()

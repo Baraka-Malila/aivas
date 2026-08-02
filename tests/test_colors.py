@@ -1,4 +1,4 @@
-from aivas.tui.colors import ACCENT, SEVERITY_COLORS, GRADE_COLOR, KEV_BADGE
+from aivas.tui.colors import ACCENT, SEVERITY_COLORS, GRADE_COLOR
 
 
 def test_accent_is_blue():
