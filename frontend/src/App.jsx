@@ -27,9 +27,9 @@ export default function App() {
 
   // --- Scan callbacks (stable refs) ---
 
-  const handleScanProgress = useCallback((log) => {
+  const handleScanProgress = useCallback((entry) => {
     if (scanningIdRef.current) {
-      dispatch({ type: 'UPDATE_LOG', id: scanningIdRef.current, log })
+      dispatch({ type: 'UPDATE_LOG', id: scanningIdRef.current, entry })
     }
   }, [])
 

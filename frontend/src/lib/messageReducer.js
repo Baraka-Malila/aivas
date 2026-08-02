@@ -17,7 +17,7 @@ export function reducer(state, action) {
     case 'SET_MESSAGES':
       return action.messages
     case 'UPDATE_LOG':
-      return state.map(m => m.id === action.id ? { ...m, log: action.log } : m)
+      return state.map(m => m.id === action.id ? { ...m, log: [...(m.log || []), action.entry] } : m)
     case 'SET_STREAMING':
       return state.map(m => m.id === action.id ? { ...m, streaming: action.streaming } : m)
     case 'TOOL_CALL':
