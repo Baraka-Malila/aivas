@@ -12,6 +12,7 @@ from groq import Groq
 from aivas.narrator.providers.base import BaseProvider
 from aivas.tui.agent_prompts import SYSTEM as _SYSTEM, TOOLS as _TOOLS
 from aivas.history import list_scans as _list_scans
+from aivas.server.tool_events import _SILENT_TOOLS, _tool_summary
 
 _MAX_STEPS = 5
 _SUMMARIZE_THRESHOLD = 4000
@@ -160,6 +161,9 @@ async def stream_agent_response(
             except (json.JSONDecodeError, TypeError):
                 args = {}
 
+            if tc.function.name not in _SILENT_TOOLS:
+                yield {"type": "tool_call", "name": tc.function.name, "args": args}
+
             try:
                 result, scan_intent = await _exec_tool_local(tc.function.name, args, conn, shodan_key)
             except Exception as exc:
@@ -168,6 +172,9 @@ async def stream_agent_response(
 
             if scan_intent:
                 yield {"type": "scan_triggered", "target": scan_intent[0], "level": scan_intent[1]}
+            elif tc.function.name not in _SILENT_TOOLS:
+                yield {"type": "tool_result", "name": tc.function.name,
+                       "summary": _tool_summary(tc.function.name, result)}
 
             if len(result) > _SUMMARIZE_THRESHOLD:
                 result = await _summarize(result, user_text, groq)

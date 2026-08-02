@@ -165,6 +165,74 @@ def test_stream_injects_scan_context_when_scans_exist(conn):
     assert "10.0.0.1" in system_content
 
 
+def test_stream_emits_tool_call_event(conn):
+    """tool_call event is emitted before get_last_scan executes."""
+    from aivas.server.chat_stream import stream_agent_response
+
+    tc = MagicMock()
+    tc.id = "call_1"
+    tc.function.name = "get_last_scan"
+    tc.function.arguments = "{}"
+
+    with patch("aivas.server.chat_stream.Groq") as MockGroq:
+        MockGroq.return_value.chat.completions.create.side_effect = [
+            _groq_resp(tool_calls=[tc]), _groq_resp("")
+        ]
+        events = asyncio.run(_collect(
+            stream_agent_response(MockProvider(), [], "summary", conn)
+        ))
+
+    ev = next((e for e in events if e["type"] == "tool_call"), None)
+    assert ev is not None
+    assert ev["name"] == "get_last_scan"
+    assert "args" in ev
+
+
+def test_stream_emits_tool_result_event(conn):
+    """tool_result event has name and summary after get_last_scan executes."""
+    from aivas.server.chat_stream import stream_agent_response
+
+    tc = MagicMock()
+    tc.id = "call_1"
+    tc.function.name = "get_last_scan"
+    tc.function.arguments = "{}"
+
+    with patch("aivas.server.chat_stream.Groq") as MockGroq:
+        MockGroq.return_value.chat.completions.create.side_effect = [
+            _groq_resp(tool_calls=[tc]), _groq_resp("")
+        ]
+        events = asyncio.run(_collect(
+            stream_agent_response(MockProvider(), [], "summary", conn)
+        ))
+
+    ev = next((e for e in events if e["type"] == "tool_result"), None)
+    assert ev is not None
+    assert ev["name"] == "get_last_scan"
+    assert isinstance(ev["summary"], str) and len(ev["summary"]) > 0
+
+
+def test_scan_host_does_not_emit_tool_call(conn):
+    """scan_host emits scan_triggered but not tool_call or tool_result."""
+    from aivas.server.chat_stream import stream_agent_response
+
+    tc = MagicMock()
+    tc.id = "call_1"
+    tc.function.name = "scan_host"
+    tc.function.arguments = json.dumps({"target": "192.168.1.1", "level": "2"})
+
+    with patch("aivas.server.chat_stream.Groq") as MockGroq:
+        MockGroq.return_value.chat.completions.create.side_effect = [
+            _groq_resp(tool_calls=[tc]), _groq_resp("")
+        ]
+        events = asyncio.run(_collect(
+            stream_agent_response(MockProvider(), [], "scan it", conn)
+        ))
+
+    assert not any(e["type"] == "tool_call" for e in events)
+    assert not any(e["type"] == "tool_result" for e in events)
+    assert any(e["type"] == "scan_triggered" for e in events)
+
+
 def test_exec_tool_exception_returns_json_error(conn):
     """_exec_tool_local raising → JSON error result, no crash."""
     from aivas.server.chat_stream import stream_agent_response

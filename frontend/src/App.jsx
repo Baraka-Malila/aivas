@@ -121,6 +121,16 @@ export default function App() {
         dispatch({ type: 'REMOVE', id: scanningIdRef.current })
         scanningIdRef.current = null
       }
+
+    } else if (event.type === 'tool_call') {
+      if (thinkingIdRef.current) {
+        dispatch({ type: 'TOOL_CALL', id: thinkingIdRef.current, name: event.name, args: event.args })
+      }
+
+    } else if (event.type === 'tool_result') {
+      if (thinkingIdRef.current) {
+        dispatch({ type: 'TOOL_RESULT', id: thinkingIdRef.current, name: event.name, summary: event.summary })
+      }
     }
   }, [])
 

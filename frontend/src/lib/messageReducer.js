@@ -20,6 +20,25 @@ export function reducer(state, action) {
       return state.map(m => m.id === action.id ? { ...m, log: action.log } : m)
     case 'SET_STREAMING':
       return state.map(m => m.id === action.id ? { ...m, streaming: action.streaming } : m)
+    case 'TOOL_CALL':
+      return state.map(m => m.id === action.id
+        ? { ...m, toolCalls: [...(m.toolCalls || []), { name: action.name, args: action.args, status: 'running' }] }
+        : m
+      )
+    case 'TOOL_RESULT': {
+      return state.map(m => {
+        if (m.id !== action.id) return m
+        let matched = false
+        const toolCalls = [...(m.toolCalls || [])].reverse().map(tc => {
+          if (!matched && tc.name === action.name && tc.status === 'running') {
+            matched = true
+            return { ...tc, status: 'done', summary: action.summary }
+          }
+          return tc
+        }).reverse()
+        return { ...m, toolCalls }
+      })
+    }
     default:
       return state
   }
