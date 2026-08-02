@@ -2,7 +2,7 @@
 import asyncio
 import json
 import sqlite3
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch, MagicMock
 
 import pytest
 from aivas.database.schema import create_schema
@@ -102,3 +102,89 @@ def test_stream_error_on_missing_groq_key(conn, monkeypatch):
             stream_agent_response(MockProvider(), [], "Hi", conn)
         ))
     assert events[0]["type"] == "error"
+
+
+def test_stream_retries_without_tools_on_400(conn):
+    """Groq 400/tool error → retry without tools → streams response."""
+    from aivas.server.chat_stream import stream_agent_response
+
+    err = Exception("400 Bad Request: tool_use_failed")
+    with patch("aivas.server.chat_stream.Groq") as MockGroq:
+        client = MockGroq.return_value
+        client.chat.completions.create.side_effect = [err, _groq_resp("fallback")]
+        events = asyncio.run(_collect(
+            stream_agent_response(MockProvider(), [], "hi", conn)
+        ))
+
+    types = [e["type"] for e in events]
+    assert "error" not in types
+    assert types[-1] == "done"
+
+
+def test_stream_tool_error_yields_friendly_message(conn):
+    """Groq non-400 error → friendly error event, not raw traceback."""
+    from aivas.server.chat_stream import stream_agent_response
+
+    err = Exception("Connection timeout")
+    with patch("aivas.server.chat_stream.Groq") as MockGroq:
+        MockGroq.return_value.chat.completions.create.side_effect = err
+        events = asyncio.run(_collect(
+            stream_agent_response(MockProvider(), [], "hi", conn)
+        ))
+
+    assert events[0]["type"] == "thinking"
+    err_ev = next((e for e in events if e["type"] == "error"), None)
+    assert err_ev is not None
+    assert "trouble" in err_ev["text"].lower()
+    assert "Connection timeout" not in err_ev["text"]
+
+
+def test_stream_injects_scan_context_when_scans_exist(conn):
+    """System message includes recent scan context when scans exist in DB."""
+    from aivas.server.chat_stream import stream_agent_response
+    from aivas.history import save_scan
+
+    save_scan(conn, "10.0.0.1", [])
+
+    captured_messages = []
+
+    def capture_create(**kwargs):
+        captured_messages.extend(kwargs.get("messages", []))
+        return _groq_resp("ok")
+
+    with patch("aivas.server.chat_stream.Groq") as MockGroq:
+        MockGroq.return_value.chat.completions.create.side_effect = capture_create
+        asyncio.run(_collect(
+            stream_agent_response(MockProvider(), [], "what did we scan?", conn)
+        ))
+
+    system_content = next(
+        (m["content"] for m in captured_messages if m["role"] == "system"), ""
+    )
+    assert "Recent scans:" in system_content
+    assert "10.0.0.1" in system_content
+
+
+def test_exec_tool_exception_returns_json_error(conn):
+    """_exec_tool_local raising → JSON error result, no crash."""
+    from aivas.server.chat_stream import stream_agent_response
+
+    tc = MagicMock()
+    tc.id = "call_x"
+    tc.function.name = "get_history"
+    tc.function.arguments = "{}"
+
+    groq_tool_resp = _groq_resp(tool_calls=[tc])
+    groq_final_resp = _groq_resp("")
+
+    with patch("aivas.server.chat_stream.Groq") as MockGroq, \
+         patch("aivas.server.chat_stream._exec_tool_local",
+               side_effect=RuntimeError("db locked")):
+        MockGroq.return_value.chat.completions.create.side_effect = [
+            groq_tool_resp, groq_final_resp
+        ]
+        events = asyncio.run(_collect(
+            stream_agent_response(MockProvider(), [], "list scans", conn)
+        ))
+
+    assert events[-1]["type"] == "done"

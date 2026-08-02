@@ -11,6 +11,7 @@ from typing import AsyncGenerator
 from groq import Groq
 from aivas.narrator.providers.base import BaseProvider
 from aivas.tui.agent_prompts import SYSTEM as _SYSTEM, TOOLS as _TOOLS
+from aivas.history import list_scans as _list_scans
 
 _MAX_STEPS = 5
 _SUMMARIZE_THRESHOLD = 4000
@@ -27,6 +28,19 @@ def _load_groq_key() -> str | None:
     except Exception:
         pass
     return os.environ.get("GROQ_API_KEY") or None
+
+
+def _build_web_context(conn: sqlite3.Connection) -> str:
+    scans = _list_scans(conn, limit=3)
+    if not scans:
+        return ""
+    lines = ["Recent scans:"]
+    for s in scans:
+        lines.append(
+            f"  · scan #{s['id']}: {s['target']} — Grade {s.get('grade', '?')}, "
+            f"{s.get('finding_count', 0)} findings"
+        )
+    return "\n".join(lines)
 
 
 async def _summarize(text: str, question: str, groq_client) -> str:
@@ -61,7 +75,7 @@ async def stream_agent_response(
 ) -> AsyncGenerator[dict, None]:
     """Yield WebSocket events for one user turn.
 
-    Phase A: Groq llama-3.1-8b-instant handles tool calls (blocking, fast).
+    Phase A: Groq llama-3.3-70b-versatile handles tool calls (blocking, fast).
     Phase B: provider.stream() delivers the final response token-by-token.
     """
     groq_key = _load_groq_key()
@@ -70,7 +84,9 @@ async def stream_agent_response(
         return
 
     groq = Groq(api_key=groq_key)
-    messages: list[dict] = [{"role": "system", "content": _SYSTEM}]
+    ctx = _build_web_context(conn)
+    system = "\n\n".join(filter(None, [_SYSTEM, ctx]))
+    messages: list[dict] = [{"role": "system", "content": system}]
     if session_history:
         messages.extend(session_history)
     messages.append({"role": "user", "content": user_text})
@@ -84,7 +100,7 @@ async def stream_agent_response(
         try:
             resp = await asyncio.to_thread(
                 lambda: groq.chat.completions.create(
-                    model="llama-3.1-8b-instant",
+                    model="llama-3.3-70b-versatile",
                     messages=messages,
                     tools=_TOOLS,
                     tool_choice="auto",
@@ -92,8 +108,22 @@ async def stream_agent_response(
                 )
             )
         except Exception as exc:
-            yield {"type": "error", "text": f"AI error: {exc}"}
-            return
+            s = str(exc)
+            if "400" in s or "tool" in s.lower():
+                try:
+                    resp = await asyncio.to_thread(
+                        lambda: groq.chat.completions.create(
+                            model="llama-3.3-70b-versatile",
+                            messages=messages,
+                            max_tokens=600,
+                        )
+                    )
+                except Exception:
+                    yield {"type": "error", "text": "I'm having trouble processing that right now. Please try again."}
+                    return
+            else:
+                yield {"type": "error", "text": "I'm having trouble processing that right now. Please try again."}
+                return
 
         msg = resp.choices[0].message
 
@@ -130,7 +160,11 @@ async def stream_agent_response(
             except (json.JSONDecodeError, TypeError):
                 args = {}
 
-            result, scan_intent = _exec_tool_local(tc.function.name, args, conn, shodan_key)
+            try:
+                result, scan_intent = _exec_tool_local(tc.function.name, args, conn, shodan_key)
+            except Exception as exc:
+                result = json.dumps({"error": f"Tool execution failed: {exc}"})
+                scan_intent = None
 
             if scan_intent:
                 yield {"type": "scan_triggered", "target": scan_intent[0], "level": scan_intent[1]}
