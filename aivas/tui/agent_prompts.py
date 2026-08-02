@@ -49,7 +49,13 @@ Rules:
   explicitly rather than giving generic advice.
 - OUTPUT FORMAT: Never write raw tool call notation like <function>...</function>
   or <function=name>...</function> in your natural language responses. If a tool
-  was called and returned results, describe those results in natural language.\
+  was called and returned results, describe those results in natural language.
+- ROUTING RULE: Use discover_hosts when the user asks about devices, who is connected,
+  how many devices are on the network, or network topology. Only use scan_host when the
+  user explicitly asks to scan for vulnerabilities, CVEs, security issues, or weaknesses.
+- HONESTY RULE: Before giving any risk summary, remediation advice, or CVE analysis for
+  a specific scan, you MUST call get_findings(scan_id) first. Never describe scan results
+  from memory — only from tool output returned in this conversation.\
 """
 
 TOOLS = [
@@ -102,6 +108,18 @@ TOOLS = [
         "description": "Get threat intelligence for an IP address from Shodan",
         "parameters": {"type": "object", "required": ["ip"], "properties": {
             "ip": {"type": "string", "description": "IPv4 address to look up"},
+        }},
+    }},
+    {"type": "function", "function": {
+        "name": "discover_hosts",
+        "description": (
+            "List all devices on a network without scanning for vulnerabilities. "
+            "Use this when the user asks how many devices are on the network, who is connected, "
+            "what devices exist, or any question about network topology — without asking to scan "
+            "for vulnerabilities or security issues. Returns IP, hostname, MAC, and vendor."
+        ),
+        "parameters": {"type": "object", "required": ["target"], "properties": {
+            "target": {"type": "string", "description": "CIDR range e.g. 10.88.91.0/24"},
         }},
     }},
 ]

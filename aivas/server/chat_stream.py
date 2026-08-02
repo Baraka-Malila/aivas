@@ -58,12 +58,12 @@ async def _summarize(text: str, question: str, groq_client) -> str:
     return resp.choices[0].message.content or text[:_SUMMARIZE_THRESHOLD]
 
 
-def _exec_tool_local(
+async def _exec_tool_local(
     name: str, args: dict, conn: sqlite3.Connection, shodan_key: str | None
 ) -> tuple[str, tuple | None]:
     """Dispatch tool call. Returns (result_json, scan_intent | None)."""
     from aivas.tui.agent import _exec_tool
-    return _exec_tool(name, args, conn, shodan_key=shodan_key)
+    return await _exec_tool(name, args, conn, shodan_key=shodan_key)
 
 
 async def stream_agent_response(
@@ -161,7 +161,7 @@ async def stream_agent_response(
                 args = {}
 
             try:
-                result, scan_intent = _exec_tool_local(tc.function.name, args, conn, shodan_key)
+                result, scan_intent = await _exec_tool_local(tc.function.name, args, conn, shodan_key)
             except Exception as exc:
                 result = json.dumps({"error": f"Tool execution failed: {exc}"})
                 scan_intent = None
