@@ -69,6 +69,11 @@ export default function ToolCallPanel({ toolCalls, text }) {
                 color: 'rgba(200,200,200,0.4)', whiteSpace: 'pre-wrap', wordBreak: 'break-all',
               }}
             >
+              {tc.summary && tc.summary !== 'done' && (
+                <div style={{ color: 'rgba(200,200,200,0.55)', marginBottom: 4 }}>
+                  → {tc.summary}
+                </div>
+              )}
               {tc.args && Object.keys(tc.args).length > 0
                 ? JSON.stringify(tc.args, null, 2)
                 : <span style={{ color: 'rgba(200,200,200,0.2)', fontStyle: 'italic' }}>no parameters</span>

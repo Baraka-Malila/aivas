@@ -38,14 +38,13 @@ export default function App() {
 
     if (doneEvent.type === 'error' || doneEvent.type === 'stopped') {
       if (scanningIdRef.current) {
+        const status = doneEvent.type === 'stopped' ? 'stopped' : 'failed'
         const text = doneEvent.type === 'stopped'
           ? "Scan stopped. What would you like to do — scan a different target, review the last results, or something else?"
           : `**Scan failed:** ${doneEvent.text || 'Unknown error. Check the target and try again.'}`
-        dispatch({
-          type: 'REPLACE',
-          id: scanningIdRef.current,
-          msg: { id: scanningIdRef.current, type: 'ai', text },
-        })
+        // Keep scan-progress visible (with log) by marking it done instead of replacing it
+        dispatch({ type: 'MARK_SCAN_DONE', id: scanningIdRef.current, status })
+        dispatch({ type: 'APPEND', msg: { id: uid(), type: 'ai', text } })
         scanningIdRef.current = null
       }
       return
@@ -66,6 +65,7 @@ export default function App() {
       service_count: doneEvent.service_count,
       findings,
       counts:        countSeverities(findings),
+      log:           doneEvent.log || [],
     }
 
     if (scanningIdRef.current) {

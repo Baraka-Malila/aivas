@@ -106,8 +106,14 @@ async def run_scan(
             for h in live:
                 yield _emit(_ev("host_up", f"    · {h}"))
         else:
-            yield _emit(_ev("hosts_found", "Ping sweep inconclusive — scanning range directly…"))
-            live = [target]
+            yield {
+                "type": "error",
+                "text": (
+                    f"{target}: ping sweep found no live hosts. "
+                    "ICMP may be blocked — try scanning a specific host IP directly."
+                ),
+            }
+            return
         for host_ip in live:
             yield _emit(_ev("phase_header", "PORT SCANNING"))
             async for ev in scan_host(conn, host_ip, scripts, _async_nmap):

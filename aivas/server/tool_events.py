@@ -12,6 +12,14 @@ def _tool_summary(name: str, result_json: str) -> str:
     except (json.JSONDecodeError, ValueError):
         return "done"
 
+    if name == "get_local_info":
+        if isinstance(data, dict):
+            ip = data.get("ip") or data.get("primary_ip") or data.get("local_ip", "")
+            hostname = data.get("hostname", "")
+            if ip:
+                return f"{hostname} · {ip}" if hostname else ip
+        return "done"
+
     if name == "get_findings":
         count = len(data) if isinstance(data, list) else 0
         return f"{count} finding{'s' if count != 1 else ''} returned"

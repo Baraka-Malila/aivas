@@ -26,6 +26,12 @@ export function reducer(state, action) {
         ? { ...m, text: action.text, streaming: false }
         : m
       )
+    case 'MARK_SCAN_DONE':
+      // Mark a scan-progress message as finished (stopped/failed) without replacing it
+      return state.map(m => m.id === action.id
+        ? { ...m, scanStatus: action.status }
+        : m
+      )
     case 'TOOL_CALL':
       return state.map(m => m.id === action.id
         ? { ...m, toolCalls: [...(m.toolCalls || []), { name: action.name, args: action.args, status: 'running' }] }

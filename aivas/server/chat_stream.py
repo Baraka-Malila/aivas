@@ -113,6 +113,9 @@ async def stream_agent_response(
             )
         except Exception as exc:
             s = str(exc)
+            if "429" in s or "rate_limit" in s.lower():
+                yield {"type": "error", "text": "Groq rate limit reached — please wait a moment and try again."}
+                return
             if "400" in s or "tool" in s.lower():
                 try:
                     resp = await asyncio.to_thread(
@@ -122,8 +125,12 @@ async def stream_agent_response(
                             max_tokens=600,
                         )
                     )
-                except Exception:
-                    yield {"type": "error", "text": "I'm having trouble processing that right now. Please try again."}
+                except Exception as inner:
+                    si = str(inner)
+                    if "429" in si or "rate_limit" in si.lower():
+                        yield {"type": "error", "text": "Groq rate limit reached — please wait a moment and try again."}
+                    else:
+                        yield {"type": "error", "text": "I'm having trouble processing that right now. Please try again."}
                     return
             else:
                 yield {"type": "error", "text": "I'm having trouble processing that right now. Please try again."}
@@ -158,6 +165,7 @@ async def stream_agent_response(
         messages.append(assistant_turn)
         turns_to_persist.append(assistant_turn)
 
+        scan_triggered_this_step = False
         for tc in msg.tool_calls:
             try:
                 args = json.loads(tc.function.arguments or "{}")
@@ -177,6 +185,7 @@ async def stream_agent_response(
 
             if scan_intent:
                 yield {"type": "scan_triggered", "target": scan_intent[0], "level": scan_intent[1]}
+                scan_triggered_this_step = True
             elif tc.function.name not in _SILENT_TOOLS:
                 yield {"type": "tool_result", "name": tc.function.name,
                        "summary": _tool_summary(tc.function.name, result)}
@@ -187,6 +196,11 @@ async def stream_agent_response(
             tool_msg = {"role": "tool", "tool_call_id": tc.id, "content": result}
             messages.append(tool_msg)
             turns_to_persist.append(tool_msg)
+
+        if scan_triggered_this_step:
+            # Scan is now running; don't make more Groq calls this turn.
+            yield {"type": "done", "full_text": "", "turns": turns_to_persist}
+            return
 
     # Exhausted steps — stream whatever the provider gives
     async for token in provider.stream(messages, max_tokens=1200):
