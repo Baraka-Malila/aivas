@@ -129,15 +129,25 @@ export default function ScanCard({ scanData, onSend }) {
         >
           Rescan
         </button>
-        <a
-          href={`/api/report/${scan_id}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: '#666' }}
-          className="ml-auto text-xs flex items-center gap-1 hover:text-white transition-colors"
-        >
-          View full report <ExternalLink size={10} />
-        </a>
+        <div className="ml-auto flex items-center gap-3">
+          <a
+            href={`/api/report/${scan_id}/fix.sh`}
+            download={`fix-scan-${scan_id}.sh`}
+            style={{ color: '#555' }}
+            className="text-xs flex items-center gap-1 hover:text-white transition-colors"
+          >
+            Fix Script
+          </a>
+          <a
+            href={`/api/report/${scan_id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: '#666' }}
+            className="text-xs flex items-center gap-1 hover:text-white transition-colors"
+          >
+            View full report <ExternalLink size={10} />
+          </a>
+        </div>
       </div>
 
       {/* Scan Log */}

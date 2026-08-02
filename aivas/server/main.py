@@ -75,6 +75,19 @@ async def get_report(scan_id: int):
     return HTMLResponse(html)
 
 
+@app.get("/api/report/{scan_id}/fix.sh")
+async def get_fix_script(scan_id: int):
+    from aivas.server.fix_script import generate_fix_script
+    script = generate_fix_script(_conn, scan_id)
+    if script is None:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    return Response(
+        content=script,
+        media_type="text/x-shellscript",
+        headers={"Content-Disposition": f"attachment; filename=fix-scan-{scan_id}.sh"},
+    )
+
+
 @app.get("/api/report/{scan_id}/pdf")
 async def get_pdf_report(scan_id: int):
     from aivas.server.report_pdf import generate_pdf_report
