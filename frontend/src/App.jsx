@@ -18,22 +18,39 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   // Refs to break circular dep: handleChatEvent → startScan, and onDone → refresh
-  const thinkingIdRef  = useRef(null)
-  const scanningIdRef  = useRef(null)
-  const scanPendingRef = useRef(false)
-  const startScanRef   = useRef(null)
-  const refreshSessRef = useRef(null)
+  const thinkingIdRef    = useRef(null)
+  const streamingTextRef = useRef('')
+  const scanningIdRef    = useRef(null)
+  const scanPendingRef   = useRef(false)
+  const startScanRef     = useRef(null)
+  const refreshSessRef   = useRef(null)
 
   // --- Scan callbacks (stable refs) ---
 
-  const handleScanProgress = useCallback((text) => {
+  const handleScanProgress = useCallback((log) => {
     if (scanningIdRef.current) {
-      dispatch({ type: 'UPDATE_TEXT', id: scanningIdRef.current, text })
+      dispatch({ type: 'UPDATE_LOG', id: scanningIdRef.current, log })
     }
   }, [])
 
   const handleScanDone = useCallback(async (doneEvent) => {
     scanPendingRef.current = false
+
+    if (doneEvent.type === 'error' || doneEvent.type === 'stopped') {
+      if (scanningIdRef.current) {
+        const text = doneEvent.type === 'stopped'
+          ? "Scan stopped. What would you like to do — scan a different target, review the last results, or something else?"
+          : `**Scan failed:** ${doneEvent.text || 'Unknown error. Check the target and try again.'}`
+        dispatch({
+          type: 'REPLACE',
+          id: scanningIdRef.current,
+          msg: { id: scanningIdRef.current, type: 'ai', text },
+        })
+        scanningIdRef.current = null
+      }
+      return
+    }
+
     let findings = doneEvent.findings || []
     try {
       const res = await fetch(`/api/scan/${doneEvent.scan_id}`)
@@ -65,35 +82,41 @@ export default function App() {
   // --- Chat event handler (uses startScanRef to avoid stale closure) ---
 
   const handleChatEvent = useCallback((event) => {
-    if (event.type === 'scan_intent') {
-      scanPendingRef.current = true
-      dispatch({
-        type: 'UPDATE_TEXT',
-        id: thinkingIdRef.current,
-        text: `Starting scan on ${event.target}…`,
-      })
-      startScanRef.current?.(event.scan_key)
+    if (event.type === 'thinking') {
+      const id = uid()
+      thinkingIdRef.current = id
+      streamingTextRef.current = ''
+      dispatch({ type: 'APPEND', msg: { id, type: 'ai', text: '', streaming: true } })
 
-    } else if (event.type === 'complete') {
-      // Replace "Thinking…" slot with the AI's conversational reply
-      dispatch({
-        type: 'REPLACE',
-        id: thinkingIdRef.current,
-        msg: { id: thinkingIdRef.current, type: 'ai', text: event.text },
-      })
-      // If a scan was triggered, open a second slot for scan progress
-      if (scanPendingRef.current) {
-        const sid = uid()
-        scanningIdRef.current = sid
-        dispatch({ type: 'APPEND', msg: { id: sid, type: 'scan-progress', text: 'Scanning…' } })
+    } else if (event.type === 'token') {
+      if (!thinkingIdRef.current) return
+      streamingTextRef.current += event.text
+      dispatch({ type: 'UPDATE_TEXT', id: thinkingIdRef.current, text: streamingTextRef.current })
+
+    } else if (event.type === 'done') {
+      if (thinkingIdRef.current) {
+        dispatch({ type: 'SET_STREAMING', id: thinkingIdRef.current, streaming: false })
+        thinkingIdRef.current = null
+        streamingTextRef.current = ''
       }
 
+    } else if (event.type === 'scan_triggered') {
+      scanPendingRef.current = true
+      const slotId = uid()
+      scanningIdRef.current = slotId
+      dispatch({ type: 'APPEND', msg: { id: slotId, type: 'scan-progress', log: ['Initializing scan…'] } })
+      if (startScanRef.current) startScanRef.current(event.scan_key, event.target)
+
     } else if (event.type === 'error') {
-      dispatch({
-        type: 'REPLACE',
-        id: thinkingIdRef.current,
-        msg: { id: thinkingIdRef.current, type: 'ai', text: `Error: ${event.text}` },
-      })
+      if (thinkingIdRef.current) {
+        dispatch({
+          type: 'REPLACE',
+          id: thinkingIdRef.current,
+          msg: { id: thinkingIdRef.current, type: 'ai', text: `Error: ${event.text}` },
+        })
+        thinkingIdRef.current = null
+        streamingTextRef.current = ''
+      }
       if (scanningIdRef.current) {
         dispatch({ type: 'REMOVE', id: scanningIdRef.current })
         scanningIdRef.current = null
@@ -103,8 +126,20 @@ export default function App() {
 
   // --- Hooks ---
 
-  const { send, status: chatStatus } = useChat(sessionId, handleChatEvent)
-  const { start: startScan } = useScan(handleScanProgress, handleScanDone)
+  const storedProvider = localStorage.getItem('aivas_provider') || 'groq'
+  const storedModel = localStorage.getItem('aivas_model') || undefined
+  const storedKey = localStorage.getItem('aivas_api_key') || undefined
+  const storedShodan = localStorage.getItem('aivas_shodan_key') || undefined
+
+  const { send, status: chatStatus } = useChat({
+    sessionId,
+    onEvent: handleChatEvent,
+    provider: storedProvider,
+    model: storedModel,
+    apiKey: storedKey,
+    shodanKey: storedShodan,
+  })
+  const { start: startScan, stop: stopScan } = useScan(handleScanProgress, handleScanDone)
   const { sessions, refresh: refreshSessions, deleteSession } = useSessions()
 
   // Wire refs after hooks resolve
@@ -128,11 +163,14 @@ export default function App() {
           const scan = history[0]
           const grade = (scan.grade || '').replace('Grade ', '')
           const days = daysAgo(scan.started_at)
-          const critical = scan.counts?.CRITICAL ?? 0
+          const critical = scan.critical_count ?? 0
+          const kev = scan.kev_count ?? 0
           text =
-            `Welcome back. Your last scan of ${scan.target} was ${days} days ago` +
-            ` — Grade ${grade}, ${critical} critical vulnerabilities.` +
-            ` Want me to rescan, or would you like a summary?`
+            `Welcome back. Your last scan of ${scan.target} was ${days} day${days !== 1 ? 's' : ''} ago` +
+            ` — Grade ${grade}, ${scan.finding_count ?? 0} findings` +
+            (critical > 0 ? `, ${critical} critical` : '') +
+            (kev > 0 ? `, ${kev} actively exploited` : '') +
+            `. Want me to rescan, or would you like a summary?`
         }
       } catch (_) {}
 
@@ -144,11 +182,8 @@ export default function App() {
   // --- User actions ---
 
   const handleSend = useCallback((text) => {
-    const tid = uid()
-    thinkingIdRef.current = tid
     scanPendingRef.current = false
     dispatch({ type: 'APPEND', msg: { id: uid(), type: 'user', text } })
-    dispatch({ type: 'APPEND', msg: { id: tid, type: 'scan-progress', text: 'Thinking…' } })
     send(text)
   }, [send])
 
@@ -185,7 +220,7 @@ export default function App() {
         onHistory={() => { setDrawerOpen(true); refreshSessions() }}
         onSettings={() => setSettingsOpen(true)}
       />
-      <ChatArea messages={messages} onSend={handleSend} />
+      <ChatArea messages={messages} onSend={handleSend} onStopScan={stopScan} />
       <ChatInput onSend={handleSend} disabled={chatStatus !== 'open'} />
       <SessionDrawer
         open={drawerOpen}

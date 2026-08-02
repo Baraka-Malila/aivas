@@ -23,6 +23,7 @@ export default function ChatInput({ onSend, disabled }) {
         style={{ maxWidth: 800 }}
       >
         <input
+          data-testid="chat-input"
           value={text}
           onChange={e => setText(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) submit(e) }}

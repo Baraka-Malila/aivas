@@ -74,6 +74,7 @@ class AIVASApp(InputActionsMixin, App):
         self._last_misconfigs: list[dict] = []
         self._last_target: str = ""
         self._scan_history: list[dict] = []
+        self._chat_history: list[dict] = []
         self._spinner_timer = None
         self._status_msg: str = ""
         self._spinner_idx: int = 0
@@ -184,6 +185,7 @@ class AIVASApp(InputActionsMixin, App):
 
     def action_clear_output(self) -> None:
         self.query_one("#output", RichLog).clear()
+        self._chat_history = []
 
     def action_cancel_or_blur(self) -> None:
         if self._scan_task is not None and not self._scan_task.done():

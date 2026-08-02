@@ -129,4 +129,27 @@ describe('useScan', () => {
     })
     expect(closeSpy).toHaveBeenCalled()
   })
+
+  it('passes log array to onDone', () => {
+    const onDone = vi.fn()
+    const { result } = renderHook(() => useScan(vi.fn(), onDone))
+
+    act(() => result.current.start('key123'))
+
+    act(() => {
+      MockWS.last.onmessage?.({ data: JSON.stringify({ type: 'phase_header', text: 'PORT SCANNING' }) })
+      MockWS.last.onmessage?.({ data: JSON.stringify({ type: 'ports', text: 'Found 3 ports' }) })
+      MockWS.last.onmessage?.({ data: JSON.stringify({
+        type: 'done', scan_id: 1, target: '1.1.1.1',
+        grade: 'B', score: 60, service_count: 3,
+        findings: [], misconfigs: [], services: [],
+      }) })
+    })
+
+    expect(onDone).toHaveBeenCalled()
+    const doneArg = onDone.mock.calls[0][0]
+    expect(doneArg.log).toBeDefined()
+    expect(doneArg.log).toContain('PORT SCANNING')
+    expect(doneArg.log).toContain('Found 3 ports')
+  })
 })

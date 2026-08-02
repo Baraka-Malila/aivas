@@ -1,3 +1,4 @@
+import inspect
 import json
 import sqlite3
 
@@ -100,11 +101,47 @@ def test_detect_lang_is_removed():
     assert not hasattr(a, "_lang_instruction")
 
 
-import inspect
-
-
 def test_run_agent_has_history_param():
     from aivas.tui.agent import run_agent
     sig = inspect.signature(run_agent)
     assert "history" in sig.parameters
     assert sig.parameters["history"].default is None
+
+
+def test_system_prompt_is_not_rigid():
+    from aivas.tui.agent_prompts import SYSTEM
+    # Old rigid structure must be gone
+    assert "EXECUTIVE SUMMARY" not in SYSTEM
+    assert "SEVERITY BREAKDOWN" not in SYSTEM
+    assert "TOP FINDINGS" not in SYSTEM
+    assert "REMEDIATION" not in SYSTEM
+
+
+def test_system_prompt_has_persona():
+    from aivas.tui.agent_prompts import SYSTEM
+    assert "AIVAS" in SYSTEM
+    assert "Tanzania" in SYSTEM
+
+
+def test_tools_include_shodan():
+    from aivas.tui.agent_prompts import TOOLS
+    names = [t["function"]["name"] for t in TOOLS]
+    assert "query_shodan" in names
+    assert names.index("query_shodan") == 5
+
+
+def test_exec_tool_query_shodan_no_key():
+    import sqlite3
+    from aivas.tui.agent import _exec_tool
+    conn = sqlite3.connect(":memory:")
+    result, intent = _exec_tool("query_shodan", {"ip": "1.1.1.1"}, conn, shodan_key=None)
+    data = json.loads(result)
+    assert "error" in data
+
+
+def test_exec_tool_unknown_returns_error():
+    import sqlite3
+    from aivas.tui.agent import _exec_tool
+    conn = sqlite3.connect(":memory:")
+    result, intent = _exec_tool("nonexistent_tool", {}, conn)
+    assert "error" in json.loads(result)

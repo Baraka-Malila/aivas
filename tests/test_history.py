@@ -1,4 +1,3 @@
-import pytest
 from aivas.history import save_scan, list_scans, diff_scans
 
 FINDINGS_A = [
@@ -101,3 +100,33 @@ def test_get_scan_findings_empty_scan(db):
     scan_id = save_scan(db, "target", [])
     result = get_scan_findings(db, scan_id)
     assert result == []
+
+
+def test_list_scans_returns_critical_count(db):
+    """list_scans includes critical_count for scans with CRITICAL findings."""
+    db.execute(
+        "INSERT OR IGNORE INTO cves (cve_id, cvss_score, cvss_severity, description) "
+        "VALUES ('CVE-2021-41773', 9.8, 'CRITICAL', 'Apache path traversal')"
+    )
+    db.commit()
+
+    findings = [
+        {"cve_id": "CVE-2021-41773", "cvss_score": 9.8, "cvss_severity": "CRITICAL",
+         "confidence": "probable", "host": "1.2.3.4"},
+    ]
+    save_scan(db, "1.2.3.4", findings)
+
+    scans = list_scans(db)
+    assert scans[0]["critical_count"] == 1
+
+
+def test_list_scans_critical_count_zero_when_none(db):
+    """list_scans returns critical_count=0 when no CRITICAL findings exist."""
+    findings = [
+        {"cve_id": "CVE-2018-15473", "cvss_score": 5.3, "cvss_severity": "MEDIUM",
+         "confidence": "probable", "host": "1.2.3.4"},
+    ]
+    save_scan(db, "1.2.3.4", findings)
+
+    scans = list_scans(db)
+    assert scans[0]["critical_count"] == 0

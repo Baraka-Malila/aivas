@@ -16,6 +16,10 @@ export function reducer(state, action) {
       return state.filter(m => m.id !== action.id)
     case 'SET_MESSAGES':
       return action.messages
+    case 'UPDATE_LOG':
+      return state.map(m => m.id === action.id ? { ...m, log: action.log } : m)
+    case 'SET_STREAMING':
+      return state.map(m => m.id === action.id ? { ...m, streaming: action.streaming } : m)
     default:
       return state
   }

@@ -101,7 +101,13 @@ async def http_probe_events(
         label = f"{host}:{port}"
         yield _ev("http_probe", f"  {label} — probing headers, paths, methods…")
         try:
-            result = await asyncio.to_thread(probe_http_service, host, port, scheme)
+            result = await asyncio.wait_for(
+                asyncio.to_thread(probe_http_service, host, port, scheme),
+                timeout=12.0,
+            )
+        except asyncio.TimeoutError:
+            yield _ev("http_timeout", f"  {label} — HTTP probe timed out (12s), skipping")
+            continue
         except Exception as exc:
             yield _ev("http_error", f"  {label} — probe error: {exc}")
             continue
@@ -128,23 +134,31 @@ async def http_probe_events(
 
 async def scan_host(
     conn: sqlite3.Connection, host_ip: str, scripts: str,
-    blocking_nmap,
+    nmap_fn,
 ) -> AsyncGenerator[dict, None]:
     """Scan one host; yield events then sentinel with __svcs/__findings/__misconfigs."""
-    fut = asyncio.create_task(asyncio.to_thread(blocking_nmap, host_ip, scripts, 120))
+    fut = asyncio.create_task(nmap_fn(host_ip, scripts, 120))
     start = asyncio.get_running_loop().time()
     xml: str | None = None
-    while True:
-        done, _ = await asyncio.wait({fut}, timeout=3.0)
-        if done:
+    try:
+        while not fut.done():
             try:
-                xml = fut.result()
-            except Exception as exc:
-                yield {"type": "error", "text": str(exc)}
-                return
-            break
-        elapsed = int(asyncio.get_running_loop().time() - start)
-        yield _ev("scanning", f"  {host_ip}: scanning… {elapsed}s")
+                await asyncio.wait_for(asyncio.shield(fut), timeout=3.0)
+            except asyncio.TimeoutError:
+                elapsed = int(asyncio.get_running_loop().time() - start)
+                yield _ev("scanning", f"  {host_ip}: scanning… {elapsed}s")
+        try:
+            xml = await fut
+        except Exception as exc:
+            yield {"type": "error", "text": str(exc)}
+            return
+    finally:
+        if not fut.done():
+            fut.cancel()
+            try:
+                await fut
+            except (asyncio.CancelledError, Exception):
+                pass
     try:
         services = parse_nmap_xml(xml)
     except Exception as exc:

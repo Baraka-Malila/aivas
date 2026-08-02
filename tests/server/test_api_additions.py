@@ -1,8 +1,7 @@
 import sqlite3
 from fastapi.testclient import TestClient
 import pytest
-from aivas.database.schema import create_schema, get_db
-from unittest.mock import patch
+from aivas.database.schema import create_schema
 
 
 @pytest.fixture
@@ -13,7 +12,6 @@ def client(tmp_path):
     create_schema(db)
     srv._conn = db
     srv._pending = {}
-    from fastapi.testclient import TestClient
     return TestClient(srv.app)
 
 

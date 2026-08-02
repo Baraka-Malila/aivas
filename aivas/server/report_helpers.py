@@ -1,5 +1,6 @@
 """Shared helper functions for HTML/PDF report generation."""
 from __future__ import annotations
+import sqlite3
 
 _SEV_ORDER = ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
 

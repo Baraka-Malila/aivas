@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 from .agent_prompts import SYSTEM as _SYSTEM, TOOLS as _TOOLS
 
-_XML_CALL_RE = _re.compile(r'<function=\w[^>]*>.*?</function>', _re.DOTALL)
+_XML_CALL_RE = _re.compile(r'<function(?:=\w[^>]*)?>.*?</function>', _re.DOTALL)
 
 if TYPE_CHECKING:
     from .app import AIVASApp
@@ -36,7 +36,9 @@ def _as_str(v, default: str = "") -> str:
 
 
 
-def _exec_tool(name: str, args: dict, conn: sqlite3.Connection) -> tuple[str, tuple | None]:
+async def _exec_tool(
+    name: str, args: dict, conn: sqlite3.Connection, shodan_key: str | None = None
+) -> tuple[str, tuple | None]:
     """Execute a tool call. Returns (result_json, scan_intent) or (error_json, None)."""
     from aivas.history import list_scans, get_scan_findings
 
@@ -45,8 +47,14 @@ def _exec_tool(name: str, args: dict, conn: sqlite3.Connection) -> tuple[str, tu
         level = _as_int(args.get("level"), default=2) or 2
         if not target:
             return json.dumps({"error": "No target specified."}), None
-        msg = f"Scan initiated for {target} (level {level}). Results will appear below."
-        return json.dumps({"status": "initiated", "message": msg}), (target, level)
+        return json.dumps({
+            "status": "running_in_background",
+            "instruction": (
+                "The scan is running in a separate process. "
+                "Results are NOT available yet — do NOT describe or predict findings. "
+                "Tell the user the scan has started and results will appear in the scan card below."
+            ),
+        }), (target, level)
 
     if name == "get_history":
         limit = _as_int(args.get("limit"), default=5) or 5
@@ -58,14 +66,14 @@ def _exec_tool(name: str, args: dict, conn: sqlite3.Connection) -> tuple[str, tu
         if not scans:
             return json.dumps({"error": "No scans in history yet."}), None
         findings = get_scan_findings(conn, scans[0]["id"])
-        return json.dumps({"scan": scans[0], "findings": findings[:10]}), None
+        return json.dumps({"scan": scans[0], "findings": findings[:25]}), None
 
     if name == "get_findings":
         scan_id = _as_int(args.get("scan_id"))
         if scan_id is None:
             return json.dumps({"error": "scan_id must be an integer."}), None
         findings = get_scan_findings(conn, scan_id)
-        return json.dumps(findings[:15]), None
+        return json.dumps(findings[:50]), None
 
     if name == "explain_cve":
         cve_id = _as_str(args.get("cve_id"))
@@ -79,12 +87,109 @@ def _exec_tool(name: str, args: dict, conn: sqlite3.Connection) -> tuple[str, tu
             return json.dumps({"error": f"{cve_id} not found in local database."}), None
         return json.dumps(dict(row)), None
 
+    if name == "query_shodan":
+        ip = _as_str(args.get("ip"))
+        if not ip:
+            return json.dumps({"error": "ip is required."}), None
+        from aivas.narrator.shodan_client import query_shodan
+        result = query_shodan(ip, shodan_key or "")
+        return json.dumps(result), None
+
+    if name == "get_local_info":
+        import socket
+        import subprocess as _sp
+        info: dict = {}
+        try:
+            info["hostname"] = socket.gethostname()
+        except Exception:
+            info["hostname"] = "unknown"
+        # Primary outbound IP — UDP connect trick, sends no packet
+        for _dest in ("8.8.8.8", "192.168.1.1", "10.0.0.1"):
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as _s:
+                    _s.connect((_dest, 80))
+                    _ip = _s.getsockname()[0]
+                    if not _ip.startswith("127."):
+                        info["primary_ip"] = _ip
+                        break
+            except Exception:
+                continue
+        # Full interface list from ip addr
+        try:
+            _r = _sp.run(
+                ["ip", "-4", "addr", "show"],
+                capture_output=True, text=True, timeout=3,
+            )
+            if _r.returncode == 0:
+                info["interfaces"] = [
+                    ln.strip() for ln in _r.stdout.splitlines()
+                    if ln.strip().startswith("inet ") and "127.0.0.1" not in ln
+                ]
+        except Exception:
+            pass
+        return json.dumps(info), None
+
+    if name == "discover_hosts":
+        import shutil
+        import xml.etree.ElementTree as ET
+        target = _as_str(args.get("target"))
+        if not target:
+            return json.dumps({"error": "target (CIDR or IP range) is required."}), None
+
+        nmap_bin = shutil.which("nmap") or "nmap"
+        cmd = [nmap_bin, "-sn", "-oX", "-", target]
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=60)
+        except Exception as exc:
+            return json.dumps({"error": f"Host discovery failed: {exc}"}), None
+
+        devices = []
+        try:
+            root = ET.fromstring(stdout.decode())
+            for host in root.findall("host"):
+                status = host.find("status")
+                if status is None or status.get("state") != "up":
+                    continue
+                dev: dict = {}
+                for addr in host.findall("address"):
+                    atype = addr.get("addrtype", "")
+                    if atype == "ipv4":
+                        dev["ip"] = addr.get("addr")
+                    elif atype == "mac":
+                        dev["mac"] = addr.get("addr")
+                        vendor = addr.get("vendor")
+                        if vendor:
+                            dev["vendor"] = vendor
+                hostnames = host.find("hostnames")
+                if hostnames is not None:
+                    hn = hostnames.find("hostname[@type='PTR']")
+                    if hn is None:
+                        hn = hostnames.find("hostname")
+                    if hn is not None:
+                        dev["hostname"] = hn.get("name")
+                if dev.get("ip"):
+                    devices.append(dev)
+        except Exception as exc:
+            return json.dumps({"error": f"Could not parse discovery output: {exc}"}), None
+
+        note = ""
+        if devices and not any(d.get("mac") for d in devices):
+            note = "MAC addresses not available — nmap may need cap_net_raw capability (see /doctor)."
+
+        return json.dumps({"devices": devices, "count": len(devices), "note": note}), None
+
     return json.dumps({"error": f"Unknown tool: {name}"}), None
 
 
 async def run_agent(
     app: "AIVASApp", text: str, api_key: str,
     context: str = "", history: list[dict] | None = None,
+    shodan_key: str | None = None,
 ) -> tuple[str, tuple | None, list[dict]]:
     """Run Groq tool-calling loop with optional prior history.
 
@@ -162,7 +267,7 @@ async def run_agent(
                 args = json.loads(raw) or {}
             except (json.JSONDecodeError, TypeError):
                 args = {}
-            result, si = _exec_tool(tc.function.name, args, app.conn)
+            result, si = await _exec_tool(tc.function.name, args, app.conn, shodan_key=shodan_key)
             if si:
                 scan_intent = si
             tool_msg = {"role": "tool", "tool_call_id": tc.id, "content": result}

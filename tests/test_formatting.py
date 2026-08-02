@@ -1,5 +1,9 @@
+from io import StringIO
+
+from rich.console import Console
 from rich.table import Table
-from aivas.formatting import cve_table, SEVERITY_COLORS
+
+from aivas.formatting import cve_table, print_narrations, print_score, SEVERITY_COLORS
 
 
 def test_severity_colors_keys():
@@ -43,11 +47,6 @@ def test_cve_table_none_score_shows_na():
     # Column order: #(0), CVE ID(1), CVSS(2), Severity(3), Confidence(4), Description(5)
     score_cell = t.columns[2]._cells[0]
     assert score_cell == "N/A"
-
-
-from io import StringIO
-from rich.console import Console
-from aivas.formatting import print_narrations, print_score
 
 
 def _cap(fn, *args):

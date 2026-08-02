@@ -7,10 +7,9 @@ Tests are split into two groups:
 """
 from __future__ import annotations
 
-import asyncio
 import sqlite3
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, patch
 
 from aivas.database.schema import create_schema
 
@@ -115,7 +114,8 @@ def test_no_shell_injection_via_shlex():
     assert "&&" in parts          # treated as literal string token, not shell operator
     assert "/tmp/aivas_test" in parts
     # Confirm no shell=True anywhere in commands.py
-    import inspect, aivas.tui.commands as cmd_mod
+    import inspect
+    import aivas.tui.commands as cmd_mod
     src = inspect.getsource(cmd_mod)
     assert "shell=True" not in src, "subprocess must never use shell=True"
 
@@ -552,7 +552,7 @@ async def test_tui_history_saved_on_submit():
 async def test_tui_scan_status_visible_attribute_exists():
     """SC3: scan-status label widget is present in compose."""
     app = _make_app()
-    async with app.run_test(size=(120, 30)) as pilot:
+    async with app.run_test(size=(120, 30)):
         from textual.widgets import Label
         lbl = app.query_one("#scan-status", Label)
         assert lbl is not None
@@ -683,7 +683,7 @@ async def test_tui_input_prompt_label_exists():
     async with _make_spy_app().run_test(size=(120, 30)) as pilot:
         from textual.widgets import Label
         labels = pilot.app.query(Label)
-        label_texts = [str(l.render()) for l in labels]
+        label_texts = [str(ln.render()) for ln in labels]
         assert any(">" in t for t in label_texts)
 
 

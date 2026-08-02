@@ -1,6 +1,6 @@
 export default function UserMessage({ text }) {
   return (
-    <div className="flex justify-end py-1.5">
+    <div className="flex justify-end py-1.5" data-testid="user-message">
       <div
         style={{
           background: '#0d1929',
