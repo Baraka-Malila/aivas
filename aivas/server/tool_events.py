@@ -1,0 +1,36 @@
+"""Tool-event helpers for the streaming chat agent."""
+from __future__ import annotations
+import json
+
+_SILENT_TOOLS: set[str] = {"scan_host"}
+
+
+def _tool_summary(name: str, result_json: str) -> str:
+    """Return a short human-readable summary of a tool result."""
+    try:
+        data = json.loads(result_json)
+    except (json.JSONDecodeError, ValueError):
+        return "done"
+
+    if name == "get_findings":
+        count = len(data) if isinstance(data, list) else 0
+        return f"{count} finding{'s' if count != 1 else ''} returned"
+
+    if name == "get_last_scan":
+        count = len(data.get("findings", [])) if isinstance(data, dict) else 0
+        return f"{count} finding{'s' if count != 1 else ''} returned"
+
+    if name == "discover_hosts":
+        if isinstance(data, dict):
+            count = data.get("count", 0)
+            note = data.get("note", "")
+            if count == 0 and note:
+                return note[:80]
+            return f"{count} device{'s' if count != 1 else ''} found"
+        return "done"
+
+    if name == "get_history":
+        count = len(data) if isinstance(data, list) else 0
+        return f"{count} scan{'s' if count != 1 else ''} in history"
+
+    return "done"
