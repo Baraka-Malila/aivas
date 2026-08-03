@@ -36,7 +36,7 @@ export default function App() {
   const handleScanDone = useCallback(async (doneEvent) => {
     scanPendingRef.current = false
 
-    if (doneEvent.type === 'error' || doneEvent.type === 'stopped') {
+    if (doneEvent.type === 'error' || (doneEvent.type === 'stopped' && !doneEvent.scan_id)) {
       if (scanningIdRef.current) {
         const status = doneEvent.type === 'stopped' ? 'stopped' : 'failed'
         const text = doneEvent.type === 'stopped'
@@ -67,6 +67,7 @@ export default function App() {
       counts:        countSeverities(findings),
       log:           doneEvent.log || [],
       misconfigs:    doneEvent.misconfigs || [],
+      partial:       doneEvent.type === 'partial_done',
     }
 
     if (scanningIdRef.current) {

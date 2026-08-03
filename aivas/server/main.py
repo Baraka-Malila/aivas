@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import sqlite3
 import uuid
@@ -301,7 +302,8 @@ async def scan_ws(websocket: WebSocket, scan_key: str):
     creds = entry[2] if len(entry) > 2 else None
     _log.info("Scan started: %s (level %d, creds=%s)", target, level, bool(creds))
     from aivas.server.scan_worker import run_scan
-    scan_gen = run_scan(_conn, target, level, creds=creds)
+    _partial_out: dict = {}
+    scan_gen = run_scan(_conn, target, level, creds=creds, _partial_out=_partial_out)
 
     async def _stream():
         async for event in scan_gen:
@@ -313,16 +315,21 @@ async def scan_ws(websocket: WebSocket, scan_key: str):
             await websocket.send_json(event)
 
     async def _watch_disconnect():
-        # Blocks until the client closes the connection or sends a stop frame
         try:
-            await websocket.receive_bytes()
+            data = await websocket.receive_text()
+            try:
+                if json.loads(data).get("type") == "stop":
+                    return "stop"
+            except Exception:
+                pass
+            return "message"
         except (WebSocketDisconnect, Exception):
-            pass
+            return "disconnect"
 
     stream_task = asyncio.create_task(_stream())
     watch_task = asyncio.create_task(_watch_disconnect())
     try:
-        _, pending_tasks = await asyncio.wait(
+        done_set, pending_tasks = await asyncio.wait(
             {stream_task, watch_task},
             return_when=asyncio.FIRST_COMPLETED,
         )
@@ -334,6 +341,15 @@ async def scan_ws(websocket: WebSocket, scan_key: str):
                 pass
     finally:
         await scan_gen.aclose()
+        if _partial_out:
+            try:
+                await websocket.send_json({
+                    "type": "partial_done",
+                    "credential_scan": creds is not None,
+                    **_partial_out,
+                })
+            except Exception:
+                pass
 
 
 def _serve_spa(path: str = "") -> FileResponse:

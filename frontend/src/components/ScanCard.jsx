@@ -8,7 +8,7 @@ const SEV_ORDER   = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
 const MISCONFIG_SEV_TEXT = { HIGH: '#ff7043', MEDIUM: '#fdd835', LOW: '#66bb6a', INFO: '#888' }
 
 export default function ScanCard({ scanData, onSend, onAnalysis }) {
-  const { scan_id, target, grade, service_count, findings = [], misconfigs = [], log } = scanData
+  const { scan_id, target, grade, service_count, findings = [], misconfigs = [], log, partial } = scanData
 
   const hasCritical = findings.some(f => (f.cvss_severity || '').toUpperCase() === 'CRITICAL')
   const [expanded, setExpanded] = useState({
@@ -54,6 +54,15 @@ export default function ScanCard({ scanData, onSend, onAnalysis }) {
           {grade}
         </span>
       </div>
+
+      {/* Partial results banner */}
+      {partial && (
+        <div style={{ background: '#2a1f00', borderBottom: '1px solid #4a3800', color: '#fdd835' }}
+             className="px-3 py-2 text-xs flex items-center gap-2">
+          <span>⚠</span>
+          <span>Scan stopped early — results may be incomplete. Saved findings shown below.</span>
+        </div>
+      )}
 
       {/* CVE groups */}
       {totalFindings === 0 ? (

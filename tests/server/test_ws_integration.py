@@ -232,7 +232,7 @@ def test_scan_ws_pipeline(client):
     scan_key = "test-scan-key-12345"
     main_mod._pending[scan_key] = ("10.0.0.5", 2)
 
-    async def fake_run_scan(conn, target, level, creds=None):
+    async def fake_run_scan(conn, target, level, creds=None, _partial_out=None):
         yield {"type": "init", "text": "Initializing scan"}
         yield {"type": "ports", "text": "Scanning ports"}
         yield {"type": "scoring", "text": "Scoring findings"}

@@ -14,14 +14,38 @@ export function useScan(onProgress, onDone) {
 
   const stop = useCallback(() => {
     if (wsRef.current) {
-      wsRef.current.onmessage = null
-      wsRef.current.onerror = null
-      wsRef.current.onclose = null
-      wsRef.current.close()
+      const ws = wsRef.current
       wsRef.current = null
+      // Send a graceful stop so the server can save partial results,
+      // then wait for partial_done or close on the same socket.
+      const finalize = (msg) => {
+        ws.onmessage = null
+        ws.onerror = null
+        ws.onclose = null
+        ws.close()
+        setIsScanning(false)
+        onDoneRef.current(msg)
+      }
+      try {
+        ws.onmessage = (e) => {
+          let msg
+          try { msg = JSON.parse(e.data) } catch { return }
+          if (msg.type === 'partial_done') {
+            finalize({ ...msg, log: logRef.current })
+          }
+        }
+        ws.onerror = () => finalize({ type: 'stopped', log: logRef.current })
+        ws.onclose = () => finalize({ type: 'stopped', log: logRef.current })
+        ws.send(JSON.stringify({ type: 'stop' }))
+        // Fallback: if server doesn't respond within 3s, treat as stopped
+        setTimeout(() => finalize({ type: 'stopped', log: logRef.current }), 3000)
+      } catch {
+        finalize({ type: 'stopped', log: logRef.current })
+      }
+    } else {
+      setIsScanning(false)
+      onDoneRef.current({ type: 'stopped', log: logRef.current })
     }
-    setIsScanning(false)
-    onDoneRef.current({ type: 'stopped', log: logRef.current })
   }, [])
 
   const start = useCallback((scanKey) => {
@@ -44,7 +68,7 @@ export function useScan(onProgress, onDone) {
           onProgressRef.current(msg.text)
         }
       }
-      if (msg.type === 'done') {
+      if (msg.type === 'done' || msg.type === 'partial_done') {
         setIsScanning(false)
         onDoneRef.current({ ...msg, log: logRef.current })
         ws.close()
