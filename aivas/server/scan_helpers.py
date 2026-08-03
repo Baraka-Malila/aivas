@@ -132,6 +132,60 @@ async def http_probe_events(
     yield {"__misconfigs": all_misconfigs}
 
 
+async def credential_scan_events(
+    host: str,
+    creds: dict,
+    timeout: int = 90,
+) -> AsyncGenerator[dict, None]:
+    """Run SSH or WinRM probe on host; yield progress events then sentinel.
+
+    creds keys: method ("ssh"|"winrm"), username, password, port, key_path (SSH only).
+    Final event is {"__credential_services": [...]} on success,
+    or {"__credential_error": "<human message>"} on failure.
+    """
+    from aivas.scanner import ssh_probe, winrm_probe
+    from aivas.scanner.probe_errors import CredentialError
+    from aivas.scanner.probe_errors import ConnectionError as ProbeConnectionError
+    from aivas.scanner.probe_errors import ProbeError
+
+    method = creds.get("method", "ssh")
+    port = creds.get("port") or (22 if method == "ssh" else 5985)
+    label = f"{host}:{port} ({method.upper()})"
+
+    yield _ev("credential_probe", f"  Connecting to {label}…")
+    try:
+        if method == "ssh":
+            services = await ssh_probe.probe_async(
+                host=host,
+                username=creds["username"],
+                password=creds.get("password"),
+                key_path=creds.get("key_path"),
+                port=port,
+                timeout=timeout,
+            )
+        else:
+            services = await winrm_probe.probe_async(
+                host=host,
+                username=creds["username"],
+                password=creds.get("password", ""),
+                port=port,
+                timeout=timeout,
+            )
+        yield _ev(
+            "credential_done",
+            f"  {label} — {len(services)} software item(s) enumerated",
+        )
+        yield {"__credential_services": services}
+    except CredentialError as exc:
+        yield {"__credential_error": str(exc)}
+    except ProbeConnectionError as exc:
+        yield {"__credential_error": str(exc)}
+    except ProbeError as exc:
+        yield {"__credential_error": str(exc)}
+    except Exception as exc:
+        yield {"__credential_error": f"Credential scan failed: {exc}"}
+
+
 async def scan_host(
     conn: sqlite3.Connection, host_ip: str, scripts: str,
     nmap_fn, *, host_timeout: int = 120, fast: bool = False,
