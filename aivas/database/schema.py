@@ -142,6 +142,14 @@ def create_schema(conn: sqlite3.Connection) -> None:
             next_run         TEXT NOT NULL,
             created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS users (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            username    TEXT NOT NULL UNIQUE COLLATE NOCASE,
+            password_hash TEXT NOT NULL,
+            role        TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('admin','user')),
+            created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
     """)
     conn.commit()
     # Migration: add kev column if DB predates this sprint
@@ -198,3 +206,29 @@ def create_schema(conn: sqlite3.Connection) -> None:
         conn.commit()
     except Exception:
         pass  # column already exists
+    # Migration: add users table
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                username    TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                password_hash TEXT NOT NULL,
+                role        TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('admin','user')),
+                created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.commit()
+    except Exception:
+        pass
+    # Migration: add user_id to scans
+    try:
+        conn.execute("ALTER TABLE scans ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL")
+        conn.commit()
+    except Exception:
+        pass
+    # Migration: add user_id to chat_sessions
+    try:
+        conn.execute("ALTER TABLE chat_sessions ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL")
+        conn.commit()
+    except Exception:
+        pass

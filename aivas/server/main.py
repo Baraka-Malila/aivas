@@ -16,12 +16,16 @@ logging.basicConfig(
 )
 _log = logging.getLogger("aivas.server")
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
 from aivas.database.schema import get_db, create_schema, DB_PATH
 from aivas.history import list_scans, get_scan_findings
+from aivas.server.auth import (
+    register_user, login_user, get_current_user, get_current_user_optional,
+    require_admin, list_users,
+)
 from aivas.server.chat_memory import (
     create_session, get_session, list_sessions, delete_session, load_history,
 )
@@ -57,14 +61,47 @@ app.include_router(_ws_router)
 app.include_router(_sched_routes.router)
 
 
+class AuthRequest(BaseModel):
+    username: str
+    password: str
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
 
 
+@app.post("/api/auth/register")
+async def auth_register(body: AuthRequest):
+    user = register_user(_conn, body.username, body.password)
+    token = login_user(_conn, body.username, body.password)
+    return {"token": token, "user": user}
+
+
+@app.post("/api/auth/login")
+async def auth_login(body: AuthRequest):
+    token = login_user(_conn, body.username, body.password)
+    row = _conn.execute(
+        "SELECT id, username, role FROM users WHERE username=?", (body.username,)
+    ).fetchone()
+    return {"token": token, "user": dict(row)}
+
+
+@app.get("/api/auth/me")
+async def auth_me(user: dict = Depends(get_current_user)):
+    return user
+
+
+@app.get("/api/auth/users")
+async def auth_list_users(user: dict = Depends(get_current_user)):
+    require_admin(user)
+    return list_users(_conn)
+
+
 @app.get("/api/history")
-async def history(limit: int = 10):
-    return list_scans(_conn, limit=limit)
+async def history(limit: int = 10, user: dict | None = Depends(get_current_user_optional)):
+    uid = None if (not user or user.get("role") == "admin") else int(user["sub"])
+    return list_scans(_conn, limit=limit, user_id=uid)
 
 
 @app.get("/api/scan/{scan_id}")
@@ -182,13 +219,15 @@ async def chat(body: ChatRequest):
 
 
 @app.get("/api/sessions")
-async def list_sessions_route():
-    return list_sessions(_conn, limit=20)
+async def list_sessions_route(user: dict | None = Depends(get_current_user_optional)):
+    uid = None if (not user or user.get("role") == "admin") else int(user["sub"])
+    return list_sessions(_conn, limit=20, user_id=uid)
 
 
 @app.post("/api/sessions")
-async def create_session_route():
-    sid = create_session(_conn)
+async def create_session_route(user: dict | None = Depends(get_current_user_optional)):
+    uid = int(user["sub"]) if user else None
+    sid = create_session(_conn, user_id=uid)
     return {"id": sid}
 
 
@@ -231,9 +270,10 @@ async def delete_session_route(session_id: str):
 
 
 @app.post("/api/scan")
-async def start_scan(body: ScanRequest):
+async def start_scan(body: ScanRequest, user: dict | None = Depends(get_current_user_optional)):
     scan_key = str(uuid.uuid4())
-    _pending[scan_key] = (body.target, body.level, body.creds)
+    uid = int(user["sub"]) if user else None
+    _pending[scan_key] = (body.target, body.level, body.creds, uid)
     return {"scan_key": scan_key}
 
 
@@ -328,10 +368,11 @@ async def scan_ws(websocket: WebSocket, scan_key: str):
     target = entry[0]
     level = entry[1]
     creds = entry[2] if len(entry) > 2 else None
-    _log.info("Scan started: %s (level %d, creds=%s)", target, level, bool(creds))
+    scan_user_id = entry[3] if len(entry) > 3 else None
+    _log.info("Scan started: %s (level %d, creds=%s, user=%s)", target, level, bool(creds), scan_user_id)
     from aivas.server.scan_worker import run_scan
     _partial_out: dict = {}
-    scan_gen = run_scan(_conn, target, level, creds=creds, _partial_out=_partial_out)
+    scan_gen = run_scan(_conn, target, level, creds=creds, _partial_out=_partial_out, user_id=scan_user_id)
 
     async def _stream():
         async for event in scan_gen:

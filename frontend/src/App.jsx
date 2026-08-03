@@ -4,6 +4,8 @@ import ChatArea from './components/ChatArea'
 import ChatInput from './components/ChatInput'
 import SessionDrawer from './components/SessionDrawer'
 import SettingsModal from './components/SettingsModal'
+import LoginPage from './components/LoginPage'
+import { useAuth } from './hooks/useAuth'
 import { useChat } from './hooks/useChat'
 import { useScan } from './hooks/useScan'
 import { useSessions } from './hooks/useSessions'
@@ -12,10 +14,23 @@ import {
 } from './lib/messageReducer'
 
 export default function App() {
+  const { user, token, loading: authLoading, onAuth, logout } = useAuth()
+  if (authLoading) return null
+  if (!user) return <LoginPage onAuth={onAuth} />
+  return <AuthenticatedApp user={user} token={token} logout={logout} />
+}
+
+function AuthenticatedApp({ user, token, logout }) {
   const [messages, dispatch] = useReducer(reducer, [])
   const [sessionId, setSessionId] = useState(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+
+  const authHeaders = token ? { Authorization: `Bearer ${token}` } : {}
+  const authFetch = (url, opts = {}) => fetch(url, {
+    ...opts,
+    headers: { ...(opts.headers || {}), ...authHeaders },
+  })
 
   // Refs to break circular dep: handleChatEvent → startScan, and onDone → refresh
   const thinkingIdRef    = useRef(null)
@@ -52,7 +67,7 @@ export default function App() {
 
     let findings = doneEvent.findings || []
     try {
-      const res = await fetch(`/api/scan/${doneEvent.scan_id}`)
+      const res = await authFetch(`/api/scan/${doneEvent.scan_id}`)
       const enriched = await res.json()
       if (Array.isArray(enriched)) findings = enriched
     } catch (_) { /* keep original findings */ }
@@ -148,7 +163,7 @@ export default function App() {
     lang: storedLang,
   })
   const { start: startScan, stop: stopScan } = useScan(handleScanProgress, handleScanDone)
-  const { sessions, refresh: refreshSessions, deleteSession, renameSession } = useSessions()
+  const { sessions, refresh: refreshSessions, deleteSession, renameSession } = useSessions(token)
 
   // Wire refs after hooks resolve
   useEffect(() => { startScanRef.current = startScan }, [startScan])
@@ -159,14 +174,14 @@ export default function App() {
   useEffect(() => {
     async function init() {
       try {
-        const { id } = await fetch('/api/sessions', { method: 'POST' }).then(r => r.json())
+        const { id } = await authFetch('/api/sessions', { method: 'POST' }).then(r => r.json())
         setSessionId(id)
       } catch (_) {}
       refreshSessions()
 
       let text = FIRST_VISIT_MSG
       try {
-        const history = await fetch('/api/history?limit=1').then(r => r.json())
+        const history = await authFetch('/api/history?limit=1').then(r => r.json())
         if (Array.isArray(history) && history.length > 0) {
           const scan = history[0]
           const grade = (scan.grade || '').replace('Grade ', '')
@@ -197,7 +212,7 @@ export default function App() {
 
   const handleDirectScan = useCallback(async (target, creds) => {
     try {
-      const resp = await fetch('/api/scan', {
+      const resp = await authFetch('/api/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ target, level: 2, creds }),
@@ -270,7 +285,7 @@ export default function App() {
     scanningIdRef.current = null
     scanPendingRef.current = false
     try {
-      const msgs = await fetch(`/api/sessions/${id}/messages`).then(r => r.json())
+      const msgs = await authFetch(`/api/sessions/${id}/messages`).then(r => r.json())
       dispatch({ type: 'SET_MESSAGES', messages: mapHistory(msgs) })
     } catch (_) {
       dispatch({ type: 'SET_MESSAGES', messages: [] })
@@ -283,7 +298,7 @@ export default function App() {
     scanningIdRef.current = null
     scanPendingRef.current = false
     try {
-      const { id } = await fetch('/api/sessions', { method: 'POST' }).then(r => r.json())
+      const { id } = await authFetch('/api/sessions', { method: 'POST' }).then(r => r.json())
       setSessionId(id)
     } catch (_) {}
     dispatch({ type: 'SET_MESSAGES', messages: [{ id: uid(), type: 'ai', text: FIRST_VISIT_MSG }] })
@@ -297,6 +312,8 @@ export default function App() {
       <Header
         onHistory={() => { setDrawerOpen(true); refreshSessions() }}
         onSettings={() => setSettingsOpen(true)}
+        user={user}
+        onLogout={logout}
       />
       <ChatArea messages={messages} onSend={handleSend} onAnalysis={handleAnalysis} onStopScan={stopScan} />
       <ChatInput onSend={handleSend} disabled={chatStatus !== 'open'} />

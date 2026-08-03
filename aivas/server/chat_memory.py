@@ -9,11 +9,13 @@ import uuid
 _TITLE_MAX = 60
 
 
-def create_session(conn: sqlite3.Connection, title: str | None = None) -> str:
+def create_session(
+    conn: sqlite3.Connection, title: str | None = None, user_id: int | None = None
+) -> str:
     sid = str(uuid.uuid4())
     conn.execute(
-        "INSERT INTO chat_sessions(id, title) VALUES (?, ?)",
-        (sid, title),
+        "INSERT INTO chat_sessions(id, title, user_id) VALUES (?, ?, ?)",
+        (sid, title, user_id),
     )
     conn.commit()
     return sid
@@ -27,12 +29,21 @@ def get_session(conn: sqlite3.Connection, session_id: str) -> dict | None:
     return dict(row) if row else None
 
 
-def list_sessions(conn: sqlite3.Connection, limit: int = 20) -> list[dict]:
-    rows = conn.execute(
-        "SELECT id, title, created_at, updated_at "
-        "FROM chat_sessions ORDER BY updated_at DESC LIMIT ?",
-        (limit,),
-    ).fetchall()
+def list_sessions(
+    conn: sqlite3.Connection, limit: int = 20, user_id: int | None = None
+) -> list[dict]:
+    if user_id is not None:
+        rows = conn.execute(
+            "SELECT id, title, created_at, updated_at "
+            "FROM chat_sessions WHERE user_id=? ORDER BY updated_at DESC LIMIT ?",
+            (user_id, limit),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT id, title, created_at, updated_at "
+            "FROM chat_sessions ORDER BY updated_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
     return [dict(r) for r in rows]
 
 

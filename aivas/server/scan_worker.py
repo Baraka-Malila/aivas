@@ -91,6 +91,7 @@ async def _ping_sweep(target: str, timeout: int = 60) -> list[str]:
 async def run_scan(
     conn: sqlite3.Connection, target: str, level: int = 2,
     creds: dict | None = None, _partial_out: dict | None = None,
+    user_id: int | None = None,
 ) -> AsyncGenerator[dict, None]:
     """Yield granular progress events then a single done or error event.
 
@@ -234,7 +235,7 @@ async def run_scan(
         scored = score_findings(findings)
         grade, score = scored["grade"], scored["score"]
         yield _emit(_ev("grade", f"Risk score: {score}/100 — Grade {grade}"))
-        scan_id = save_scan(conn, target, findings)
+        scan_id = save_scan(conn, target, findings, user_id=user_id)
         _done = True
         yield {
             "type": "done",
@@ -263,7 +264,7 @@ async def run_scan(
     finally:
         if not _done:
             _save_partial(conn, target, all_findings, all_services, all_misconfigs,
-                          _progress, _partial_out)
+                          _progress, _partial_out, user_id=user_id)
 
 
 def _save_partial(
@@ -274,6 +275,7 @@ def _save_partial(
     all_misconfigs: list[dict],
     progress: list[str],
     out: dict | None,
+    user_id: int | None = None,
 ) -> None:
     """Save any correlated findings collected before cancellation."""
     partial = [f for f in all_findings if f.get("confidence") in ("probable", "confirmed")][:30]
@@ -284,7 +286,7 @@ def _save_partial(
             row = conn.execute("SELECT kev FROM cves WHERE cve_id=?", (f["cve_id"],)).fetchone()
             f["kev"] = bool(row and row["kev"])
     scored = score_findings(partial)
-    scan_id = save_scan(conn, target, partial)
+    scan_id = save_scan(conn, target, partial, user_id=user_id)
     _log.info("Partial scan saved: scan_id=%d findings=%d", scan_id, len(partial))
     if out is not None:
         out.update({

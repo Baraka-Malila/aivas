@@ -31,7 +31,7 @@ describe('useSessions', () => {
     await waitFor(() => {
       expect(result.current.sessions).toEqual(mockSessions)
     })
-    expect(global.fetch).toHaveBeenCalledWith('/api/sessions')
+    expect(global.fetch).toHaveBeenCalledWith('/api/sessions', { headers: {} })
   })
 
   it('refresh() handles non-array responses gracefully', async () => {
@@ -91,7 +91,7 @@ describe('useSessions', () => {
         { id: 's2', title: 'Session 2', updated_at: '2025-01-02T00:00:00Z' }
       ])
     })
-    expect(global.fetch).toHaveBeenCalledWith('/api/sessions/s1', { method: 'DELETE' })
+    expect(global.fetch).toHaveBeenCalledWith('/api/sessions/s1', { method: 'DELETE', headers: {} })
   })
 
   it('deleteSession() handles fetch errors gracefully', async () => {

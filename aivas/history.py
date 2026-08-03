@@ -8,6 +8,7 @@ def save_scan(
     target: str,
     findings: list[dict],
     report_path: str | None = None,
+    user_id: int | None = None,
 ) -> int:
     now = datetime.now(timezone.utc).isoformat()
     scored = score_findings(findings)
@@ -19,10 +20,10 @@ def save_scan(
     cur = conn.execute(
         """INSERT INTO scans
                (target, label, started_at, finished_at, host_count, finding_count,
-                risk_score, grade, report_path)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                risk_score, grade, report_path, user_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (target, auto_label, now, now, len(hosts), len(findings),
-         scored["score"], f"Grade {scored['grade']}", report_path),
+         scored["score"], f"Grade {scored['grade']}", report_path, user_id),
     )
     scan_id = cur.lastrowid
 
@@ -52,9 +53,17 @@ def save_scan(
     return scan_id
 
 
-def list_scans(conn: sqlite3.Connection, limit: int = 20) -> list[dict]:
+def list_scans(
+    conn: sqlite3.Connection, limit: int = 20, user_id: int | None = None
+) -> list[dict]:
+    if user_id is not None:
+        where = "WHERE s.user_id = ?"
+        params: tuple = (user_id, limit)
+    else:
+        where = ""
+        params = (limit,)
     rows = conn.execute(
-        """
+        f"""
         SELECT s.id, s.target, s.label, s.started_at, s.finding_count, s.risk_score, s.grade,
                COALESCE((
                  SELECT COUNT(DISTINCT f.cve_id)
@@ -69,10 +78,11 @@ def list_scans(conn: sqlite3.Connection, limit: int = 20) -> list[dict]:
                   WHERE f.scan_id = s.id AND c.cvss_severity = 'CRITICAL'
                ), 0) AS critical_count
           FROM scans s
+          {where}
          ORDER BY s.id DESC
          LIMIT ?
         """,
-        (limit,),
+        params,
     ).fetchall()
     return [dict(r) for r in rows]
 
