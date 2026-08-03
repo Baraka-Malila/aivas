@@ -19,12 +19,17 @@ const MODEL_DEFAULTS = {
   ollama: 'llama3',
 }
 
-export default function SettingsModal({ open, onClose }) {
+export default function SettingsModal({ open, onClose, onScan }) {
   const [apiKey,    setApiKey]    = useState('')
   const [shodanKey, setShodanKey] = useState('')
   const [lang,      setLang]      = useState('auto')
   const [provider,  setProvider]  = useState('groq')
   const [model,     setModel]     = useState(MODEL_DEFAULTS.groq)
+
+  const [remoteTargets, setRemoteTargets] = useState([])
+  const [newTarget, setNewTarget] = useState({ host: '', method: 'ssh', username: '', password: '', port: 22 })
+  const [testResult, setTestResult] = useState(null)
+  const [testing, setTesting] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -34,6 +39,8 @@ export default function SettingsModal({ open, onClose }) {
     const p = localStorage.getItem('aivas_provider') || 'groq'
     setProvider(p)
     setModel(localStorage.getItem('aivas_model') || MODEL_DEFAULTS[p] || MODEL_DEFAULTS.groq)
+    setRemoteTargets(JSON.parse(localStorage.getItem('aivas_remote_targets') || '[]'))
+    setTestResult(null)
   }, [open])
 
   useEffect(() => {
@@ -61,6 +68,37 @@ export default function SettingsModal({ open, onClose }) {
     onClose()
   }
 
+  const saveTarget = () => {
+    if (!newTarget.host || !newTarget.username) return
+    const updated = [...remoteTargets, { ...newTarget }]
+    setRemoteTargets(updated)
+    localStorage.setItem('aivas_remote_targets', JSON.stringify(updated))
+    setNewTarget({ host: '', method: 'ssh', username: '', password: '', port: 22 })
+    setTestResult(null)
+  }
+
+  const deleteTarget = (i) => {
+    const updated = remoteTargets.filter((_, idx) => idx !== i)
+    setRemoteTargets(updated)
+    localStorage.setItem('aivas_remote_targets', JSON.stringify(updated))
+  }
+
+  const testConnection = async () => {
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const resp = await fetch('/api/probe/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...newTarget }),
+      })
+      setTestResult(await resp.json())
+    } catch {
+      setTestResult({ ok: false, error: 'Network error' })
+    }
+    setTesting(false)
+  }
+
   const inputStyle = { background: '#161616', border: '1px solid #1e1e1e', color: '#e0e0e0' }
 
   return (
@@ -68,7 +106,7 @@ export default function SettingsModal({ open, onClose }) {
       <div style={{ background: 'rgba(0,0,0,0.7)' }} className="fixed inset-0 z-40" onClick={onClose} />
       <div
         data-testid="settings-modal"
-        style={{ background: '#111111', border: '1px solid #1e1e1e', width: 400 }}
+        style={{ background: '#111111', border: '1px solid #1e1e1e', width: 440, maxHeight: '90vh', overflowY: 'auto' }}
         className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-lg p-5"
       >
         <div className="flex items-center justify-between mb-5">
@@ -132,7 +170,7 @@ export default function SettingsModal({ open, onClose }) {
         </div>
 
         {/* Language */}
-        <div className="mb-5">
+        <div className="mb-4">
           <label style={{ color: '#666' }} className="text-xs block mb-1.5">Language</label>
           <div className="flex gap-2">
             {LANGS.map(l => (
@@ -149,6 +187,100 @@ export default function SettingsModal({ open, onClose }) {
                 {l.label}
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* Remote Targets */}
+        <div className="mb-4">
+          <label style={{ color: '#666' }} className="text-xs block mb-2">Remote Targets (SSH / WinRM)</label>
+
+          {remoteTargets.map((t, i) => (
+            <div key={i} style={{ background: '#161616', border: '1px solid #1e1e1e', borderRadius: 4 }}
+                 className="flex items-center gap-2 px-3 py-2 mb-1.5 text-xs">
+              <span style={{ color: '#4a9eff', fontFamily: 'monospace' }}>{t.method.toUpperCase()}</span>
+              <span style={{ color: '#e0e0e0' }}>{t.username}@{t.host}:{t.port}</span>
+              <div className="ml-auto flex gap-3">
+                {onScan && (
+                  <button
+                    onClick={() => { onScan(t.host, { method: t.method, username: t.username, password: t.password, port: t.port }); onClose() }}
+                    style={{ color: '#4a9eff' }} className="hover:opacity-80 transition-opacity">
+                    Scan
+                  </button>
+                )}
+                <button onClick={() => deleteTarget(i)} style={{ color: '#555' }} className="hover:text-red-400 transition-colors">✕</button>
+              </div>
+            </div>
+          ))}
+
+          <div style={{ border: '1px solid #1e1e1e', borderRadius: 4 }} className="p-2.5 mt-2">
+            <div className="flex gap-2 mb-2">
+              <select
+                value={newTarget.method}
+                onChange={e => setNewTarget(t => ({ ...t, method: e.target.value, port: e.target.value === 'ssh' ? 22 : 5985 }))}
+                style={{ ...inputStyle, width: 80 }}
+                className="rounded px-2 py-1.5 text-xs outline-none"
+              >
+                <option value="ssh">SSH</option>
+                <option value="winrm">WinRM</option>
+              </select>
+              <input
+                type="text"
+                placeholder="host or IP"
+                value={newTarget.host}
+                onChange={e => setNewTarget(t => ({ ...t, host: e.target.value }))}
+                style={{ ...inputStyle, flex: 1 }}
+                className="rounded px-2 py-1.5 text-xs outline-none"
+              />
+              <input
+                type="number"
+                placeholder="port"
+                value={newTarget.port}
+                onChange={e => setNewTarget(t => ({ ...t, port: Number(e.target.value) }))}
+                style={{ ...inputStyle, width: 60 }}
+                className="rounded px-2 py-1.5 text-xs outline-none"
+              />
+            </div>
+            <div className="flex gap-2 mb-2">
+              <input
+                type="text"
+                placeholder="username"
+                value={newTarget.username}
+                onChange={e => setNewTarget(t => ({ ...t, username: e.target.value }))}
+                style={{ ...inputStyle, flex: 1 }}
+                className="rounded px-2 py-1.5 text-xs outline-none"
+              />
+              <input
+                type="password"
+                placeholder="password"
+                value={newTarget.password}
+                onChange={e => setNewTarget(t => ({ ...t, password: e.target.value }))}
+                style={{ ...inputStyle, flex: 1 }}
+                className="rounded px-2 py-1.5 text-xs outline-none"
+              />
+            </div>
+            <div className="flex gap-2 items-center">
+              <button
+                onClick={testConnection}
+                disabled={testing || !newTarget.host || !newTarget.username}
+                style={{ background: '#161616', border: '1px solid #1e1e1e', color: testing ? '#555' : '#e0e0e0' }}
+                className="text-xs px-3 py-1.5 rounded hover:opacity-80 transition-opacity disabled:cursor-not-allowed"
+              >
+                {testing ? 'Testing…' : 'Test Connection'}
+              </button>
+              <button
+                onClick={saveTarget}
+                disabled={!newTarget.host || !newTarget.username}
+                style={{ background: '#161616', border: '1px solid #4a9eff', color: '#4a9eff' }}
+                className="text-xs px-3 py-1.5 rounded hover:opacity-80 transition-opacity disabled:cursor-not-allowed"
+              >
+                Save Target
+              </button>
+              {testResult && (
+                <span style={{ color: testResult.ok ? '#66bb6a' : '#ef5350' }} className="text-xs">
+                  {testResult.ok ? '✓ Connected' : `✗ ${testResult.error}`}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 

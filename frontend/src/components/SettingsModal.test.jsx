@@ -40,7 +40,7 @@ describe('SettingsModal', () => {
 
   it('changing provider updates model default', () => {
     render(<SettingsModal open={true} onClose={vi.fn()} />)
-    const select = screen.getByRole('combobox')
+    const select = screen.getAllByRole('combobox')[0]
     fireEvent.change(select, { target: { value: 'ollama' } })
     const modelInput = screen.getByDisplayValue('llama3')
     expect(modelInput).toBeTruthy()

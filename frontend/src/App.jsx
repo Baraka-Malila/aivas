@@ -194,6 +194,24 @@ export default function App() {
     send(text)
   }, [send])
 
+  const handleDirectScan = useCallback(async (target, creds) => {
+    try {
+      const resp = await fetch('/api/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target, level: 2, creds }),
+      })
+      const { scan_key } = await resp.json()
+      scanPendingRef.current = true
+      const slotId = uid()
+      scanningIdRef.current = slotId
+      dispatch({ type: 'APPEND', msg: { id: slotId, type: 'scan-progress', log: ['Initializing credentialed scan…'] } })
+      startScan(scan_key, target)
+    } catch (err) {
+      dispatch({ type: 'APPEND', msg: { id: uid(), type: 'ai', text: `Failed to start scan: ${err.message}` } })
+    }
+  }, [startScan])
+
   const handleAnalysis = useCallback(async (type, scanId) => {
     const msgId = uid()
     dispatch({ type: 'APPEND', msg: { id: msgId, type: 'ai', text: '', streaming: true } })
@@ -292,6 +310,7 @@ export default function App() {
       <SettingsModal
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
+        onScan={handleDirectScan}
       />
     </div>
   )
