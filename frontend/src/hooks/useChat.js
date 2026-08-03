@@ -7,6 +7,10 @@ export function useChat({ sessionId, onEvent, provider = 'groq', model, apiKey, 
   const wsRef = useRef(null)
   const [status, setStatus] = useState('idle')
 
+  // Keep latest auth values in a ref so the onopen closure always sends current values
+  const authRef = useRef({ apiKey, shodanKey, lang })
+  useEffect(() => { authRef.current = { apiKey, shodanKey, lang } }, [apiKey, shodanKey, lang])
+
   useEffect(() => {
     if (!sessionId) return
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
@@ -15,10 +19,11 @@ export function useChat({ sessionId, onEvent, provider = 'groq', model, apiKey, 
     const ws = new WebSocket(`${proto}://${window.location.host}/ws/chat/${sessionId}?${params}`)
     ws.onopen = () => {
       setStatus('open')
+      const { apiKey: ak, shodanKey: sk, lang: lg } = authRef.current
       const auth = { type: 'auth' }
-      if (apiKey) auth.api_key = apiKey
-      if (shodanKey) auth.shodan_key = shodanKey
-      if (lang) auth.lang = lang
+      if (ak) auth.api_key = ak
+      if (sk) auth.shodan_key = sk
+      if (lg) auth.lang = lg
       ws.send(JSON.stringify(auth))
     }
     ws.onclose = () => setStatus('closed')

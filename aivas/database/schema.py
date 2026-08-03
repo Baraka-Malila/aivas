@@ -156,3 +156,9 @@ def create_schema(conn: sqlite3.Connection) -> None:
         conn.commit()
     except Exception:
         pass
+    # Migration: add password column to remote_targets if it predates this sprint
+    try:
+        conn.execute("ALTER TABLE remote_targets ADD COLUMN password TEXT")
+        conn.commit()
+    except Exception:
+        pass  # column already exists
