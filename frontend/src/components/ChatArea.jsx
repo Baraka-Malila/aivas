@@ -4,7 +4,7 @@ import UserMessage from './UserMessage'
 import ScanProgress from './ScanProgress'
 import ScanCard from './ScanCard'
 
-export default function ChatArea({ messages, onSend, onSilentSend, onStopScan }) {
+export default function ChatArea({ messages, onSend, onStopScan }) {
   const containerRef = useRef(null)
   const bottomRef = useRef(null)
   const atBottomRef = useRef(true)
@@ -39,7 +39,7 @@ export default function ChatArea({ messages, onSend, onSilentSend, onStopScan })
           if (m.type === 'user')          return <UserMessage   key={m.id} text={m.text} />
           if (m.type === 'ai')            return <AiMessage     key={m.id} text={m.text} streaming={m.streaming} toolCalls={m.toolCalls} />
           if (m.type === 'scan-progress') return <ScanProgress  key={m.id} log={m.log || []} onStop={onStopScan} scanStatus={m.scanStatus} />
-          if (m.type === 'scan-card')     return <ScanCard      key={m.id} scanData={m.scanData} onSend={onSend} onSilentSend={onSilentSend} />
+          if (m.type === 'scan-card')     return <ScanCard      key={m.id} scanData={m.scanData} onSend={onSend} />
           return null
         })}
         <div ref={bottomRef} />

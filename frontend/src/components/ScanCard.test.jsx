@@ -75,22 +75,32 @@ describe('ScanCard', () => {
     )
   })
 
-  it('Risk Summary button sends summary prompt', () => {
-    const onSend = vi.fn()
-    render(<ScanCard scanData={base} onSend={onSend} />)
+  it('Risk Summary button opens inline analysis panel', () => {
+    global.fetch = vi.fn(() => new Promise(() => {})) // never resolves — just test UI opens
+    render(<ScanCard scanData={base} onSend={vi.fn()} />)
+    expect(screen.queryByTestId('close-analysis')).toBeNull()
     fireEvent.click(screen.getByText('Risk Summary'))
-    expect(onSend).toHaveBeenCalledWith(
-      expect.stringContaining('3-sentence executive risk summary for scan 42')
-    )
+    expect(screen.getByTestId('close-analysis')).toBeTruthy()
+    delete global.fetch
   })
 
-  it('What to do button sends remediation prompt', () => {
-    const onSend = vi.fn()
-    render(<ScanCard scanData={base} onSend={onSend} />)
+  it('What to do button opens inline analysis panel', () => {
+    global.fetch = vi.fn(() => new Promise(() => {}))
+    render(<ScanCard scanData={base} onSend={vi.fn()} />)
+    expect(screen.queryByTestId('close-analysis')).toBeNull()
     fireEvent.click(screen.getByText('What to do'))
-    expect(onSend).toHaveBeenCalledWith(
-      expect.stringContaining('priority-ordered remediation plan for scan 42')
-    )
+    expect(screen.getByTestId('close-analysis')).toBeTruthy()
+    delete global.fetch
+  })
+
+  it('analysis panel can be dismissed', () => {
+    global.fetch = vi.fn(() => new Promise(() => {}))
+    render(<ScanCard scanData={base} onSend={vi.fn()} />)
+    fireEvent.click(screen.getByText('Risk Summary'))
+    expect(screen.getByTestId('close-analysis')).toBeTruthy()
+    fireEvent.click(screen.getByTestId('close-analysis'))
+    expect(screen.queryByTestId('close-analysis')).toBeNull()
+    delete global.fetch
   })
 
   it('Rescan button sends rescan prompt', () => {

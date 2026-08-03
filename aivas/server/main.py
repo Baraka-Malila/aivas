@@ -16,7 +16,7 @@ logging.basicConfig(
 _log = logging.getLogger("aivas.server")
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
 from aivas.database.schema import get_db, create_schema, DB_PATH
@@ -122,9 +122,31 @@ class ChatRequest(BaseModel):
     scan_id: int | None = None
 
 
+class AnalyzeRequest(BaseModel):
+    type: str  # "risk_summary" | "remediation"
+    provider: str = "groq"
+    model: str | None = None
+    api_key: str | None = None
+    lang: str = "auto"
+
+
 class ScanRequest(BaseModel):
     target: str
     level: int = 2
+
+
+@app.post("/api/analyze/{scan_id}")
+async def analyze(scan_id: int, body: AnalyzeRequest):
+    from aivas.server.analyze_stream import stream_analysis
+
+    async def _gen():
+        async for chunk in stream_analysis(
+            _conn, scan_id, body.type,
+            body.provider, body.model, body.api_key, body.lang,
+        ):
+            yield chunk
+
+    return StreamingResponse(_gen(), media_type="text/plain; charset=utf-8")
 
 
 @app.post("/api/chat")
