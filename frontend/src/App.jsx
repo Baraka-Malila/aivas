@@ -347,6 +347,7 @@ function AuthenticatedApp({ user, token, logout }) {
       <SessionDrawer
         open={drawerOpen}
         sessions={sessions}
+        activeSessionId={sessionId}
         onClose={() => { setDrawerOpen(false); setActiveTab('console') }}
         onSelect={handleSelectSession}
         onDelete={deleteSession}

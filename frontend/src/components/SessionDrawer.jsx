@@ -4,6 +4,11 @@ import ContextMenu from './ContextMenu'
 
 const MONO = { fontFamily: '"Fira Code", monospace' }
 
+const GRADE_COLOR   = { A: '#66bb6a', B: '#aed581', C: '#fdd835', D: '#ff7043', F: '#ef5350' }
+const GRADE_BORDER  = {
+  A: '#1e3a24', B: '#2e3a18', C: '#3a3200', D: '#4a2015', F: '#4a1010',
+}
+
 function InlineRename({ value, onSave, onCancel }) {
   const [text, setText] = useState(value)
   const ref = useRef(null)
@@ -26,16 +31,32 @@ function InlineRename({ value, onSave, onCancel }) {
   )
 }
 
-function SessionItem({ session, onSelect, onDelete, onRename, onContextMenu }) {
+function GradeChip({ grade }) {
+  if (!grade) return null
+  const color = GRADE_COLOR[grade] || '#888'
+  const border = GRADE_BORDER[grade] || '#333'
+  return (
+    <span style={{
+      ...MONO, border: `1px solid ${border}`, color,
+      fontSize: 9, padding: '0 4px', borderRadius: 2, flexShrink: 0,
+    }}>
+      {grade}
+    </span>
+  )
+}
+
+function SessionItem({ session, active, onSelect, onDelete, onRename, onContextMenu }) {
   const [editing, setEditing] = useState(false)
+  const grade = (session.last_grade || '').replace('Grade ', '') || null
   return (
     <div
-      style={{ borderBottom: '1px solid #141414' }}
-      className="flex items-center px-4 py-3 hover:bg-white/5 transition-colors cursor-pointer"
+      style={{ borderBottom: '1px solid #141414', padding: '10px 16px', cursor: 'pointer', background: active ? '#151515' : 'transparent' }}
       onClick={onSelect}
+      onMouseEnter={e => { if (!active) e.currentTarget.style.background = '#151515' }}
+      onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
       onContextMenu={e => { e.preventDefault(); onContextMenu(e, { onRename: () => setEditing(true), onDelete }) }}
     >
-      <div className="flex-1 min-w-0">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {editing ? (
           <InlineRename
             value={session.title || 'New conversation'}
@@ -43,17 +64,23 @@ function SessionItem({ session, onSelect, onDelete, onRename, onContextMenu }) {
             onCancel={() => setEditing(false)}
           />
         ) : (
-          <div style={{ color: '#e0e0e0', fontSize: 12 }} className="truncate">
+          <span style={{ color: '#e0e0e0', fontSize: 12, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {session.title || 'New conversation'}
-          </div>
+          </span>
         )}
-        <div style={{ ...MONO, color: '#444', fontSize: 10, marginTop: 2 }}>{formatDate(session.updated_at)}</div>
+        {!editing && <GradeChip grade={grade} />}
       </div>
+      {!editing && (
+        <div style={{ ...MONO, fontSize: 10, color: '#555555', marginTop: 3 }}>
+          {formatDate(session.updated_at)}
+          {session.last_target ? ` · ${session.last_target}` : ''}
+        </div>
+      )}
     </div>
   )
 }
 
-export default function SessionDrawer({ open, sessions, onClose, onSelect, onDelete, onNew, onRename }) {
+export default function SessionDrawer({ open, sessions, activeSessionId, onClose, onSelect, onDelete, onNew, onRename }) {
   const [ctxMenu, setCtxMenu] = useState(null)
 
   useEffect(() => {
@@ -91,31 +118,37 @@ export default function SessionDrawer({ open, sessions, onClose, onSelect, onDel
       />
       <div
         data-testid="session-drawer"
-        style={{ background: '#111111', borderLeft: '1px solid #1e1e1e', width: 300 }}
+        style={{ background: '#111111', borderLeft: '1px solid #1e1e1e', width: 320 }}
         className="fixed right-0 top-0 bottom-0 z-50 flex flex-col"
       >
         {/* Header */}
         <div
-          style={{ borderBottom: '1px solid #1e1e1e' }}
-          className="flex items-center justify-between px-4 py-3 shrink-0"
+          style={{ borderBottom: '1px solid #1e1e1e', flexShrink: 0 }}
+          className="flex items-center justify-between px-4 py-3"
         >
-          <span style={{ ...MONO, color: '#555', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+          <span style={{ ...MONO, color: '#555555', fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
             Conversations
           </span>
-          <button onClick={onClose} style={{ color: '#444', background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 3 }}
+          <button onClick={onClose} style={{ color: '#555555', background: 'none', border: 'none', cursor: 'pointer', padding: 2, borderRadius: 3, display: 'flex' }}
             onMouseEnter={e => e.currentTarget.style.color = '#e0e0e0'}
-            onMouseLeave={e => e.currentTarget.style.color = '#444'}
+            onMouseLeave={e => e.currentTarget.style.color = '#555555'}
           >
-            <X size={14} />
+            <X size={15} />
           </button>
         </div>
 
         {/* New conversation */}
         <button
           onClick={onNew}
-          style={{ borderBottom: '1px solid #1e1e1e', color: '#4a9eff', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', fontSize: 12 }}
-          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'none'}
+          style={{
+            color: '#4a9eff', background: 'transparent',
+            border: 'none', borderBottom: '1px solid #1e1e1e',
+            cursor: 'pointer', display: 'flex', alignItems: 'center',
+            gap: 8, padding: '10px 16px', fontSize: 12, fontFamily: 'inherit',
+            textAlign: 'left', flexShrink: 0,
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = '#161616'}
+          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
         >
           <Plus size={13} /> New conversation
         </button>
@@ -129,12 +162,20 @@ export default function SessionDrawer({ open, sessions, onClose, onSelect, onDel
           )}
           {sessions.map(s => (
             <SessionItem key={s.id} session={s}
+              active={s.id === activeSessionId}
               onSelect={() => { onSelect(s.id); onClose() }}
               onDelete={() => onDelete(s.id)}
               onRename={title => onRename?.(s.id, title)}
               onContextMenu={handleContextMenu}
             />
           ))}
+        </div>
+
+        {/* Footer */}
+        <div style={{ borderTop: '1px solid #1e1e1e', padding: '8px 16px', flexShrink: 0 }}>
+          <span style={{ ...MONO, fontSize: 10, color: '#444444' }}>
+            {sessions.length} conversation{sessions.length !== 1 ? 's' : ''} · right-click to rename / delete
+          </span>
         </div>
       </div>
 
@@ -152,5 +193,6 @@ export default function SessionDrawer({ open, sessions, onClose, onSelect, onDel
 
 function formatDate(isoStr) {
   if (!isoStr) return ''
-  return new Date(isoStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  const d = new Date(isoStr)
+  return d.toISOString().slice(0, 10)
 }

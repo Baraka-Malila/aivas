@@ -7,7 +7,7 @@ const GRADE_COLOR = { A: '#66bb6a', B: '#aed581', C: '#fdd835', D: '#ff7043', F:
 
 function fmtDate(iso) {
   if (!iso) return '—'
-  try { return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) }
+  try { return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-') }
   catch { return iso }
 }
 
@@ -39,25 +39,43 @@ function InlineEdit({ value, onSave, onCancel }) {
   )
 }
 
+function GradeBox({ grade }) {
+  const color = GRADE_COLOR[grade] || '#888'
+  const alpha = color + '14'
+  return (
+    <span style={{
+      width: 24, height: 24,
+      border: `1px solid ${color}`, background: alpha, color,
+      borderRadius: 3,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontWeight: 700, fontSize: 13, flexShrink: 0,
+      fontFamily: '"Fira Code", monospace',
+    }}>
+      {grade || '?'}
+    </span>
+  )
+}
+
 function ScanRow({ scan, onDelete, onRename, onContextMenu }) {
   const [editing, setEditing] = useState(false)
   const grade = (scan.grade || '').replace('Grade ', '')
-  const gradeColor = GRADE_COLOR[grade] || '#888'
-  const label = scan.label || `${scan.target} — ${scan.grade || '?'}`
+  const label = scan.label || scan.target || 'Unknown target'
 
   return (
     <div
-      style={{ borderBottom: '1px solid #141414', display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', cursor: 'default' }}
+      style={{ background: '#1a1a1a', border: '1px solid #252525', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 12, padding: '9px 12px', cursor: 'default' }}
       onContextMenu={e => { e.preventDefault(); onContextMenu(e, { onRename: () => setEditing(true), onDelete }) }}
     >
-      <div style={{ ...MONO, color: gradeColor, fontWeight: 700, fontSize: 12, flexShrink: 0, width: 14, textAlign: 'center' }}>{grade || '?'}</div>
-      <div className="flex-1 min-w-0">
+      <GradeBox grade={grade} />
+      <div style={{ flex: 1, minWidth: 0 }}>
         {editing ? (
           <InlineEdit value={label} onSave={v => { onRename(v); setEditing(false) }} onCancel={() => setEditing(false)} />
         ) : (
-          <div style={{ color: '#c0c0c0', fontSize: 12 }} className="truncate">{label}</div>
+          <div style={{ color: '#e0e0e0', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {label}
+          </div>
         )}
-        <div style={{ ...MONO, color: '#444', fontSize: 10, marginTop: 2 }}>
+        <div style={{ ...MONO, fontSize: 10, color: '#555555', marginTop: 2 }}>
           {scan.target} · {scan.finding_count ?? 0} findings · {fmtDate(scan.started_at)}
         </div>
       </div>
@@ -71,19 +89,21 @@ function SessionRow({ session, onDelete, onRename, onContextMenu }) {
 
   return (
     <div
-      style={{ borderBottom: '1px solid #141414', display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', cursor: 'default' }}
+      style={{ background: '#1a1a1a', border: '1px solid #252525', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', cursor: 'default' }}
       onContextMenu={e => { e.preventDefault(); onContextMenu(e, { onRename: () => setEditing(true), onDelete }) }}
     >
-      <div className="flex-1 min-w-0">
-        {editing ? (
-          <InlineEdit value={title} onSave={v => { onRename(v); setEditing(false) }} onCancel={() => setEditing(false)} />
-        ) : (
-          <div style={{ color: '#c0c0c0', fontSize: 12 }} className="truncate">{title}</div>
-        )}
-        <div style={{ ...MONO, color: '#444', fontSize: 10, marginTop: 2 }}>
-          Updated {fmtDate(session.updated_at)}
-        </div>
-      </div>
+      {editing ? (
+        <InlineEdit value={title} onSave={v => { onRename(v); setEditing(false) }} onCancel={() => setEditing(false)} />
+      ) : (
+        <>
+          <span style={{ color: '#e0e0e0', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+            {title}
+          </span>
+          <span style={{ ...MONO, fontSize: 10, color: '#555555', flexShrink: 0, marginLeft: 12 }}>
+            updated {fmtDate(session.updated_at)}
+          </span>
+        </>
+      )}
     </div>
   )
 }
@@ -135,18 +155,17 @@ export default function HistorySection() {
   }
 
   const sectionLabel = {
-    ...MONO, fontSize: 10, letterSpacing: '0.1em', color: '#444',
+    ...MONO, fontSize: 10, letterSpacing: '0.1em', color: '#555555',
     textTransform: 'uppercase', marginBottom: 8, display: 'block',
   }
 
   return (
     <>
-      <div className="mb-6">
-        <span style={sectionLabel}>Scan History</span>
-        <p style={{ color: '#444', fontSize: 11, marginBottom: 10 }}>Right-click a row to rename or delete.</p>
-        <div style={{ background: '#0d0d0d', border: '1px solid #1a1a1a', borderRadius: 5, overflow: 'hidden' }}>
+      <div style={{ marginBottom: 20 }}>
+        <span style={sectionLabel}>SCAN HISTORY ({scans.length})</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {scans.length === 0 && (
-            <div style={{ color: '#444', fontSize: 12, padding: '12px 16px' }}>No scans yet.</div>
+            <div style={{ color: '#444', fontSize: 12 }}>No scans yet.</div>
           )}
           {scans.map(s => (
             <ScanRow key={s.id} scan={s}
@@ -159,11 +178,10 @@ export default function HistorySection() {
       </div>
 
       <div>
-        <span style={sectionLabel}>Chat Sessions</span>
-        <p style={{ color: '#444', fontSize: 11, marginBottom: 10 }}>Right-click a row to rename or delete.</p>
-        <div style={{ background: '#0d0d0d', border: '1px solid #1a1a1a', borderRadius: 5, overflow: 'hidden' }}>
+        <span style={sectionLabel}>CHAT SESSIONS ({sessions.length})</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {sessions.length === 0 && (
-            <div style={{ color: '#444', fontSize: 12, padding: '12px 16px' }}>No chat sessions yet.</div>
+            <div style={{ color: '#444', fontSize: 12 }}>No chat sessions yet.</div>
           )}
           {sessions.map(s => (
             <SessionRow key={s.id} session={s}

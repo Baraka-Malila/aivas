@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X } from 'lucide-react'
+import { X, Sliders, Cpu, Link, Server, Calendar, RotateCcw } from 'lucide-react'
 import RemoteTargetsSection from './RemoteTargetsSection'
 import ScheduleSection from './ScheduleSection'
 import HistorySection from './HistorySection'
@@ -13,9 +13,9 @@ const LANGS = [
 ]
 
 const PROVIDERS = [
-  { value: 'groq',   label: 'Groq (online)' },
-  { value: 'claude', label: 'Claude (Anthropic)' },
-  { value: 'ollama', label: 'Ollama (local)' },
+  { value: 'groq',   label: 'Groq',   sub: 'online',       letter: 'G' },
+  { value: 'claude', label: 'Claude', sub: 'Anthropic',     letter: 'C' },
+  { value: 'ollama', label: 'Ollama', sub: 'local · no key',letter: 'O' },
 ]
 
 const MODEL_DEFAULTS = {
@@ -25,15 +25,16 @@ const MODEL_DEFAULTS = {
 }
 
 const NAV = [
-  { id: 'general',      label: 'General' },
-  { id: 'provider',     label: 'AI Provider' },
-  { id: 'integrations', label: 'Integrations' },
-  { id: 'targets',      label: 'Remote Targets' },
-  { id: 'schedule',     label: 'Schedule' },
-  { id: 'history',      label: 'History' },
+  { id: 'general',      label: 'General',        Icon: Sliders },
+  { id: 'provider',     label: 'AI Provider',    Icon: Cpu },
+  { id: 'integrations', label: 'Integrations',   Icon: Link },
+  { id: 'targets',      label: 'Remote Targets', Icon: Server },
+  { id: 'schedule',     label: 'Schedule',       Icon: Calendar },
+  { id: 'history',      label: 'History',        Icon: RotateCcw },
 ]
 
-const inp = { background: '#0f0f0f', border: '1px solid #252525', color: '#e0e0e0' }
+const inp = { background: '#0f0f0f', border: '1px solid #252525', color: '#e0e0e0', borderRadius: 4, outline: 'none', boxSizing: 'border-box' }
+const fieldLabel = { ...MONO, fontSize: 10, color: '#555555', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8, display: 'block' }
 
 export default function SettingsModal({ open, onClose, onScan, initialSection }) {
   const [apiKey,    setApiKey]    = useState('')
@@ -111,6 +112,8 @@ export default function SettingsModal({ open, onClose, onScan, initialSection })
     setTesting(false)
   }
 
+  const activeLabel = NAV.find(n => n.id === section)?.label
+
   return (
     <>
       <div
@@ -120,139 +123,172 @@ export default function SettingsModal({ open, onClose, onScan, initialSection })
       />
       <div
         data-testid="settings-modal"
-        style={{ background: '#141414', border: '1px solid #222', width: 820, maxWidth: '95vw', height: 'min(85vh, 600px)' }}
+        style={{ background: '#141414', border: '1px solid #222222', width: 820, maxWidth: '95vw', height: 'min(85vh, 600px)' }}
         className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-xl flex overflow-hidden"
       >
         {/* Sidebar */}
-        <div style={{ width: 200, borderRight: '1px solid #1e1e1e', background: '#0d0d0d', flexShrink: 0 }}
-          className="flex flex-col pt-5 pb-4 overflow-y-auto"
-        >
-          <p style={{ ...MONO, color: '#444', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}
-             className="px-4 mb-3">
+        <div style={{ width: 220, borderRight: '1px solid #222222', background: '#0f0f0f', flexShrink: 0, display: 'flex', flexDirection: 'column', padding: '16px 0', overflowY: 'auto' }}>
+          <p style={{ ...MONO, color: '#444444', fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', padding: '0 16px', marginBottom: 10 }}>
             Settings
           </p>
-          {NAV.map(({ id, label }) => (
-            <button
-              key={id}
-              onClick={() => setSection(id)}
-              style={{
-                background: section === id ? '#161616' : 'transparent',
-                color: section === id ? '#e0e0e0' : '#555',
-                borderLeft: section === id ? '2px solid #4a9eff' : '2px solid transparent',
-                borderTop: 'none',
-                borderRight: 'none',
-                borderBottom: 'none',
-                fontSize: 12,
-                padding: '7px 14px',
-                textAlign: 'left',
-                cursor: 'pointer',
-                width: '100%',
-                transition: 'color 0.1s',
-              }}
-              onMouseEnter={e => { if (section !== id) e.currentTarget.style.color = '#888' }}
-              onMouseLeave={e => { if (section !== id) e.currentTarget.style.color = '#555' }}
-            >
-              {label}
-            </button>
-          ))}
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {NAV.map(({ id, label, Icon }) => {
+              const active = section === id
+              return (
+                <button
+                  key={id}
+                  onClick={() => setSection(id)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '8px 16px',
+                    fontSize: 13,
+                    color: active ? '#e0e0e0' : '#666666',
+                    background: active ? '#161616' : 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    width: '100%',
+                    transition: 'color 0.1s',
+                  }}
+                  onMouseEnter={e => { if (!active) e.currentTarget.style.color = '#cccccc' }}
+                  onMouseLeave={e => { if (!active) e.currentTarget.style.color = '#666666' }}
+                >
+                  <Icon size={15} />
+                  {label}
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         {/* Content panel */}
         <div className="flex-1 flex flex-col min-w-0">
-          <div style={{ borderBottom: '1px solid #1e1e1e' }} className="flex items-center justify-between px-6 py-4 shrink-0">
-            <span style={{ color: '#e0e0e0' }} className="font-semibold text-sm">
-              {NAV.find(n => n.id === section)?.label}
-            </span>
-            <button onClick={onClose} style={{ color: '#555' }} className="p-1 hover:text-white transition-colors rounded">
+          {/* Panel header */}
+          <div style={{ borderBottom: '1px solid #1e1e1e', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 24px', flexShrink: 0 }}>
+            <span style={{ color: '#e0e0e0', fontWeight: 600, fontSize: 14 }}>{activeLabel}</span>
+            <button onClick={onClose} style={{ color: '#555555', background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', borderRadius: 3 }}
+              onMouseEnter={e => e.currentTarget.style.color = '#e0e0e0'}
+              onMouseLeave={e => e.currentTarget.style.color = '#555555'}
+            >
               <X size={16} />
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-6 py-5">
+          <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+            {/* General */}
             {section === 'general' && (
               <>
-                <div className="mb-6">
-                  <p style={{ color: '#e0e0e0' }} className="text-sm font-medium mb-0.5">Language</p>
-                  <p style={{ color: '#555' }} className="text-xs mb-3">Language used for AI-generated reports and descriptions.</p>
-                  <div className="flex gap-2">
+                <div style={{ marginBottom: 20 }}>
+                  <span style={fieldLabel}>Language</span>
+                  <p style={{ color: '#555555', fontSize: 11, marginBottom: 10 }}>Language used for AI-generated reports and descriptions.</p>
+                  <div style={{ display: 'flex', gap: 8 }}>
                     {LANGS.map(l => (
                       <button key={l.value} onClick={() => setLang(l.value)}
                         style={{
+                          flex: 1, padding: '6px 0', fontSize: 12, fontWeight: 500, borderRadius: 4, cursor: 'pointer',
                           background: lang === l.value ? '#4a9eff22' : 'transparent',
                           border: `1px solid ${lang === l.value ? '#4a9eff' : '#252525'}`,
-                          color: lang === l.value ? '#4a9eff' : '#888',
+                          color: lang === l.value ? '#4a9eff' : '#888888',
+                          transition: 'all 0.1s',
                         }}
-                        className="flex-1 py-1.5 text-xs rounded font-medium transition-all"
                       >{l.label}</button>
                     ))}
                   </div>
                 </div>
-                <button onClick={save} style={{ background: '#4a9eff' }}
-                  className="px-5 py-2 text-sm font-semibold text-black rounded hover:opacity-90 transition-opacity">
+                <button onClick={save} style={{ background: '#4a9eff', color: '#000000', fontWeight: 600, borderRadius: 4, padding: '9px 20px', fontSize: 13, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#6cb0ff'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#4a9eff'}
+                >
                   Save Changes
                 </button>
               </>
             )}
 
+            {/* AI Provider */}
             {section === 'provider' && (
               <>
-                <div className="mb-5">
-                  <p style={{ color: '#e0e0e0' }} className="text-sm font-medium mb-0.5">Provider</p>
-                  <p style={{ color: '#555' }} className="text-xs mb-3">AI backend for risk analysis and Swahili translation.</p>
-                  <select value={provider}
-                    onChange={e => { setProvider(e.target.value); setModel(MODEL_DEFAULTS[e.target.value] || MODEL_DEFAULTS.groq) }}
-                    style={{ ...inp, width: '100%' }}
-                    className="rounded px-3 py-2 text-sm outline-none"
-                  >
-                    {PROVIDERS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-                  </select>
+                <div style={{ marginBottom: 20 }}>
+                  <span style={fieldLabel}>Provider</span>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {PROVIDERS.map(p => {
+                      const active = provider === p.value
+                      return (
+                        <div
+                          key={p.value}
+                          onClick={() => { setProvider(p.value); setModel(MODEL_DEFAULTS[p.value] || MODEL_DEFAULTS.groq) }}
+                          style={{
+                            flex: 1, border: `1px solid ${active ? '#4a9eff' : '#252525'}`, borderRadius: 4,
+                            padding: '10px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
+                          }}
+                          onMouseEnter={e => { if (!active) e.currentTarget.style.borderColor = '#3a3a3a' }}
+                          onMouseLeave={e => { if (!active) e.currentTarget.style.borderColor = '#252525' }}
+                        >
+                          <span style={{ ...MONO, fontSize: 14, fontWeight: 600, color: active ? '#e0e0e0' : '#888888', width: 18, textAlign: 'center' }}>
+                            {p.letter}
+                          </span>
+                          <div>
+                            <div style={{ color: active ? '#e0e0e0' : '#aaaaaa', fontSize: 13, fontWeight: 600 }}>{p.label}</div>
+                            <div style={{ color: active ? '#666666' : '#555555', fontSize: 11, marginTop: 1 }}>{p.sub}</div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
-                <div className="mb-5">
-                  <p style={{ color: '#e0e0e0' }} className="text-sm font-medium mb-0.5">Model</p>
-                  <p style={{ color: '#555' }} className="text-xs mb-3">Model ID for the selected provider.</p>
+
+                <div style={{ marginBottom: 20 }}>
+                  <span style={fieldLabel}>Model</span>
                   <input type="text" value={model} onChange={e => setModel(e.target.value)}
-                    style={{ ...inp, width: '100%' }}
-                    className="rounded px-3 py-2 text-sm outline-none"
+                    style={{ ...inp, width: '100%', padding: '9px 12px', fontSize: 13, fontFamily: '"Fira Code", monospace' }}
+                    onFocus={e => e.target.style.borderColor = '#4a9eff'}
+                    onBlur={e => e.target.style.borderColor = '#252525'}
                   />
                 </div>
-                <div className="mb-6">
-                  <p style={{ color: '#e0e0e0' }} className="text-sm font-medium mb-0.5">
-                    API Key{provider === 'ollama' ? ' (not needed)' : ''}
-                  </p>
-                  <p style={{ color: '#555' }} className="text-xs mb-3">
-                    {provider === 'groq' ? 'Groq Cloud API key — get one free at console.groq.com' :
-                     provider === 'claude' ? 'Anthropic API key — available at console.anthropic.com' :
+
+                <div style={{ marginBottom: 24 }}>
+                  <span style={fieldLabel}>API Key{provider === 'ollama' ? ' (not needed)' : ''}</span>
+                  <p style={{ color: '#555555', fontSize: 11, marginBottom: 8 }}>
+                    {provider === 'groq' ? 'Groq Cloud API key (console.groq.com)' :
+                     provider === 'claude' ? 'Anthropic API key (console.anthropic.com)' :
                      'Ollama runs locally — no API key required'}
                   </p>
                   <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)}
                     placeholder={provider === 'groq' ? 'gsk_…' : provider === 'claude' ? 'sk-ant-…' : 'not required'}
                     disabled={provider === 'ollama'}
-                    style={{ ...inp, width: '100%', opacity: provider === 'ollama' ? 0.4 : 1 }}
-                    className="rounded px-3 py-2 text-sm outline-none placeholder:text-[#444]"
+                    style={{ ...inp, width: '100%', padding: '9px 12px', fontSize: 13, fontFamily: '"Fira Code", monospace', opacity: provider === 'ollama' ? 0.4 : 1 }}
+                    onFocus={e => e.target.style.borderColor = '#4a9eff'}
+                    onBlur={e => e.target.style.borderColor = '#252525'}
                   />
                 </div>
-                <button onClick={save} style={{ background: '#4a9eff' }}
-                  className="px-5 py-2 text-sm font-semibold text-black rounded hover:opacity-90 transition-opacity">
+
+                <button onClick={save} style={{ background: '#4a9eff', color: '#000000', fontWeight: 600, borderRadius: 4, padding: '9px 20px', fontSize: 13, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#6cb0ff'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#4a9eff'}
+                >
                   Save Changes
                 </button>
               </>
             )}
 
+            {/* Integrations */}
             {section === 'integrations' && (
               <>
-                <div className="mb-6">
-                  <p style={{ color: '#e0e0e0' }} className="text-sm font-medium mb-0.5">Shodan API Key</p>
-                  <p style={{ color: '#555' }} className="text-xs mb-3">
+                <div style={{ marginBottom: 24 }}>
+                  <span style={fieldLabel}>Shodan API Key</span>
+                  <p style={{ color: '#555555', fontSize: 11, marginBottom: 8 }}>
                     Optional. Enables internet exposure lookups for scanned IPs. Leave empty to skip.
                   </p>
                   <input type="password" value={shodanKey} onChange={e => setShodanKey(e.target.value)}
                     placeholder="shodan api key…"
-                    style={{ ...inp, width: '100%' }}
-                    className="rounded px-3 py-2 text-sm outline-none placeholder:text-[#444]"
+                    style={{ ...inp, width: '100%', padding: '9px 12px', fontSize: 13, fontFamily: '"Fira Code", monospace' }}
+                    onFocus={e => e.target.style.borderColor = '#4a9eff'}
+                    onBlur={e => e.target.style.borderColor = '#252525'}
                   />
                 </div>
-                <button onClick={save} style={{ background: '#4a9eff' }}
-                  className="px-5 py-2 text-sm font-semibold text-black rounded hover:opacity-90 transition-opacity">
+                <button onClick={save} style={{ background: '#4a9eff', color: '#000000', fontWeight: 600, borderRadius: 4, padding: '9px 20px', fontSize: 13, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#6cb0ff'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#4a9eff'}
+                >
                   Save Changes
                 </button>
               </>

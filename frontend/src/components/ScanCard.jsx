@@ -67,37 +67,38 @@ export default function ScanCard({ scanData, onSend, onAnalysis }) {
         className="flex items-start justify-between px-4 py-3"
       >
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ ...MONO, color: '#e0e0e0', fontSize: 13 }}>{target}</div>
-          <div style={{ ...MONO, color: '#555', fontSize: 11, marginTop: 3 }}>
+          <div style={{ ...MONO, color: '#e0e0e0', fontSize: 14 }}>{target}</div>
+          <div style={{ ...MONO, color: '#666666', fontSize: 11, marginTop: 3 }}>
             {service_count} service{service_count !== 1 ? 's' : ''} · {totalFindings} finding{totalFindings !== 1 ? 's' : ''}
             {misconfigs.length > 0 ? ` · ${misconfigs.length} config issue${misconfigs.length !== 1 ? 's' : ''}` : ''}
           </div>
         </div>
 
-        {/* Grade box */}
-        <div style={{
-          width: 48, flexShrink: 0, marginLeft: 16, textAlign: 'center',
-          border: `1px solid ${gc}`, background: ga, borderRadius: 4, padding: '6px 0',
-        }}>
-          <div style={{ ...MONO, color: gc, fontWeight: 700, fontSize: 20, lineHeight: 1 }}>{grade || '?'}</div>
+        {/* Grade box + score below */}
+        <div style={{ flexShrink: 0, marginLeft: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+          <div style={{
+            width: 38, height: 38,
+            border: `1px solid ${gc}`, background: ga, borderRadius: 4,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <span style={{ ...MONO, color: gc, fontWeight: 700, fontSize: 19, lineHeight: 1 }}>{grade || '?'}</span>
+          </div>
           {score != null && (
-            <div style={{ ...MONO, color: '#555', fontSize: 9, marginTop: 3 }}>{score}/100</div>
+            <span style={{ ...MONO, color: '#666666', fontSize: 10 }}>{score}/100</span>
           )}
         </div>
       </div>
 
       {/* Severity count strip */}
-      <div
-        style={{ borderBottom: '1px solid #1e1e1e', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)' }}
-      >
+      <div style={{ borderBottom: '1px solid #1e1e1e', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)' }}>
         {SEV_ORDER.map(sev => (
           <div
             key={sev}
-            style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 7, borderRight: sev !== 'LOW' ? '1px solid #1a1a1a' : 'none' }}
+            style={{ padding: '9px 14px', display: 'flex', alignItems: 'center', gap: 8, borderRight: sev !== 'LOW' ? '1px solid #1e1e1e' : 'none' }}
           >
-            <div style={{ width: 8, height: 8, borderRadius: 1, background: SEV_COLOR[sev], flexShrink: 0 }} />
-            <span style={{ ...MONO, fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{sev}</span>
-            <span style={{ ...MONO, fontSize: 12, color: counts[sev] > 0 ? SEV_COLOR[sev] : '#333', marginLeft: 'auto' }}>{counts[sev]}</span>
+            <span style={{ width: 8, height: 8, background: SEV_COLOR[sev], display: 'inline-block', flexShrink: 0 }} />
+            <span style={{ color: '#e0e0e0', fontSize: 14, fontWeight: 600 }}>{counts[sev]}</span>
+            <span style={{ ...MONO, fontSize: 10, color: '#555555', textTransform: 'uppercase' }}>{sev}</span>
           </div>
         ))}
       </div>
@@ -106,11 +107,11 @@ export default function ScanCard({ scanData, onSend, onAnalysis }) {
       {totalFindings > 0 && (
         <div style={{ borderBottom: '1px solid #1e1e1e' }}>
           {/* Column headers */}
-          <div style={{ background: '#0d0d0d', borderBottom: '1px solid #141414', display: 'flex', gap: 0, padding: '5px 12px' }}>
-            <span style={{ ...MONO, ...SECTION_LABEL, width: 150, flexShrink: 0 }}>CVE ID</span>
-            <span style={{ ...MONO, ...SECTION_LABEL, width: 40, flexShrink: 0 }}>KEV</span>
-            <span style={{ ...MONO, ...SECTION_LABEL, flex: 1 }}>Description</span>
-            <span style={{ ...MONO, ...SECTION_LABEL, width: 48, textAlign: 'right', flexShrink: 0 }}>CVSS</span>
+          <div style={{ background: '#0d0d0d', borderBottom: '1px solid #1e1e1e', display: 'flex', gap: 8, padding: '6px 14px' }}>
+            <span style={{ ...MONO, fontSize: 9, color: '#444444', letterSpacing: '0.1em', width: 150, flexShrink: 0 }}>CVE</span>
+            <span style={{ ...MONO, fontSize: 9, color: '#444444', letterSpacing: '0.1em', width: 34, flexShrink: 0 }}>KEV</span>
+            <span style={{ ...MONO, fontSize: 9, color: '#444444', letterSpacing: '0.1em', flex: 1 }}>SUMMARY</span>
+            <span style={{ ...MONO, fontSize: 9, color: '#444444', letterSpacing: '0.1em', flexShrink: 0 }}>CVSS</span>
           </div>
 
           {/* Severity groups */}
@@ -121,19 +122,19 @@ export default function ScanCard({ scanData, onSend, onAnalysis }) {
                 data-testid={`group-header-${sev}`}
                 onClick={() => toggleGroup(sev)}
                 style={{
-                  width: '100%', background: 'transparent', border: 'none',
+                  width: '100%', background: '#0d0d0d', border: 'none',
                   borderLeft: `2px solid ${SEV_COLOR[sev]}`,
-                  borderBottom: '1px solid #141414',
-                  padding: '5px 12px 5px 10px',
-                  display: 'flex', alignItems: 'center', gap: 10,
+                  borderBottom: '1px solid #1e1e1e',
+                  padding: '7px 14px 7px 12px',
+                  display: 'flex', alignItems: 'center', gap: 8,
                   cursor: 'pointer',
                 }}
               >
-                <span style={{ ...MONO, fontSize: 10, color: SEV_COLOR[sev], textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>
+                <span style={{ ...MONO, fontSize: 11, color: SEV_COLOR[sev], fontWeight: 600 }}>
                   {sev}
                 </span>
-                <span style={{ ...MONO, fontSize: 10, color: '#444' }}>({grouped[sev].length})</span>
-                <span style={{ ...MONO, fontSize: 10, color: '#333', marginLeft: 'auto' }}>{expanded[sev] ? '▲' : '▼'}</span>
+                <span style={{ ...MONO, fontSize: 11, color: '#555555' }}>({grouped[sev].length})</span>
+                <span style={{ ...MONO, fontSize: 10, color: '#444', marginLeft: 'auto' }}>{expanded[sev] ? '▲' : '▼'}</span>
               </button>
 
               {/* Finding rows */}
@@ -141,44 +142,29 @@ export default function ScanCard({ scanData, onSend, onAnalysis }) {
                 <div
                   key={f.cve_id || i}
                   data-testid={`cve-row-${f.cve_id}`}
-                  style={{ display: 'flex', alignItems: 'center', gap: 0, padding: '6px 12px', borderBottom: '1px solid #0f0f0f', borderLeft: `2px solid ${SEV_COLOR[sev]}22` }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', borderBottom: '1px solid #141414' }}
                 >
-                  {/* Ask button */}
-                  <button
-                    data-testid={`ask-${f.cve_id}`}
-                    onClick={() => onSend(
-                      `Explain ${f.cve_id} from scan ${scan_id}. ` +
-                      `What is the risk, what exact version fixes it, and what is the fastest remediation path?`
-                    )}
-                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#333', marginRight: 8, flexShrink: 0, lineHeight: 1 }}
-                    title={`Ask about ${f.cve_id}`}
-                    onMouseEnter={e => e.currentTarget.style.color = '#4a9eff'}
-                    onMouseLeave={e => e.currentTarget.style.color = '#333'}
-                  >
-                    <MessageSquare size={11} />
-                  </button>
-
                   {/* CVE ID */}
-                  <span style={{ ...MONO, color: '#c0c0c0', fontSize: 11, width: 142, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <span style={{ ...MONO, color: '#e0e0e0', fontSize: 11, width: 150, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {f.cve_id}
                   </span>
 
                   {/* KEV chip */}
-                  <div style={{ width: 40, flexShrink: 0 }}>
+                  <div style={{ width: 34, flexShrink: 0 }}>
                     {f.kev && (
-                      <span style={{ ...MONO, color: '#ef5350', fontSize: 9, border: '1px solid #4a1010', borderRadius: 3, padding: '1px 4px', fontWeight: 600 }}>
+                      <span style={{ ...MONO, color: '#ef5350', fontSize: 9, border: '1px solid #4a1010', borderRadius: 2, padding: '1px 4px', fontWeight: 600 }}>
                         KEV
                       </span>
                     )}
                   </div>
 
                   {/* Description */}
-                  <span style={{ color: '#666', fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 12 }}>
+                  <span style={{ color: '#888888', fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {f.description}
                   </span>
 
                   {/* CVSS */}
-                  <span style={{ ...MONO, color: SEV_COLOR[sev], fontSize: 11, width: 36, textAlign: 'right', flexShrink: 0 }}>
+                  <span style={{ ...MONO, color: SEV_COLOR[sev], fontSize: 11, flexShrink: 0 }}>
                     {f.cvss_score != null ? f.cvss_score.toFixed(1) : '—'}
                   </span>
                 </div>

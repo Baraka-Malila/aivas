@@ -14,7 +14,7 @@ export default function Header({ activeTab, onTabChange, onSettings, onAdmin, us
       <div className="flex items-center h-full">
         <div className="flex items-center gap-2.5 mr-5">
           <img src={logo} alt="AIVAS" style={{ height: 22, width: 22, objectFit: 'contain' }} />
-          <span style={{ color: '#e0e0e0', fontWeight: 700, fontSize: 14, letterSpacing: '-0.3px' }}>AIVAS</span>
+          <span style={{ color: '#e0e0e0', fontWeight: 700, fontSize: 15, letterSpacing: '-0.3px' }}>AIVAS</span>
         </div>
 
         {/* Tab row */}
@@ -29,17 +29,19 @@ export default function Header({ activeTab, onTabChange, onSettings, onAdmin, us
                 style={{
                   background: 'transparent',
                   border: 'none',
-                  borderBottom: active ? '2px solid #4a9eff' : '2px solid transparent',
-                  color: active ? '#e0e0e0' : '#555',
+                  boxShadow: active ? 'inset 0 -2px 0 #4a9eff' : 'none',
+                  color: active ? '#e0e0e0' : '#666666',
                   fontSize: 13,
                   padding: '0 14px',
                   cursor: 'pointer',
                   height: '100%',
-                  transition: 'color 0.15s, border-color 0.15s',
+                  transition: 'color 0.15s',
                   whiteSpace: 'nowrap',
+                  display: 'flex',
+                  alignItems: 'center',
                 }}
-                onMouseEnter={e => { if (!active) e.currentTarget.style.color = '#888' }}
-                onMouseLeave={e => { if (!active) e.currentTarget.style.color = '#555' }}
+                onMouseEnter={e => { if (!active) e.currentTarget.style.color = '#aaaaaa' }}
+                onMouseLeave={e => { if (!active) e.currentTarget.style.color = '#666666' }}
               >
                 {tab}
               </button>
