@@ -201,6 +201,8 @@ async def run_scan(
                         "credential_result",
                         f"  Enumerated {len(credential_services)} software item(s) via {creds.get('method','?').upper()}",
                     ))
+                elif "__ssh_hardening" in ev:
+                    all_misconfigs.extend(ev["__ssh_hardening"])
                 elif "__credential_error" in ev:
                     yield _emit(_ev("credential_error", f"  ⚠ {ev['__credential_error']}"))
                     yield _emit(_ev("credential_fallback", "  Continuing with nmap results only"))

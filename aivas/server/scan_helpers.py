@@ -168,7 +168,7 @@ async def credential_scan_events(
     yield _ev("credential_probe", f"  Connecting to {label}…")
     try:
         if method == "ssh":
-            services = await ssh_probe.probe_async(
+            services, hardening = await ssh_probe.probe_full_async(
                 host=host,
                 username=creds["username"],
                 password=creds.get("password"),
@@ -184,11 +184,18 @@ async def credential_scan_events(
                 port=port,
                 timeout=timeout,
             )
+            hardening = []
         yield _ev(
             "credential_done",
             f"  {label} — {len(services)} software item(s) enumerated",
         )
         yield {"__credential_services": services}
+        if hardening:
+            yield _ev(
+                "credential_hardening",
+                f"  {label} — {len(hardening)} SSH hardening issue(s) found",
+            )
+            yield {"__ssh_hardening": hardening}
     except CredentialError as exc:
         yield {"__credential_error": str(exc)}
     except ProbeConnectionError as exc:

@@ -7,10 +7,11 @@ using the dedicated aivas_test key created at ~/.ssh/aivas_test.
 import asyncio
 import getpass
 import os
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aivas.scanner.ssh_probe import probe, _parse_dpkg, _parse_rpm
+from aivas.scanner.ssh_probe import probe, _parse_dpkg, _parse_rpm, _get_ssh_hardening
 from aivas.scanner import ssh_probe
 from aivas.scanner.probe_errors import CredentialError
 from aivas.scanner.probe_errors import ConnectionError as ProbeConnectionError
@@ -132,3 +133,106 @@ class TestSSHProbeReal:
                     port=19999,  # nothing listening here
                 )
             )
+
+
+# ---------------------------------------------------------------------------
+# SSH hardening parser unit tests — mock _run, no real SSH needed
+# ---------------------------------------------------------------------------
+
+def _make_client(config_text: str):
+    """Return a mock SSHClient whose _run will return config_text."""
+    client = MagicMock()
+    return client, config_text
+
+
+def test_hardening_root_login_flagged():
+    _sshd = "PermitRootLogin yes\nPasswordAuthentication no\n"
+    with patch("aivas.scanner.ssh_probe._run", return_value=_sshd):
+        results = _get_ssh_hardening(MagicMock(), "10.0.0.1")
+    titles = [r["title"] for r in results]
+    assert any("Root login" in t for t in titles)
+
+
+def test_hardening_empty_passwords_flagged():
+    _sshd = "PermitEmptyPasswords yes\n"
+    with patch("aivas.scanner.ssh_probe._run", return_value=_sshd):
+        results = _get_ssh_hardening(MagicMock(), "10.0.0.1")
+    assert any(r["severity"] == "CRITICAL" for r in results)
+
+
+def test_hardening_password_auth_flagged():
+    _sshd = "PasswordAuthentication yes\n"
+    with patch("aivas.scanner.ssh_probe._run", return_value=_sshd):
+        results = _get_ssh_hardening(MagicMock(), "10.0.0.1")
+    assert any("password authentication" in r["title"].lower() for r in results)
+
+
+def test_hardening_protocol1_flagged():
+    _sshd = "Protocol 1\n"
+    with patch("aivas.scanner.ssh_probe._run", return_value=_sshd):
+        results = _get_ssh_hardening(MagicMock(), "10.0.0.1")
+    assert any("protocol" in r["title"].lower() for r in results)
+    assert any(r["severity"] == "HIGH" for r in results)
+
+
+def test_hardening_max_auth_tries_flagged():
+    _sshd = "MaxAuthTries 10\n"
+    with patch("aivas.scanner.ssh_probe._run", return_value=_sshd):
+        results = _get_ssh_hardening(MagicMock(), "10.0.0.1")
+    assert any("MaxAuthTries" in r["description"] for r in results)
+
+
+def test_hardening_secure_config_returns_empty():
+    _sshd = (
+        "PermitRootLogin no\n"
+        "PasswordAuthentication no\n"
+        "PermitEmptyPasswords no\n"
+        "X11Forwarding no\n"
+        "MaxAuthTries 3\n"
+        "UsePAM yes\n"
+    )
+    with patch("aivas.scanner.ssh_probe._run", return_value=_sshd):
+        results = _get_ssh_hardening(MagicMock(), "10.0.0.1")
+    assert results == []
+
+
+def test_hardening_empty_config_returns_empty():
+    with patch("aivas.scanner.ssh_probe._run", return_value=""):
+        results = _get_ssh_hardening(MagicMock(), "10.0.0.1")
+    assert results == []
+
+
+def test_hardening_comments_ignored():
+    _sshd = "# PermitRootLogin yes\nPermitRootLogin no\n"
+    with patch("aivas.scanner.ssh_probe._run", return_value=_sshd):
+        results = _get_ssh_hardening(MagicMock(), "10.0.0.1")
+    assert results == []
+
+
+def test_hardening_result_shape():
+    _sshd = "PermitRootLogin yes\n"
+    with patch("aivas.scanner.ssh_probe._run", return_value=_sshd):
+        results = _get_ssh_hardening(MagicMock(), "192.168.0.5")
+    assert len(results) == 1
+    r = results[0]
+    assert r["host"] == "192.168.0.5"
+    assert r["type"] == "ssh_hardening"
+    assert "title" in r
+    assert "severity" in r
+    assert "description" in r
+    assert "recommendation" in r
+
+
+def test_hardening_x11_flagged():
+    _sshd = "X11Forwarding yes\n"
+    with patch("aivas.scanner.ssh_probe._run", return_value=_sshd):
+        results = _get_ssh_hardening(MagicMock(), "10.0.0.1")
+    assert any("X11" in r["title"] for r in results)
+    assert any(r["severity"] == "LOW" for r in results)
+
+
+def test_hardening_use_pam_disabled_flagged():
+    _sshd = "UsePAM no\n"
+    with patch("aivas.scanner.ssh_probe._run", return_value=_sshd):
+        results = _get_ssh_hardening(MagicMock(), "10.0.0.1")
+    assert any("PAM" in r["title"] for r in results)
