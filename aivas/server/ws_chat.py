@@ -80,7 +80,7 @@ async def chat_ws(
             ):
                 if event["type"] == "scan_triggered":
                     scan_key = str(uuid.uuid4())
-                    _main._pending[scan_key] = (event["target"], event["level"])
+                    _main._pending[scan_key] = (event["target"], event["level"], event.get("creds"))
                     await websocket.send_json({**event, "scan_key": scan_key})
                 elif event["type"] == "done":
                     for turn in event.get("turns", []):

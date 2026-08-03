@@ -26,7 +26,7 @@ from aivas.server.chat_memory import (
 )
 from aivas.server.ws_chat import router as _ws_router
 
-_pending: dict[str, tuple[str, int]] = {}
+_pending: dict[str, tuple] = {}
 _conn: sqlite3.Connection | None = None
 
 _DIST = Path(__file__).parent.parent.parent / "frontend" / "dist"
@@ -133,6 +133,7 @@ class AnalyzeRequest(BaseModel):
 class ScanRequest(BaseModel):
     target: str
     level: int = 2
+    creds: dict | None = None
 
 
 @app.post("/api/analyze/{scan_id}")
@@ -193,8 +194,43 @@ async def delete_session_route(session_id: str):
 @app.post("/api/scan")
 async def start_scan(body: ScanRequest):
     scan_key = str(uuid.uuid4())
-    _pending[scan_key] = (body.target, body.level)
+    _pending[scan_key] = (body.target, body.level, body.creds)
     return {"scan_key": scan_key}
+
+
+class ProbeTestRequest(BaseModel):
+    method: str
+    host: str
+    username: str
+    password: str = ""
+    port: int = 22
+    key_path: str | None = None
+
+
+@app.post("/api/probe/test")
+async def probe_test(body: ProbeTestRequest):
+    """Test SSH or WinRM credentials without running a scan."""
+    from aivas.scanner.probe_errors import CredentialError, ProbeError
+    from aivas.scanner.probe_errors import ConnectionError as ProbeConnectionError
+    try:
+        if body.method == "ssh":
+            from aivas.scanner.ssh_probe import probe_async
+            await probe_async(
+                host=body.host, username=body.username,
+                password=body.password or None, key_path=body.key_path,
+                port=body.port, timeout=10,
+            )
+        else:
+            from aivas.scanner.winrm_probe import probe_async
+            await probe_async(
+                host=body.host, username=body.username,
+                password=body.password, port=body.port, timeout=10,
+            )
+        return {"ok": True}
+    except (CredentialError, ProbeConnectionError, ProbeError) as exc:
+        return {"ok": False, "error": str(exc)}
+    except Exception as exc:
+        return {"ok": False, "error": f"Test failed: {exc}"}
 
 
 @app.websocket("/ws/scan/{scan_key}")
@@ -205,10 +241,12 @@ async def scan_ws(websocket: WebSocket, scan_key: str):
         await websocket.send_json({"type": "error", "text": "Unknown scan key."})
         await websocket.close()
         return
-    target, level = entry
-    _log.info("Scan started: %s (level %d)", target, level)
+    target = entry[0]
+    level = entry[1]
+    creds = entry[2] if len(entry) > 2 else None
+    _log.info("Scan started: %s (level %d, creds=%s)", target, level, bool(creds))
     from aivas.server.scan_worker import run_scan
-    scan_gen = run_scan(_conn, target, level)
+    scan_gen = run_scan(_conn, target, level, creds=creds)
 
     async def _stream():
         async for event in scan_gen:
