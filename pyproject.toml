@@ -43,6 +43,7 @@ dependencies = [
     "weasyprint>=60.0",
     "packaging>=23.0",
     "paramiko>=3.0",
+    "pywinrm>=0.4.3",
     "nvdlib>=0.7",
     "textual>=0.80",
     "pyyaml>=6.0",
