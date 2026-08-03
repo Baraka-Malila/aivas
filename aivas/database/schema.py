@@ -232,3 +232,9 @@ def create_schema(conn: sqlite3.Connection) -> None:
         conn.commit()
     except Exception:
         pass
+    # Migration: add misconfigs JSON column to scans
+    try:
+        conn.execute("ALTER TABLE scans ADD COLUMN misconfigs TEXT DEFAULT '[]'")
+        conn.commit()
+    except Exception:
+        pass

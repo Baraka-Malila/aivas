@@ -224,14 +224,14 @@ export default function ScanCard({ scanData, onSend, onAnalysis }) {
           Remediation Plan
         </button>
         <a
-          href={`/api/report/${scan_id}`}
+          href={`/api/report/${scan_id}/pdf`}
           target="_blank"
           rel="noopener noreferrer"
           style={{ ...MONO, fontSize: 11, color: '#555', textDecoration: 'none', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5 }}
           onMouseEnter={e => e.currentTarget.style.color = '#888'}
           onMouseLeave={e => e.currentTarget.style.color = '#555'}
         >
-          Full Report <ExternalLink size={10} />
+          PDF Report <ExternalLink size={10} />
         </a>
       </div>
     </div>

@@ -270,7 +270,7 @@ async def run_scan(
         scored = score_findings(findings)
         grade, score = scored["grade"], scored["score"]
         yield _emit(_ev("grade", f"Risk score: {score}/100 — Grade {grade}"))
-        scan_id = save_scan(conn, target, findings, user_id=user_id)
+        scan_id = save_scan(conn, target, findings, user_id=user_id, misconfigs=all_misconfigs)
         _done = True
         yield {
             "type": "done",
@@ -321,7 +321,7 @@ def _save_partial(
             row = conn.execute("SELECT kev FROM cves WHERE cve_id=?", (f["cve_id"],)).fetchone()
             f["kev"] = bool(row and row["kev"])
     scored = score_findings(partial)
-    scan_id = save_scan(conn, target, partial, user_id=user_id)
+    scan_id = save_scan(conn, target, partial, user_id=user_id, misconfigs=all_misconfigs)
     _log.info("Partial scan saved: scan_id=%d findings=%d", scan_id, len(partial))
     if out is not None:
         out.update({

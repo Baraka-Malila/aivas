@@ -75,7 +75,7 @@ async def health():
 async def stats():
     cve_count = _conn.execute("SELECT COUNT(*) FROM cves").fetchone()[0]
     kev_count = _conn.execute("SELECT COUNT(*) FROM cves WHERE kev=1").fetchone()[0]
-    last_sync_row = _conn.execute("SELECT MAX(last_modified_date) FROM cves").fetchone()
+    last_sync_row = _conn.execute("SELECT MAX(last_modified) FROM cves").fetchone()
     last_sync = (last_sync_row[0] or "")[:10] if last_sync_row and last_sync_row[0] else None
     return {
         "cve_count": cve_count,
@@ -149,6 +149,14 @@ async def delete_scan(scan_id: int):
     _conn.execute("DELETE FROM scans WHERE id = ?", (scan_id,))
     _conn.commit()
     return {"deleted": scan_id}
+
+
+@app.get("/api/logo.png")
+async def get_logo():
+    logo_path = Path(__file__).parent.parent.parent / "frontend" / "src" / "assets" / "logo.png"
+    if logo_path.exists():
+        return FileResponse(str(logo_path), media_type="image/png")
+    raise HTTPException(status_code=404, detail="Logo not found")
 
 
 @app.get("/api/report/{scan_id}")

@@ -1,3 +1,4 @@
+import json
 import sqlite3
 from datetime import datetime, timezone
 from aivas.scorer import score_findings
@@ -9,6 +10,7 @@ def save_scan(
     findings: list[dict],
     report_path: str | None = None,
     user_id: int | None = None,
+    misconfigs: list[dict] | None = None,
 ) -> int:
     now = datetime.now(timezone.utc).isoformat()
     scored = score_findings(findings)
@@ -17,13 +19,14 @@ def save_scan(
     date_str = datetime.now(timezone.utc).strftime("%b %d")
     grade = scored["grade"]
     auto_label = f"{target} — Grade {grade} — {date_str}"
+    mc_json = json.dumps(misconfigs or [])
     cur = conn.execute(
         """INSERT INTO scans
                (target, label, started_at, finished_at, host_count, finding_count,
-                risk_score, grade, report_path, user_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                risk_score, grade, report_path, user_id, misconfigs)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (target, auto_label, now, now, len(hosts), len(findings),
-         scored["score"], f"Grade {scored['grade']}", report_path, user_id),
+         scored["score"], f"Grade {scored['grade']}", report_path, user_id, mc_json),
     )
     scan_id = cur.lastrowid
 
@@ -106,10 +109,17 @@ def diff_scans(conn: sqlite3.Connection, old_id: int, new_id: int) -> dict[str, 
 
 def get_scan_meta(conn: sqlite3.Connection, scan_id: int) -> dict | None:
     row = conn.execute(
-        "SELECT id, target, started_at, finished_at, finding_count, risk_score, grade "
+        "SELECT id, target, started_at, finished_at, finding_count, risk_score, grade, misconfigs "
         "FROM scans WHERE id = ?", (scan_id,)
     ).fetchone()
-    return dict(row) if row else None
+    if not row:
+        return None
+    d = dict(row)
+    try:
+        d["misconfigs"] = json.loads(d.get("misconfigs") or "[]")
+    except (ValueError, TypeError):
+        d["misconfigs"] = []
+    return d
 
 
 def get_scan_findings(conn: sqlite3.Connection, scan_id: int) -> list[dict]:
