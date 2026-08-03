@@ -233,6 +233,51 @@ async def probe_test(body: ProbeTestRequest):
         return {"ok": False, "error": f"Test failed: {exc}"}
 
 
+class RemoteTargetRequest(BaseModel):
+    label: str
+    host: str
+    method: str = "ssh"
+    username: str
+    password: str | None = None
+    port: int | None = None
+    key_path: str | None = None
+
+
+@app.get("/api/remote-targets")
+async def list_remote_targets():
+    rows = _conn.execute(
+        "SELECT id, label, host, method, username, password, port, key_path, created_at "
+        "FROM remote_targets ORDER BY id DESC"
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+@app.post("/api/remote-targets")
+async def create_remote_target(body: RemoteTargetRequest):
+    cur = _conn.execute(
+        "INSERT INTO remote_targets (label, host, method, username, password, port, key_path) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (body.label, body.host, body.method, body.username, body.password, body.port, body.key_path),
+    )
+    _conn.commit()
+    row = _conn.execute(
+        "SELECT id, label, host, method, username, password, port, key_path, created_at "
+        "FROM remote_targets WHERE id = ?", (cur.lastrowid,)
+    ).fetchone()
+    return dict(row)
+
+
+@app.delete("/api/remote-targets/{target_id}")
+async def delete_remote_target(target_id: int):
+    changes = _conn.execute(
+        "DELETE FROM remote_targets WHERE id = ?", (target_id,)
+    ).rowcount
+    _conn.commit()
+    if not changes:
+        raise HTTPException(status_code=404, detail="Target not found")
+    return {"deleted": target_id}
+
+
 @app.websocket("/ws/scan/{scan_key}")
 async def scan_ws(websocket: WebSocket, scan_key: str):
     await websocket.accept()

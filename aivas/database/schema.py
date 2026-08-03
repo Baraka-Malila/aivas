@@ -118,6 +118,18 @@ def create_schema(conn: sqlite3.Connection) -> None:
             model       TEXT NOT NULL,
             created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS remote_targets (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            label       TEXT NOT NULL,
+            host        TEXT NOT NULL,
+            method      TEXT NOT NULL DEFAULT 'ssh',
+            username    TEXT NOT NULL,
+            password    TEXT,
+            port        INTEGER,
+            key_path    TEXT,
+            created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
     """)
     conn.commit()
     # Migration: add kev column if DB predates this sprint
@@ -126,3 +138,21 @@ def create_schema(conn: sqlite3.Connection) -> None:
         conn.commit()
     except Exception:
         pass  # column already exists
+    # Migration: add remote_targets table if DB predates this sprint
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS remote_targets (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                label       TEXT NOT NULL,
+                host        TEXT NOT NULL,
+                method      TEXT NOT NULL DEFAULT 'ssh',
+                username    TEXT NOT NULL,
+                password    TEXT,
+                port        INTEGER,
+                key_path    TEXT,
+                created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.commit()
+    except Exception:
+        pass

@@ -12,6 +12,8 @@ const MODEL_DEFAULTS = {
 beforeEach(() => {
   localStorage.clear()
   vi.restoreAllMocks()
+  // remote-targets API — return empty list so tests don't need a real server
+  global.fetch = vi.fn().mockResolvedValue({ json: () => Promise.resolve([]) })
 })
 
 describe('SettingsModal', () => {

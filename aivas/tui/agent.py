@@ -56,6 +56,16 @@ async def _exec_tool(
             ),
         }), (target, level)
 
+    if name == "list_saved_targets":
+        rows = conn.execute(
+            "SELECT id, label, host, method, username, password, port, key_path "
+            "FROM remote_targets ORDER BY id DESC"
+        ).fetchall()
+        targets = [dict(r) for r in rows]
+        if not targets:
+            return json.dumps({"targets": [], "note": "No saved targets found. User can add them in Settings."}), None
+        return json.dumps({"targets": targets}), None
+
     if name == "remote_scan":
         target = _as_str(args.get("target"))
         method = _as_str(args.get("method")) or "ssh"

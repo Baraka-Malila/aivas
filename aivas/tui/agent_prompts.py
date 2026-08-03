@@ -25,6 +25,7 @@ Tools available:
 - explain_cve: look up a CVE in the local vulnerability database.
 - query_shodan: get threat intelligence for an IP from Shodan.
 - remote_scan: scan a remote host using SSH credentials (Linux) or WinRM (Windows) to enumerate installed packages and services from inside the machine. More accurate than a port scan — finds vulnerabilities in software not listening on any port.
+- list_saved_targets: list remote targets the user has saved in AIVAS settings (name, host, method, username). Call this when the user asks to scan a saved device by name, or when they ask "scan my Kali machine" or "scan the server I saved" without providing an IP.
 
 Rules:
 - Never fabricate CVE details. Only cite CVEs returned by tools in this session.
@@ -121,6 +122,16 @@ TOOLS = [
         "parameters": {"type": "object", "required": ["target"], "properties": {
             "target": {"type": "string", "description": "CIDR range e.g. 10.88.91.0/24"},
         }},
+    }},
+    {"type": "function", "function": {
+        "name": "list_saved_targets",
+        "description": (
+            "List remote targets the user has saved in AIVAS settings. "
+            "Call this when the user asks to scan a saved device by name, "
+            "or says 'scan my Kali machine', 'scan the saved server', etc. "
+            "Returns id, label, host, method, username, port for each saved target."
+        ),
+        "parameters": {"type": "object", "properties": {}},
     }},
     {"type": "function", "function": {
         "name": "remote_scan",

@@ -27,7 +27,7 @@ export default function SettingsModal({ open, onClose, onScan }) {
   const [model,     setModel]     = useState(MODEL_DEFAULTS.groq)
 
   const [remoteTargets, setRemoteTargets] = useState([])
-  const [newTarget, setNewTarget] = useState({ host: '', method: 'ssh', username: '', password: '', port: 22 })
+  const [newTarget, setNewTarget] = useState({ label: '', host: '', method: 'ssh', username: '', password: '', port: 22 })
   const [testResult, setTestResult] = useState(null)
   const [testing, setTesting] = useState(false)
 
@@ -39,8 +39,11 @@ export default function SettingsModal({ open, onClose, onScan }) {
     const p = localStorage.getItem('aivas_provider') || 'groq'
     setProvider(p)
     setModel(localStorage.getItem('aivas_model') || MODEL_DEFAULTS[p] || MODEL_DEFAULTS.groq)
-    setRemoteTargets(JSON.parse(localStorage.getItem('aivas_remote_targets') || '[]'))
     setTestResult(null)
+    fetch('/api/remote-targets')
+      .then(r => r.json())
+      .then(setRemoteTargets)
+      .catch(() => {})
   }, [open])
 
   useEffect(() => {
@@ -68,19 +71,29 @@ export default function SettingsModal({ open, onClose, onScan }) {
     onClose()
   }
 
-  const saveTarget = () => {
+  const saveTarget = async () => {
     if (!newTarget.host || !newTarget.username) return
-    const updated = [...remoteTargets, { ...newTarget }]
-    setRemoteTargets(updated)
-    localStorage.setItem('aivas_remote_targets', JSON.stringify(updated))
-    setNewTarget({ host: '', method: 'ssh', username: '', password: '', port: 22 })
-    setTestResult(null)
+    const label = newTarget.label || `${newTarget.username}@${newTarget.host}`
+    try {
+      const resp = await fetch('/api/remote-targets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...newTarget, label }),
+      })
+      if (resp.ok) {
+        const saved = await resp.json()
+        setRemoteTargets(prev => [saved, ...prev])
+        setNewTarget({ label: '', host: '', method: 'ssh', username: '', password: '', port: 22 })
+        setTestResult(null)
+      }
+    } catch { /* silent */ }
   }
 
-  const deleteTarget = (i) => {
-    const updated = remoteTargets.filter((_, idx) => idx !== i)
-    setRemoteTargets(updated)
-    localStorage.setItem('aivas_remote_targets', JSON.stringify(updated))
+  const deleteTarget = async (id) => {
+    try {
+      await fetch(`/api/remote-targets/${id}`, { method: 'DELETE' })
+      setRemoteTargets(prev => prev.filter(t => t.id !== id))
+    } catch { /* silent */ }
   }
 
   const testConnection = async () => {
@@ -194,11 +207,14 @@ export default function SettingsModal({ open, onClose, onScan }) {
         <div className="mb-4">
           <label style={{ color: '#666' }} className="text-xs block mb-2">Remote Targets (SSH / WinRM)</label>
 
-          {remoteTargets.map((t, i) => (
-            <div key={i} style={{ background: '#161616', border: '1px solid #1e1e1e', borderRadius: 4 }}
+          {remoteTargets.map((t) => (
+            <div key={t.id} style={{ background: '#161616', border: '1px solid #1e1e1e', borderRadius: 4 }}
                  className="flex items-center gap-2 px-3 py-2 mb-1.5 text-xs">
-              <span style={{ color: '#4a9eff', fontFamily: 'monospace' }}>{t.method.toUpperCase()}</span>
-              <span style={{ color: '#e0e0e0' }}>{t.username}@{t.host}:{t.port}</span>
+              <span style={{ color: '#4a9eff', fontFamily: 'monospace' }}>{(t.method || 'ssh').toUpperCase()}</span>
+              <div className="flex flex-col min-w-0">
+                <span style={{ color: '#e0e0e0' }}>{t.label || `${t.username}@${t.host}`}</span>
+                <span style={{ color: '#555' }}>{t.username}@{t.host}:{t.port}</span>
+              </div>
               <div className="ml-auto flex gap-3">
                 {onScan && (
                   <button
@@ -207,12 +223,22 @@ export default function SettingsModal({ open, onClose, onScan }) {
                     Scan
                   </button>
                 )}
-                <button onClick={() => deleteTarget(i)} style={{ color: '#555' }} className="hover:text-red-400 transition-colors">✕</button>
+                <button onClick={() => deleteTarget(t.id)} style={{ color: '#555' }} className="hover:text-red-400 transition-colors">✕</button>
               </div>
             </div>
           ))}
 
           <div style={{ border: '1px solid #1e1e1e', borderRadius: 4 }} className="p-2.5 mt-2">
+            <div className="mb-2">
+              <input
+                type="text"
+                placeholder="Label (e.g. Kali Lab)"
+                value={newTarget.label}
+                onChange={e => setNewTarget(t => ({ ...t, label: e.target.value }))}
+                style={{ ...inputStyle, width: '100%' }}
+                className="rounded px-2 py-1.5 text-xs outline-none"
+              />
+            </div>
             <div className="flex gap-2 mb-2">
               <select
                 value={newTarget.method}
