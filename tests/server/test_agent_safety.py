@@ -87,7 +87,8 @@ def test_system_prompt_contains_language_mirror_instruction():
     from aivas.tui.agent import _SYSTEM
     text = _SYSTEM.lower()
     assert "language" in text
-    assert "same language" in text or "user wrote" in text or "user's language" in text
+    assert ("same language" in text or "user wrote" in text
+            or "user's language" in text or "user has written" in text)
 
 
 def test_system_prompt_protects_identifiers():

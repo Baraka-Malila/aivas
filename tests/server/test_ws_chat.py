@@ -28,7 +28,7 @@ def test_ws_chat_streams_tokens(client):
     """User sends a message → receives thinking, token(s), done."""
     sid = client.post("/api/sessions").json()["id"]
 
-    async def fake_stream(provider, history, text, conn, shodan_key=None):
+    async def fake_stream(provider, history, text, conn, shodan_key=None, lang="auto"):
         yield {"type": "thinking"}
         yield {"type": "token", "text": "Hello"}
         yield {"type": "token", "text": " back"}
@@ -53,7 +53,7 @@ def test_ws_chat_scan_triggered_registers_key(client):
     """scan_triggered event gets a scan_key registered in _pending."""
     sid = client.post("/api/sessions").json()["id"]
 
-    async def fake_stream(provider, history, text, conn, shodan_key=None):
+    async def fake_stream(provider, history, text, conn, shodan_key=None, lang="auto"):
         yield {"type": "thinking"}
         yield {"type": "scan_triggered", "target": "10.0.0.1", "level": 2}
         yield {"type": "done", "full_text": "Scan started.", "turns": [
