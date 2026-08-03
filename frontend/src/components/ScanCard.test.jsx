@@ -21,7 +21,7 @@ const base = {
 
 describe('ScanCard', () => {
   it('displays grade F with red color', () => {
-    const { container } = render(<ScanCard scanData={base} onSend={vi.fn()} />)
+    const { container } = render(<ScanCard scanData={base} onSend={vi.fn()} onAnalysis={vi.fn()} />)
     const gradeEl = container.querySelector('[data-testid="grade-badge"]')
     expect(gradeEl).toBeTruthy()
     expect(gradeEl.textContent).toBe('F')
@@ -29,31 +29,31 @@ describe('ScanCard', () => {
   })
 
   it('auto-expands CRITICAL group when CRITICAL findings exist', () => {
-    render(<ScanCard scanData={base} onSend={vi.fn()} />)
+    render(<ScanCard scanData={base} onSend={vi.fn()} onAnalysis={vi.fn()} />)
     expect(screen.getByTestId('cve-row-CVE-2021-44228')).toBeTruthy()
     expect(screen.getByTestId('cve-row-CVE-2022-0778')).toBeTruthy()
   })
 
   it('collapses HIGH group by default', () => {
-    render(<ScanCard scanData={base} onSend={vi.fn()} />)
+    render(<ScanCard scanData={base} onSend={vi.fn()} onAnalysis={vi.fn()} />)
     expect(screen.queryByTestId('cve-row-CVE-2023-0001')).toBeNull()
   })
 
   it('expands HIGH group when header is clicked', () => {
-    render(<ScanCard scanData={base} onSend={vi.fn()} />)
+    render(<ScanCard scanData={base} onSend={vi.fn()} onAnalysis={vi.fn()} />)
     fireEvent.click(screen.getByTestId('group-header-HIGH'))
     expect(screen.getByTestId('cve-row-CVE-2023-0001')).toBeTruthy()
     expect(screen.getByTestId('cve-row-CVE-2023-0002')).toBeTruthy()
   })
 
   it('collapses CRITICAL group when header clicked again', () => {
-    render(<ScanCard scanData={base} onSend={vi.fn()} />)
+    render(<ScanCard scanData={base} onSend={vi.fn()} onAnalysis={vi.fn()} />)
     fireEvent.click(screen.getByTestId('group-header-CRITICAL'))
     expect(screen.queryByTestId('cve-row-CVE-2021-44228')).toBeNull()
   })
 
   it('shows group headers for non-empty severity buckets', () => {
-    render(<ScanCard scanData={base} onSend={vi.fn()} />)
+    render(<ScanCard scanData={base} onSend={vi.fn()} onAnalysis={vi.fn()} />)
     expect(screen.getByTestId('group-header-CRITICAL')).toBeTruthy()
     expect(screen.getByTestId('group-header-HIGH')).toBeTruthy()
     expect(screen.getByTestId('group-header-MEDIUM')).toBeTruthy()
@@ -61,57 +61,43 @@ describe('ScanCard', () => {
   })
 
   it('shows KEV badge only for KEV findings', () => {
-    render(<ScanCard scanData={base} onSend={vi.fn()} />)
+    render(<ScanCard scanData={base} onSend={vi.fn()} onAnalysis={vi.fn()} />)
     const kevBadges = screen.getAllByText('⚠ KEV')
     expect(kevBadges).toHaveLength(1)
   })
 
   it('ask icon sends explain prompt for that CVE', () => {
     const onSend = vi.fn()
-    render(<ScanCard scanData={base} onSend={onSend} />)
+    render(<ScanCard scanData={base} onSend={onSend} onAnalysis={vi.fn()} />)
     fireEvent.click(screen.getByTestId('ask-CVE-2021-44228'))
     expect(onSend).toHaveBeenCalledWith(
       expect.stringContaining('Explain CVE-2021-44228 from scan 42')
     )
   })
 
-  it('Risk Summary button opens inline analysis panel', () => {
-    global.fetch = vi.fn(() => new Promise(() => {})) // never resolves — just test UI opens
-    render(<ScanCard scanData={base} onSend={vi.fn()} />)
-    expect(screen.queryByTestId('close-analysis')).toBeNull()
+  it('Risk Summary button calls onAnalysis with risk_summary type', () => {
+    const onAnalysis = vi.fn()
+    render(<ScanCard scanData={base} onSend={vi.fn()} onAnalysis={onAnalysis} />)
     fireEvent.click(screen.getByText('Risk Summary'))
-    expect(screen.getByTestId('close-analysis')).toBeTruthy()
-    delete global.fetch
+    expect(onAnalysis).toHaveBeenCalledWith('risk_summary', 42)
   })
 
-  it('What to do button opens inline analysis panel', () => {
-    global.fetch = vi.fn(() => new Promise(() => {}))
-    render(<ScanCard scanData={base} onSend={vi.fn()} />)
-    expect(screen.queryByTestId('close-analysis')).toBeNull()
+  it('What to do button calls onAnalysis with remediation type', () => {
+    const onAnalysis = vi.fn()
+    render(<ScanCard scanData={base} onSend={vi.fn()} onAnalysis={onAnalysis} />)
     fireEvent.click(screen.getByText('What to do'))
-    expect(screen.getByTestId('close-analysis')).toBeTruthy()
-    delete global.fetch
-  })
-
-  it('analysis panel can be dismissed', () => {
-    global.fetch = vi.fn(() => new Promise(() => {}))
-    render(<ScanCard scanData={base} onSend={vi.fn()} />)
-    fireEvent.click(screen.getByText('Risk Summary'))
-    expect(screen.getByTestId('close-analysis')).toBeTruthy()
-    fireEvent.click(screen.getByTestId('close-analysis'))
-    expect(screen.queryByTestId('close-analysis')).toBeNull()
-    delete global.fetch
+    expect(onAnalysis).toHaveBeenCalledWith('remediation', 42)
   })
 
   it('Rescan button sends rescan prompt', () => {
     const onSend = vi.fn()
-    render(<ScanCard scanData={base} onSend={onSend} />)
+    render(<ScanCard scanData={base} onSend={onSend} onAnalysis={vi.fn()} />)
     fireEvent.click(screen.getByText('Rescan'))
     expect(onSend).toHaveBeenCalledWith('Scan 192.168.1.1 again')
   })
 
   it('has Fix Script download link', () => {
-    const { container } = render(<ScanCard scanData={base} onSend={vi.fn()} />)
+    const { container } = render(<ScanCard scanData={base} onSend={vi.fn()} onAnalysis={vi.fn()} />)
     const link = container.querySelector('a[href="/api/report/42/fix.sh"]')
     expect(link).toBeTruthy()
   })
@@ -121,6 +107,7 @@ describe('ScanCard', () => {
       <ScanCard
         scanData={{ ...base, log: ['PORT SCANNING', 'Found 3 ports'] }}
         onSend={vi.fn()}
+        onAnalysis={vi.fn()}
       />
     )
     expect(container.textContent).toContain('Scan Log')
@@ -131,6 +118,7 @@ describe('ScanCard', () => {
       <ScanCard
         scanData={{ ...base, log: ['CVE LOOKUP', 'Found 2 CVEs'] }}
         onSend={vi.fn()}
+        onAnalysis={vi.fn()}
       />
     )
     const details = container.querySelector('details')
@@ -141,13 +129,13 @@ describe('ScanCard', () => {
 
   it('does not render Scan Log when log is empty or absent', () => {
     const { container } = render(
-      <ScanCard scanData={{ ...base }} onSend={vi.fn()} />
+      <ScanCard scanData={{ ...base }} onSend={vi.fn()} onAnalysis={vi.fn()} />
     )
     expect(container.textContent).not.toContain('Scan Log')
   })
 
   it('shows no-vulnerabilities message when findings is empty', () => {
-    render(<ScanCard scanData={{ ...base, findings: [] }} onSend={vi.fn()} />)
+    render(<ScanCard scanData={{ ...base, findings: [] }} onSend={vi.fn()} onAnalysis={vi.fn()} />)
     expect(screen.getByText('No vulnerabilities found')).toBeTruthy()
   })
 })

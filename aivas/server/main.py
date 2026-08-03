@@ -146,7 +146,7 @@ async def analyze(scan_id: int, body: AnalyzeRequest):
         ):
             yield chunk
 
-    return StreamingResponse(_gen(), media_type="text/plain; charset=utf-8")
+    return StreamingResponse(_gen(), media_type="application/x-ndjson")
 
 
 @app.post("/api/chat")

@@ -1,17 +1,11 @@
-import { useState, useCallback } from 'react'
-import { ExternalLink, ChevronRight, ChevronDown, MessageSquare, X } from 'lucide-react'
-import { mdToHtml } from '../lib/mdToHtml'
+import { useState } from 'react'
+import { ExternalLink, ChevronRight, ChevronDown, MessageSquare } from 'lucide-react'
 
 const GRADE_COLOR = { A: '#66bb6a', B: '#aed581', C: '#fdd835', D: '#ff7043', F: '#ef5350' }
 const SEV_TEXT    = { CRITICAL: '#ef5350', HIGH: '#ff7043', MEDIUM: '#fdd835', LOW: '#66bb6a' }
 const SEV_ORDER   = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
 
-const ANALYSIS_TITLES = {
-  risk_summary: 'Risk Summary',
-  remediation:  'Remediation Plan',
-}
-
-export default function ScanCard({ scanData, onSend }) {
+export default function ScanCard({ scanData, onSend, onAnalysis }) {
   const { scan_id, target, grade, service_count, findings = [], log } = scanData
 
   const hasCritical = findings.some(f => (f.cvss_severity || '').toUpperCase() === 'CRITICAL')
@@ -22,43 +16,6 @@ export default function ScanCard({ scanData, onSend }) {
     LOW: false,
   })
   const toggleGroup = (sev) => setExpanded(e => ({ ...e, [sev]: !e[sev] }))
-
-  const [analysis, setAnalysis] = useState({ type: null, text: '', streaming: false, error: null })
-
-  const runAnalysis = useCallback(async (type) => {
-    const provider = localStorage.getItem('aivas_provider') || 'groq'
-    const model    = localStorage.getItem('aivas_model')    || undefined
-    const apiKey   = localStorage.getItem('aivas_api_key')  || undefined
-    const lang     = localStorage.getItem('aivas_lang')     || 'auto'
-
-    setAnalysis({ type, text: '', streaming: true, error: null })
-
-    try {
-      const resp = await fetch(`/api/analyze/${scan_id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, provider, model, api_key: apiKey, lang }),
-      })
-      if (!resp.ok) {
-        setAnalysis({ type, text: '', streaming: false, error: `Request failed (${resp.status})` })
-        return
-      }
-      const reader  = resp.body.getReader()
-      const decoder = new TextDecoder()
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        setAnalysis(prev => ({ ...prev, text: prev.text + decoder.decode(value, { stream: true }) }))
-      }
-      setAnalysis(prev => ({ ...prev, streaming: false }))
-    } catch (err) {
-      setAnalysis({ type, text: '', streaming: false, error: err.message })
-    }
-  }, [scan_id])
-
-  const closeAnalysis = useCallback(() => {
-    setAnalysis({ type: null, text: '', streaming: false, error: null })
-  }, [])
 
   const grouped = SEV_ORDER.reduce((acc, sev) => {
     acc[sev] = findings
@@ -172,14 +129,14 @@ export default function ScanCard({ scanData, onSend }) {
       {/* Action buttons */}
       <div className="flex flex-wrap items-center gap-2 px-3 py-2.5">
         <button
-          onClick={() => runAnalysis('risk_summary')}
+          onClick={() => onAnalysis('risk_summary', scan_id)}
           style={{ background: '#0d1929', border: '1px solid #1a2d45', color: '#4a9eff' }}
           className="text-xs px-3 py-1.5 rounded hover:opacity-80 transition-opacity"
         >
           Risk Summary
         </button>
         <button
-          onClick={() => runAnalysis('remediation')}
+          onClick={() => onAnalysis('remediation', scan_id)}
           style={{ background: '#161616', border: '1px solid #1e1e1e', color: '#e0e0e0' }}
           className="text-xs px-3 py-1.5 rounded hover:opacity-80 transition-opacity"
         >
@@ -212,43 +169,6 @@ export default function ScanCard({ scanData, onSend }) {
           </a>
         </div>
       </div>
-
-      {/* Inline analysis panel */}
-      {analysis.type && (
-        <div style={{ borderTop: '1px solid #1e1e1e', background: '#0d0d0d' }}>
-          <div
-            className="flex items-center justify-between px-3 py-1.5"
-            style={{ borderBottom: '1px solid #161616' }}
-          >
-            <span style={{ color: '#777', fontSize: 11, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-              {ANALYSIS_TITLES[analysis.type]}
-            </span>
-            <button
-              data-testid="close-analysis"
-              onClick={closeAnalysis}
-              style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', color: '#444', lineHeight: 1 }}
-              className="hover:text-white transition-colors"
-            >
-              <X size={12} />
-            </button>
-          </div>
-          <div
-            className="px-3 py-3"
-            style={{ maxHeight: 340, overflowY: 'auto' }}
-          >
-            {analysis.error ? (
-              <p style={{ color: '#ef5350', fontSize: 12 }}>{analysis.error}</p>
-            ) : (
-              <div
-                style={{ color: '#bbb', fontSize: 12, lineHeight: 1.75 }}
-                dangerouslySetInnerHTML={{
-                  __html: mdToHtml(analysis.text) + (analysis.streaming ? '<span class="cursor-blink">▋</span>' : '')
-                }}
-              />
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Scan Log */}
       {log && log.length > 0 && (

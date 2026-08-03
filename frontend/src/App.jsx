@@ -193,6 +193,58 @@ export default function App() {
     send(text)
   }, [send])
 
+  const handleAnalysis = useCallback(async (type, scanId) => {
+    const msgId = uid()
+    dispatch({ type: 'APPEND', msg: { id: msgId, type: 'ai', text: '', streaming: true } })
+
+    const provider = localStorage.getItem('aivas_provider') || 'groq'
+    const model    = localStorage.getItem('aivas_model')    || undefined
+    const apiKey   = localStorage.getItem('aivas_api_key')  || undefined
+    const lang     = localStorage.getItem('aivas_lang')     || 'auto'
+
+    let accText = ''
+    try {
+      const resp = await fetch(`/api/analyze/${scanId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, provider, model, api_key: apiKey, lang }),
+      })
+      if (!resp.ok) {
+        dispatch({ type: 'ERROR_MESSAGE', id: msgId, text: `Analysis request failed (${resp.status})` })
+        return
+      }
+      const reader  = resp.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop()
+        for (const line of lines) {
+          if (!line.trim()) continue
+          try {
+            const ev = JSON.parse(line)
+            if (ev.type === 'tool_call') {
+              dispatch({ type: 'TOOL_CALL', id: msgId, name: ev.name, args: ev.args })
+            } else if (ev.type === 'tool_result') {
+              dispatch({ type: 'TOOL_RESULT', id: msgId, name: ev.name, summary: ev.summary })
+            } else if (ev.type === 'token') {
+              accText += ev.text
+              dispatch({ type: 'UPDATE_TEXT', id: msgId, text: accText })
+            } else if (ev.type === 'error') {
+              dispatch({ type: 'ERROR_MESSAGE', id: msgId, text: ev.text })
+            }
+          } catch (_) {}
+        }
+      }
+    } catch (err) {
+      dispatch({ type: 'ERROR_MESSAGE', id: msgId, text: `Analysis error: ${err.message}` })
+    }
+    dispatch({ type: 'SET_STREAMING', id: msgId, streaming: false })
+  }, [dispatch])
+
   const handleSelectSession = useCallback(async (id) => {
     thinkingIdRef.current = null
     scanningIdRef.current = null
@@ -226,7 +278,7 @@ export default function App() {
         onHistory={() => { setDrawerOpen(true); refreshSessions() }}
         onSettings={() => setSettingsOpen(true)}
       />
-      <ChatArea messages={messages} onSend={handleSend} onStopScan={stopScan} />
+      <ChatArea messages={messages} onSend={handleSend} onAnalysis={handleAnalysis} onStopScan={stopScan} />
       <ChatInput onSend={handleSend} disabled={chatStatus !== 'open'} />
       <SessionDrawer
         open={drawerOpen}
