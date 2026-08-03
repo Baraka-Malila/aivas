@@ -5,6 +5,7 @@ import ChatInput from './components/ChatInput'
 import SessionDrawer from './components/SessionDrawer'
 import SettingsModal from './components/SettingsModal'
 import LoginPage from './components/LoginPage'
+import AdminPanel from './components/AdminPanel'
 import { useAuth } from './hooks/useAuth'
 import { useChat } from './hooks/useChat'
 import { useScan } from './hooks/useScan'
@@ -25,6 +26,7 @@ function AuthenticatedApp({ user, token, logout }) {
   const [sessionId, setSessionId] = useState(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [adminOpen, setAdminOpen] = useState(false)
 
   const authHeaders = token ? { Authorization: `Bearer ${token}` } : {}
   const authFetch = (url, opts = {}) => fetch(url, {
@@ -312,6 +314,7 @@ function AuthenticatedApp({ user, token, logout }) {
       <Header
         onHistory={() => { setDrawerOpen(true); refreshSessions() }}
         onSettings={() => setSettingsOpen(true)}
+        onAdmin={() => setAdminOpen(true)}
         user={user}
         onLogout={logout}
       />
@@ -330,6 +333,11 @@ function AuthenticatedApp({ user, token, logout }) {
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         onScan={handleDirectScan}
+      />
+      <AdminPanel
+        open={adminOpen}
+        onClose={() => setAdminOpen(false)}
+        token={token}
       />
     </div>
   )

@@ -130,17 +130,30 @@ async def _show_findings(app: "AIVASApp", target: str, findings: list) -> None:
             app._scan_history = hist[-3:]
 
 async def _probe_misconfigs(app: "AIVASApp", services: list) -> list[dict]:
-    """Probe HTTP services for misconfigs, display results, return list."""
+    """Probe HTTP/TLS services for misconfigs + port-based checks; return list."""
+    from aivas.prober import probe_http_service
+    from aivas.scanner.tls_check import parse_tls_misconfigs
+    from aivas.scanner.misconfig_check import check_port_misconfigs
+
+    _HTTP_PORTS = {80, 443, 8080, 8443, 8000, 8888, 3000}
     misconfigs: list[dict] = []
     for svc in services:
         if (svc.get("service", "") in ("http", "https", "ssl")
-                or svc.get("port") in (80, 443, 8080, 8443)):
-            from aivas.prober import probe_http_service
+                or svc.get("port") in _HTTP_PORTS):
             _is_ssl = "ssl" in svc.get("service", "") or svc.get("port") in (443, 8443)
             _scheme = "https" if _is_ssl else "http"
-            _result = await asyncio.to_thread(
-                probe_http_service, svc["host"], svc["port"], _scheme)
-            misconfigs.extend(_result["findings"])
+            try:
+                _result = await asyncio.to_thread(
+                    probe_http_service, svc["host"], svc["port"], _scheme)
+                if _result.get("status") == "ok":
+                    for f in _result["findings"]:
+                        f["host"] = svc.get("host", "")
+                        f["port"] = svc.get("port")
+                    misconfigs.extend(_result["findings"])
+            except Exception:
+                pass
+    misconfigs.extend(parse_tls_misconfigs(services))
+    misconfigs.extend(check_port_misconfigs(services))
     if misconfigs:
         mc_table = misconfig_table("Configuration Issues", misconfigs)
         app.tui_print(mc_table)

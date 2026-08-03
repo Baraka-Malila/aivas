@@ -19,12 +19,12 @@ from .input_actions import InputActionsMixin
 from .kev_sync import _kev_needs_sync, run_kev_background
 
 _BANNER = (
-    "[bold cyan]   █████╗ ██╗██╗   ██╗ █████╗ ███████╗[/bold cyan]\n"
-    "[bold cyan]  ██╔══██╗██║██║   ██║██╔══██╗██╔════╝[/bold cyan]\n"
-    "[bold cyan]  ███████║██║██║   ██║███████║███████╗[/bold cyan]\n"
-    "[bold cyan]  ██╔══██║██║╚██╗ ██╔╝██╔══██║╚════██║[/bold cyan]\n"
-    "[bold cyan]  ██║  ██║██║ ╚████╔╝ ██║  ██║███████║[/bold cyan]\n"
-    "[bold cyan]  ╚═╝  ╚═╝╚═╝  ╚═══╝  ╚═╝  ╚═╝╚══════╝[/bold cyan]\n"
+    "[bold #4a9eff]   █████╗ ██╗██╗   ██╗ █████╗ ███████╗[/bold #4a9eff]\n"
+    "[bold #4a9eff]  ██╔══██╗██║██║   ██║██╔══██╗██╔════╝[/bold #4a9eff]\n"
+    "[bold #4a9eff]  ███████║██║██║   ██║███████║███████╗[/bold #4a9eff]\n"
+    "[bold #4a9eff]  ██╔══██║██║╚██╗ ██╔╝██╔══██║╚════██║[/bold #4a9eff]\n"
+    "[bold #4a9eff]  ██║  ██║██║ ╚████╔╝ ██║  ██║███████║[/bold #4a9eff]\n"
+    "[bold #4a9eff]  ╚═╝  ╚═╝╚═╝  ╚═══╝  ╚═╝  ╚═╝╚══════╝[/bold #4a9eff]\n"
     "[dim]  AI-Assisted Vulnerability Assessment System[/dim]\n"
     "[dim]  Type [bold]/help[/bold] for commands  "
     "·  [bold]/copy[/bold] → clipboard  "

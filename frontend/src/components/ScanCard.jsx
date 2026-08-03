@@ -59,7 +59,7 @@ export default function ScanCard({ scanData, onSend, onAnalysis }) {
       {partial && (
         <div style={{ background: '#2a1f00', borderBottom: '1px solid #4a3800', color: '#fdd835' }}
              className="px-3 py-2 text-xs flex items-center gap-2">
-          <span>⚠</span>
+          <span style={{ fontWeight: 600 }}>!</span>
           <span>Scan stopped early — results may be incomplete. Saved findings shown below.</span>
         </div>
       )}
@@ -111,8 +111,8 @@ export default function ScanCard({ scanData, onSend, onAnalysis }) {
                     <MessageSquare size={12} />
                   </button>
                   {f.kev && (
-                    <span style={{ color: '#ff7043', fontSize: 10, fontWeight: 700 }} className="shrink-0">
-                      ⚠ KEV
+                    <span style={{ color: '#ff7043', fontSize: 10, fontWeight: 700, background: '#ff704318', borderRadius: 3, padding: '1px 4px' }} className="shrink-0">
+                      KEV
                     </span>
                   )}
                   <span
@@ -144,7 +144,7 @@ export default function ScanCard({ scanData, onSend, onAnalysis }) {
             style={{ color: '#ff7043', cursor: 'pointer', userSelect: 'none' }}
             className="px-3 py-2 text-xs hover:opacity-80 transition-opacity flex items-center gap-1"
           >
-            ⚙ Configuration Issues ({misconfigs.length})
+            Configuration Issues ({misconfigs.length})
           </summary>
           <div>
             {misconfigs.map((mc, i) => (

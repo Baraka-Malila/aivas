@@ -53,7 +53,7 @@ export default function ToolCallPanel({ toolCalls, text }) {
             onClick={() => setExpandedRows(r => ({ ...r, [i]: !r[i] }))}
             style={{ cursor: 'pointer', color: 'rgba(200,200,200,0.6)', userSelect: 'none', marginTop: 3 }}
           >
-            <span>{tc.status === 'running' ? '⟳' : '✓'}</span>{' '}
+            <span style={{ fontFamily: 'monospace', fontSize: '0.65rem', opacity: 0.5 }}>{tc.status === 'running' ? 'RUN' : 'OK'}</span>{' '}
             <span style={{ fontFamily: 'monospace' }}>{tc.name}</span>
             {tc.summary && (
               <span style={{ color: 'rgba(200,200,200,0.35)', marginLeft: 8 }}>{tc.summary}</span>
@@ -71,7 +71,7 @@ export default function ToolCallPanel({ toolCalls, text }) {
             >
               {tc.summary && tc.summary !== 'done' && (
                 <div style={{ color: 'rgba(200,200,200,0.55)', marginBottom: 4 }}>
-                  → {tc.summary}
+                  {tc.summary}
                 </div>
               )}
               {tc.args && Object.keys(tc.args).length > 0
