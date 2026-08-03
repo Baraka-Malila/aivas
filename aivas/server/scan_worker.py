@@ -140,10 +140,24 @@ async def run_scan(
             yield _emit(_ev("phase_header", "HOST DISCOVERY"))
             yield _emit(_ev("discovery", f"Pinging {target} …"))
             live = await _ping_sweep(target)
+
+            # UDP mDNS/SSDP device enrichment — non-blocking, root-only
+            device_names: dict[str, str] = {}
+            if live:
+                try:
+                    from aivas.scanner.udp_discover import udp_device_info
+                    device_names = await asyncio.wait_for(
+                        udp_device_info(live), timeout=30
+                    )
+                except Exception:
+                    pass
+
             if live:
                 yield _emit(_ev("hosts_found", f"  ▸ {len(live)} live host(s) found:"))
                 for h in live:
-                    yield _emit(_ev("host_up", f"    · {h}"))
+                    name = device_names.get(h, "")
+                    label = f"    · {h}" + (f" — {name}" if name else "")
+                    yield _emit(_ev("host_up", label))
             else:
                 yield {
                     "type": "error",
