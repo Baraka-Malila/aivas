@@ -54,14 +54,14 @@ def save_scan(
 
 
 def list_scans(
-    conn: sqlite3.Connection, limit: int = 20, user_id: int | None = None
+    conn: sqlite3.Connection, limit: int = 20, offset: int = 0, user_id: int | None = None
 ) -> list[dict]:
     if user_id is not None:
         where = "WHERE s.user_id = ?"
-        params: tuple = (user_id, limit)
+        params: tuple = (user_id, limit, offset)
     else:
         where = ""
-        params = (limit,)
+        params = (limit, offset)
     rows = conn.execute(
         f"""
         SELECT s.id, s.target, s.label, s.started_at, s.finding_count, s.risk_score, s.grade,
@@ -80,7 +80,7 @@ def list_scans(
           FROM scans s
           {where}
          ORDER BY s.id DESC
-         LIMIT ?
+         LIMIT ? OFFSET ?
         """,
         params,
     ).fetchall()

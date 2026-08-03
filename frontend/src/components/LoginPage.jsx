@@ -88,7 +88,7 @@ export default function LoginPage({ onAuth }) {
       {/* Left brand panel */}
       <div
         style={{
-          width: 420,
+          width: 'clamp(360px, 36%, 520px)',
           flexShrink: 0,
           background: '#0d0d0d',
           borderRight: '1px solid #1e1e1e',

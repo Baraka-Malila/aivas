@@ -13,9 +13,9 @@ const LANGS = [
 ]
 
 const PROVIDERS = [
-  { value: 'groq',   label: 'Groq',   sub: 'online',       letter: 'G' },
-  { value: 'claude', label: 'Claude', sub: 'Anthropic',     letter: 'C' },
-  { value: 'ollama', label: 'Ollama', sub: 'local · no key',letter: 'O' },
+  { value: 'groq',   label: 'Groq',   sub: 'online',        icon: 'groq' },
+  { value: 'claude', label: 'Claude', sub: 'Anthropic',      icon: 'claude' },
+  { value: 'ollama', label: 'Ollama', sub: 'local · no key', icon: 'ollama' },
 ]
 
 const MODEL_DEFAULTS = {
@@ -223,9 +223,12 @@ export default function SettingsModal({ open, onClose, onScan, initialSection })
                           onMouseEnter={e => { if (!active) e.currentTarget.style.borderColor = '#3a3a3a' }}
                           onMouseLeave={e => { if (!active) e.currentTarget.style.borderColor = '#252525' }}
                         >
-                          <span style={{ ...MONO, fontSize: 14, fontWeight: 600, color: active ? '#e0e0e0' : '#888888', width: 18, textAlign: 'center' }}>
-                            {p.letter}
-                          </span>
+                          <img
+                            src={`https://cdn.simpleicons.org/${p.icon}/${active ? 'e0e0e0' : '666666'}`}
+                            alt={p.label}
+                            style={{ width: 18, height: 18, flexShrink: 0 }}
+                            onError={e => { e.currentTarget.style.display = 'none' }}
+                          />
                           <div>
                             <div style={{ color: active ? '#e0e0e0' : '#aaaaaa', fontSize: 13, fontWeight: 600 }}>{p.label}</div>
                             <div style={{ color: active ? '#666666' : '#555555', fontSize: 11, marginTop: 1 }}>{p.sub}</div>

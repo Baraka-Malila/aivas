@@ -1,13 +1,14 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Check, X } from 'lucide-react'
 import ContextMenu from './ContextMenu'
 
 const MONO = { fontFamily: '"Fira Code", monospace' }
 const GRADE_COLOR = { A: '#66bb6a', B: '#aed581', C: '#fdd835', D: '#ff7043', F: '#ef5350' }
+const PAGE = 20
 
 function fmtDate(iso) {
   if (!iso) return '—'
-  try { return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-') }
+  try { return new Date(iso).toISOString().slice(0, 10) }
   catch { return iso }
 }
 
@@ -59,7 +60,7 @@ function GradeBox({ grade }) {
 function ScanRow({ scan, onDelete, onRename, onContextMenu }) {
   const [editing, setEditing] = useState(false)
   const grade = (scan.grade || '').replace('Grade ', '')
-  const label = scan.label || scan.target || 'Unknown target'
+  const label = scan.label || `${scan.target || 'unknown'} — ${fmtDate(scan.started_at)}`
 
   return (
     <div
@@ -112,15 +113,30 @@ export default function HistorySection() {
   const [scans, setScans] = useState([])
   const [sessions, setSessions] = useState([])
   const [ctxMenu, setCtxMenu] = useState(null)
+  const [hasMoreScans, setHasMoreScans] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const scanOffsetRef = useRef(0)
+
+  const loadScans = useCallback(async (offset, replace = false) => {
+    if (offset > 0) setLoadingMore(true)
+    try {
+      const rows = await fetch(`/api/history?limit=${PAGE}&offset=${offset}`).then(r => r.json())
+      setScans(prev => replace ? rows : [...prev, ...rows])
+      setHasMoreScans(rows.length === PAGE)
+      scanOffsetRef.current = offset + rows.length
+    } catch {}
+    setLoadingMore(false)
+  }, [])
 
   useEffect(() => {
-    fetch('/api/history?limit=50').then(r => r.json()).then(setScans).catch(() => {})
+    loadScans(0, true)
     fetch('/api/sessions').then(r => r.json()).then(setSessions).catch(() => {})
   }, [])
 
   const deleteScan = async (id) => {
     await fetch(`/api/scan/${id}`, { method: 'DELETE' }).catch(() => {})
     setScans(prev => prev.filter(s => s.id !== id))
+    scanOffsetRef.current = Math.max(0, scanOffsetRef.current - 1)
   }
 
   const renameScan = async (id, label) => {
@@ -162,7 +178,7 @@ export default function HistorySection() {
   return (
     <>
       <div style={{ marginBottom: 20 }}>
-        <span style={sectionLabel}>SCAN HISTORY ({scans.length})</span>
+        <span style={sectionLabel}>SCAN HISTORY ({scans.length}{hasMoreScans ? '+' : ''})</span>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {scans.length === 0 && (
             <div style={{ color: '#444', fontSize: 12 }}>No scans yet.</div>
@@ -175,6 +191,17 @@ export default function HistorySection() {
             />
           ))}
         </div>
+        {hasMoreScans && (
+          <button
+            onClick={() => loadScans(scanOffsetRef.current)}
+            disabled={loadingMore}
+            style={{ ...MONO, fontSize: 10, color: '#555555', background: 'transparent', border: '1px solid #252525', borderRadius: 3, padding: '5px 12px', cursor: 'pointer', marginTop: 8, width: '100%' }}
+            onMouseEnter={e => { e.currentTarget.style.color = '#888'; e.currentTarget.style.borderColor = '#3a3a3a' }}
+            onMouseLeave={e => { e.currentTarget.style.color = '#555555'; e.currentTarget.style.borderColor = '#252525' }}
+          >
+            {loadingMore ? 'Loading…' : 'Load more'}
+          </button>
+        )}
       </div>
 
       <div>

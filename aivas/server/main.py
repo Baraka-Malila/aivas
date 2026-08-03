@@ -114,9 +114,9 @@ async def auth_list_users(user: dict = Depends(get_current_user)):
 
 
 @app.get("/api/history")
-async def history(limit: int = 10, user: dict | None = Depends(get_current_user_optional)):
+async def history(limit: int = 20, offset: int = 0, user: dict | None = Depends(get_current_user_optional)):
     uid = None if (not user or user.get("role") == "admin") else int(user["sub"])
-    return list_scans(_conn, limit=limit, user_id=uid)
+    return list_scans(_conn, limit=limit, offset=offset, user_id=uid)
 
 
 @app.get("/api/scan/{scan_id}")

@@ -46,7 +46,7 @@ export default function RemoteTargetsSection({
       <div style={{ border: '1px solid #252525', borderRadius: 8 }} className="p-3">
         <p style={{ color: '#888' }} className="text-xs font-medium mb-2">Add Target</p>
 
-        <input type="text" placeholder="Label (e.g. Kali Lab)"
+        <input type="text" placeholder="Label"
           value={newTarget.label}
           onChange={e => setNewTarget(t => ({ ...t, label: e.target.value }))}
           style={{ ...inp, width: '100%' }}
@@ -101,8 +101,8 @@ export default function RemoteTargetsSection({
           </button>
           <button onClick={onSave}
             disabled={!newTarget.host || !newTarget.username}
-            style={{ background: 'transparent', border: '1px solid #4a9eff', color: '#4a9eff' }}
-            className="text-xs px-3 py-1.5 rounded hover:opacity-80 transition-opacity disabled:cursor-not-allowed"
+            style={{ background: '#4a9eff', border: 'none', color: '#000000', fontWeight: 600 }}
+            className="text-xs px-3 py-1.5 rounded hover:opacity-90 transition-opacity disabled:cursor-not-allowed"
           >
             Save
           </button>

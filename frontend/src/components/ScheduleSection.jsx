@@ -108,7 +108,7 @@ export default function ScheduleSection({ remoteTargets = [] }) {
 
       <div style={{ border: '1px solid #252525', borderRadius: 8 }} className="p-3">
         <p style={{ color: '#888' }} className="text-xs font-medium mb-2">Add Schedule</p>
-        <input type="text" placeholder="Label (e.g. Nightly LAN scan)"
+        <input type="text" placeholder="Label"
           value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
           style={{ ...inp, width: '100%' }} className="rounded px-2 py-1.5 text-xs outline-none mb-2" />
         <div className="flex gap-2 mb-2">
@@ -131,8 +131,8 @@ export default function ScheduleSection({ remoteTargets = [] }) {
           </select>
         )}
         <button onClick={save} disabled={!form.target}
-          style={{ background: 'transparent', border: '1px solid #4a9eff', color: '#4a9eff' }}
-          className="text-xs px-3 py-1.5 rounded hover:opacity-80 transition-opacity disabled:cursor-not-allowed disabled:opacity-40 mt-2">
+          style={{ background: '#4a9eff', border: 'none', color: '#000000', fontWeight: 600 }}
+          className="text-xs px-3 py-1.5 rounded hover:opacity-90 transition-opacity disabled:cursor-not-allowed disabled:opacity-40 mt-2">
           Save Schedule
         </button>
       </div>
