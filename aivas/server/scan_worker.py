@@ -18,6 +18,7 @@ from aivas.scorer import score_findings
 from aivas.server.scan_helpers import (
     _ev, _svc_label,
     cve_events, http_probe_events, scan_host,
+    credential_scan_events,
 )
 
 
@@ -88,7 +89,7 @@ async def _ping_sweep(target: str, timeout: int = 60) -> list[str]:
 
 
 async def run_scan(
-    conn: sqlite3.Connection, target: str, level: int = 2
+    conn: sqlite3.Connection, target: str, level: int = 2, creds: dict | None = None
 ) -> AsyncGenerator[dict, None]:
     """Yield granular progress events then a single done or error event."""
     is_net = "/" in target
@@ -189,13 +190,31 @@ async def run_scan(
                 all_misconfigs = ev["__misconfigs"]
             else:
                 yield _emit(ev)
+        # Phase 2: credentialed scan (optional, single-host only)
+        credential_services: list[dict] = []
+        if creds:
+            yield _emit(_ev("phase_header", "CREDENTIAL SCAN"))
+            async for ev in credential_scan_events(target, creds):
+                if "__credential_services" in ev:
+                    credential_services = ev["__credential_services"]
+                    yield _emit(_ev(
+                        "credential_result",
+                        f"  Enumerated {len(credential_services)} software item(s) via {creds.get('method','?').upper()}",
+                    ))
+                elif "__credential_error" in ev:
+                    yield _emit(_ev("credential_error", f"  ⚠ {ev['__credential_error']}"))
+                    yield _emit(_ev("credential_fallback", "  Continuing with nmap results only"))
+                else:
+                    yield _emit(ev)
+
         yield _emit(_ev("phase_header", "CVE LOOKUP"))
-        async for ev in cve_events(conn, services, "  "):
+        async for ev in cve_events(conn, services + credential_services, "  "):
             if "__findings" in ev:
                 all_findings = ev["__findings"]
             else:
                 yield _emit(ev)
         all_services.extend(services)
+        all_services.extend(credential_services)
 
     for f in all_findings:
         if not f.get("cve_id"):
@@ -245,4 +264,5 @@ async def run_scan(
             for f in findings
         ],
         "misconfigs": all_misconfigs,
+        "credential_scan": creds is not None,
     }
