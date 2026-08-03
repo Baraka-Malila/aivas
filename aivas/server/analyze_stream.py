@@ -20,6 +20,23 @@ _PROVIDER_DEFAULTS = {
 }
 
 
+def _resolve_api_key(provider_name: str, api_key: str | None) -> str | None:
+    """Fall back to server config / env if the frontend didn't supply a key."""
+    if api_key:
+        return api_key
+    if provider_name == "groq":
+        try:
+            from aivas import config as _cfg
+            key = _cfg.load().get("api_key")
+            if key:
+                return key
+        except Exception:
+            pass
+        import os
+        return os.environ.get("GROQ_API_KEY") or None
+    return None
+
+
 def _ev(obj: dict) -> str:
     return json.dumps(obj) + "\n"
 
@@ -166,9 +183,10 @@ async def stream_analysis(
     ]
 
     chosen_model = model or _PROVIDER_DEFAULTS.get(provider_name, "llama-3.1-8b-instant")
+    resolved_key = _resolve_api_key(provider_name, api_key)
 
     try:
-        provider = get_provider(provider_name, model=chosen_model, api_key=api_key)
+        provider = get_provider(provider_name, model=chosen_model, api_key=resolved_key)
     except ValueError as exc:
         yield _ev({"type": "error", "text": str(exc)})
         return

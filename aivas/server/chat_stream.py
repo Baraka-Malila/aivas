@@ -97,14 +97,24 @@ async def _exec_tool_local(
 
 _LANG_DIRECTIVES = {
     "auto": (
-        "Detect the user's language from their message. "
-        "If they write in English, respond ONLY in English. "
-        "If they write in Swahili, respond ONLY in Swahili. "
-        "Never mix languages in a single response — no Swahili phrases inside an English reply "
-        "and no English phrases inside a Swahili reply."
+        "Detect the user's language from their message and respond ONLY in that language. "
+        "English input → reply entirely in English. "
+        "Swahili input → reply entirely in Swahili. "
+        "STRICT RULES — no exceptions: "
+        "(1) Never mix languages. "
+        "(2) Never add parenthetical translations like '(Good morning)' or '(hello)'. "
+        "(3) Never write the same idea twice in two languages. "
+        "(4) Never start with a greeting in the other language."
     ),
-    "en": "Always respond in English. Do not include any Swahili words, greetings, or phrases.",
-    "sw": "Always respond in Swahili. Do not include any English greetings or phrases.",
+    "en": (
+        "Always respond in English. "
+        "Do not include any Swahili words, greetings, phrases, or parenthetical translations."
+    ),
+    "sw": (
+        "Always respond in Swahili (Kiswahili). "
+        "Do not include any English words, greetings, phrases, or parenthetical translations. "
+        "Never write English in parentheses to clarify a Swahili word."
+    ),
 }
 
 
