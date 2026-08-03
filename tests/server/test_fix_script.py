@@ -93,32 +93,34 @@ def test_script_has_distro_detection(conn):
 
 
 def test_infer_packages_openssl(conn):
-    findings = [{"description": "OpenSSL memory corruption vulnerability"}]
-    apt_pkgs, rpm_pkgs = _infer_packages(findings)
+    findings = [{"description": "OpenSSL memory corruption vulnerability", "installed_version": ""}]
+    apt_pkgs, rpm_pkgs, apk_pkgs = _infer_packages(findings)
     assert "openssl" in apt_pkgs
     assert "openssl" in rpm_pkgs
+    assert "openssl" in apk_pkgs
 
 
 def test_infer_packages_nginx(conn):
-    findings = [{"description": "nginx HTTP/2 header handling flaw"}]
-    apt_pkgs, rpm_pkgs = _infer_packages(findings)
+    findings = [{"description": "nginx HTTP/2 header handling flaw", "installed_version": ""}]
+    apt_pkgs, rpm_pkgs, apk_pkgs = _infer_packages(findings)
     assert "nginx" in apt_pkgs
 
 
 def test_infer_packages_deduplicates(conn):
     findings = [
-        {"description": "OpenSSL flaw 1"},
-        {"description": "OpenSSL flaw 2"},
+        {"description": "OpenSSL flaw 1", "installed_version": ""},
+        {"description": "OpenSSL flaw 2", "installed_version": ""},
     ]
-    apt_pkgs, _ = _infer_packages(findings)
+    apt_pkgs, _, _apk = _infer_packages(findings)
     assert apt_pkgs.count("openssl") == 1
 
 
 def test_infer_packages_unknown_returns_empty(conn):
-    findings = [{"description": "Some obscure application bug"}]
-    apt_pkgs, rpm_pkgs = _infer_packages(findings)
+    findings = [{"description": "Some obscure application bug", "installed_version": ""}]
+    apt_pkgs, rpm_pkgs, apk_pkgs = _infer_packages(findings)
     assert apt_pkgs == []
     assert rpm_pkgs == []
+    assert apk_pkgs == []
 
 
 def test_script_uses_specific_package_when_known(conn):
@@ -133,3 +135,27 @@ def test_script_falls_back_to_dist_upgrade_when_no_packages(conn):
     _insert_finding(conn, scan_id, "CVE-2099-9999", "LOW", "Hypothetical unknown app")
     script = generate_fix_script(conn, scan_id)
     assert "dist-upgrade" in script or "update" in script
+
+
+def test_script_has_sudo_privilege_check(conn):
+    scan_id = _insert_scan(conn)
+    _insert_finding(conn, scan_id, "CVE-2022-0001")
+    script = generate_fix_script(conn, scan_id)
+    assert "id -u" in script
+    assert "SUDO=" in script
+    assert "$SUDO" in script
+
+
+def test_script_has_alpine_apk_support(conn):
+    scan_id = _insert_scan(conn)
+    _insert_finding(conn, scan_id, "CVE-2022-0001")
+    script = generate_fix_script(conn, scan_id)
+    assert "alpine" in script
+    assert "apk" in script
+
+
+def test_script_kev_includes_cisa_url(conn):
+    scan_id = _insert_scan(conn)
+    _insert_finding(conn, scan_id, "CVE-2021-44228", "CRITICAL", "Log4j", kev=1)
+    script = generate_fix_script(conn, scan_id)
+    assert "cisa.gov" in script
