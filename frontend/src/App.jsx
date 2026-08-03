@@ -66,6 +66,7 @@ export default function App() {
       findings,
       counts:        countSeverities(findings),
       log:           doneEvent.log || [],
+      misconfigs:    doneEvent.misconfigs || [],
     }
 
     if (scanningIdRef.current) {

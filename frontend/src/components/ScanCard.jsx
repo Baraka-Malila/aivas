@@ -5,8 +5,10 @@ const GRADE_COLOR = { A: '#66bb6a', B: '#aed581', C: '#fdd835', D: '#ff7043', F:
 const SEV_TEXT    = { CRITICAL: '#ef5350', HIGH: '#ff7043', MEDIUM: '#fdd835', LOW: '#66bb6a' }
 const SEV_ORDER   = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
 
+const MISCONFIG_SEV_TEXT = { HIGH: '#ff7043', MEDIUM: '#fdd835', LOW: '#66bb6a', INFO: '#888' }
+
 export default function ScanCard({ scanData, onSend, onAnalysis }) {
-  const { scan_id, target, grade, service_count, findings = [], log } = scanData
+  const { scan_id, target, grade, service_count, findings = [], misconfigs = [], log } = scanData
 
   const hasCritical = findings.some(f => (f.cvss_severity || '').toUpperCase() === 'CRITICAL')
   const [expanded, setExpanded] = useState({
@@ -124,6 +126,51 @@ export default function ScanCard({ scanData, onSend, onAnalysis }) {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Misconfigurations */}
+      {misconfigs.length > 0 && (
+        <details style={{ borderBottom: '1px solid #1e1e1e' }}>
+          <summary
+            style={{ color: '#ff7043', cursor: 'pointer', userSelect: 'none' }}
+            className="px-3 py-2 text-xs hover:opacity-80 transition-opacity flex items-center gap-1"
+          >
+            ⚙ Configuration Issues ({misconfigs.length})
+          </summary>
+          <div>
+            {misconfigs.map((mc, i) => (
+              <div
+                key={i}
+                style={{ borderTop: '1px solid #141414' }}
+                className="px-3 py-2"
+              >
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span
+                    style={{
+                      color: MISCONFIG_SEV_TEXT[(mc.severity || 'INFO').toUpperCase()] || '#888',
+                      fontFamily: 'monospace',
+                      fontSize: 10,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {(mc.severity || 'INFO').toUpperCase()}
+                  </span>
+                  <span style={{ color: '#e0e0e0', fontSize: 11 }}>{mc.title}</span>
+                  {mc.host && (
+                    <span style={{ color: '#555', fontFamily: 'monospace', fontSize: 10 }} className="ml-auto shrink-0">
+                      {mc.host}{mc.port ? `:${mc.port}` : ''}
+                    </span>
+                  )}
+                </div>
+                {mc.recommendation && (
+                  <div style={{ color: '#888', fontSize: 11 }} className="mt-0.5">
+                    {mc.recommendation}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </details>
       )}
 
       {/* Action buttons */}

@@ -3,14 +3,15 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import sqlite3
 
 _log = logging.getLogger("aivas.analyze")
 
 _LANG_DIRECTIVE = {
-    "auto": "Detect context and respond in English unless clearly another language.",
+    "auto": "Respond in ENGLISH by default. Switch to Swahili only if the user message clearly contains Swahili words.",
     "en": "Always respond in English.",
-    "sw": "Always respond in Swahili (Kiswahili).",
+    "sw": "Always respond in Swahili (Kiswahili). Do not include English translations.",
 }
 
 _PROVIDER_DEFAULTS = {
@@ -19,26 +20,55 @@ _PROVIDER_DEFAULTS = {
     "ollama": "llama3",
 }
 
-
-def _resolve_api_key(provider_name: str, api_key: str | None) -> str | None:
-    """Fall back to server config / env if the frontend didn't supply a key."""
-    if api_key:
-        return api_key
-    if provider_name == "groq":
-        try:
-            from aivas import config as _cfg
-            key = _cfg.load().get("api_key")
-            if key:
-                return key
-        except Exception:
-            pass
-        import os
-        return os.environ.get("GROQ_API_KEY") or None
-    return None
+# Software detection from CVE descriptions
+_SOFTWARE_PATTERNS = [
+    (r'apache http server|mod_rewrite|mod_ssl|mod_proxy|mod_auth|httpd', 'Apache HTTP Server', 'https://httpd.apache.org/'),
+    (r'openssh',             'OpenSSH',             'https://www.openssh.com/'),
+    (r'openssl',             'OpenSSL',             'https://www.openssl.org/'),
+    (r'nginx',               'nginx',               'https://nginx.org/'),
+    (r'mysql',               'MySQL',               'https://dev.mysql.com/'),
+    (r'mariadb',             'MariaDB',             'https://mariadb.org/'),
+    (r'\bphp\b',             'PHP',                 'https://www.php.net/'),
+    (r'linux kernel|kernel', 'Linux Kernel',        'https://kernel.org/'),
+    (r'wordpress',           'WordPress',           'https://wordpress.org/'),
+    (r'samba',               'Samba',               'https://www.samba.org/'),
+]
 
 
 def _ev(obj: dict) -> str:
     return json.dumps(obj) + "\n"
+
+
+def _extract_fix_version(description: str) -> str | None:
+    patterns = [
+        r'upgrade to version ([\d]+\.[\d]+(?:\.[\d]+)?)',
+        r'updating to (?:version )?([\d]+\.[\d]+(?:\.[\d]+)?)',
+        r'version ([\d]+\.[\d]+(?:\.[\d]+)?),? which fixes',
+        r'fixed in (?:version )?([\d]+\.[\d]+(?:\.[\d]+)?)',
+    ]
+    for p in patterns:
+        m = re.search(p, description, re.IGNORECASE)
+        if m:
+            return m.group(1)
+    return None
+
+
+def _extract_current_version(description: str) -> str | None:
+    m = re.search(r'([\d]+\.[\d]+(?:\.[\d]+)?)\s+and\s+earlier', description, re.IGNORECASE)
+    if m:
+        return m.group(1)
+    m = re.search(r'through\s+([\d]+\.[\d]+(?:\.[\d]+)?)', description, re.IGNORECASE)
+    if m:
+        return m.group(1)
+    return None
+
+
+def _detect_software(description: str) -> tuple[str, str] | tuple[None, None]:
+    dl = description.lower()
+    for pattern, name, url in _SOFTWARE_PATTERNS:
+        if re.search(pattern, dl):
+            return name, url
+    return None, None
 
 
 def _severity_counts(findings: list[dict]) -> dict[str, int]:
@@ -64,69 +94,175 @@ def _findings_summary(findings: list[dict]) -> str:
 def _build_risk_prompt(meta: dict, findings: list[dict]) -> str:
     grade = (meta.get("grade") or "?").replace("Grade ", "")
     target = meta.get("target", "unknown")
+
+    # Guard: 0 findings — no hallucination allowed
+    if not findings:
+        return (
+            f"Scan data: target={target}, grade={grade}, 0 vulnerabilities found.\n\n"
+            "Write a 3-paragraph security brief. No lists. No headers. Three paragraphs only.\n\n"
+            "Paragraph 1 — Posture: State that the scan returned Grade A with zero vulnerabilities found. "
+            "Explain what this means in plain language — the exposed services appear secure based on known CVEs.\n\n"
+            "Paragraph 2 — Limitations: Note that a network scan has limits — it cannot see inside the machine, "
+            "check user access controls, or detect unknown vulnerabilities. "
+            "A clean scan is a good sign but not a guarantee of full security.\n\n"
+            "Paragraph 3 — Recommendation: Advise keeping software updated, rescanning periodically, "
+            "and reviewing user access and firewall rules as complementary steps. "
+            "No invented vulnerabilities. No CVE IDs. No guessing."
+        )
+
     counts = _severity_counts(findings)
     kev_count = sum(1 for f in findings if f.get("kev"))
 
-    top = max(findings, key=lambda x: x.get("cvss_score") or 0, default=None)
+    # Find the worst finding: KEV first, then highest CVSS
+    top = max(findings, key=lambda x: (x.get("kev") or False, x.get("cvss_score") or 0), default=None)
     top_line = ""
     if top:
-        kev_note = ", actively exploited in the wild" if top.get("kev") else ""
+        kev_note = " — currently being actively exploited in the wild" if top.get("kev") else ""
         top_line = (
-            f"Most dangerous: {top['cve_id']} "
+            f"Worst finding: {top['cve_id']} "
             f"(CVSS {top.get('cvss_score', '?')}, {top.get('cvss_severity', '?')}{kev_note}) "
-            f"— {(top.get('description') or '')[:200]}"
+            f"— {(top.get('description') or '')[:250]}"
         )
 
     count_str = ", ".join(f"{v} {k.lower()}" for k, v in counts.items() if v > 0)
-    kev_str = f", {kev_count} actively exploited" if kev_count > 0 else ""
+    kev_str = f", {kev_count} actively exploited in the wild" if kev_count > 0 else ""
+    urgency = "CRITICAL — immediate action required" if counts.get("CRITICAL", 0) > 0 else (
+        "HIGH — action required within days" if counts.get("HIGH", 0) > 0 else "action recommended"
+    )
 
     return (
         f"Scan data: target={target}, grade={grade}, "
-        f"{len(findings)} findings ({count_str}{kev_str}).\n"
+        f"{len(findings)} findings ({count_str}{kev_str}). Urgency: {urgency}.\n"
         f"{top_line}\n\n"
-        "Write a 3-paragraph executive risk brief for a non-technical business owner. "
-        "No lists. No headers. Exactly three paragraphs, each under 4 sentences.\n\n"
-        "Paragraph 1 — Security Posture: State the grade and what it means in plain language "
-        "(not jargon). Give the finding count by severity in one sentence.\n\n"
-        "Paragraph 2 — Primary Threat: Name the most dangerous vulnerability — what software "
-        "it affects, what an attacker can do, whether it is actively exploited right now.\n\n"
-        "Paragraph 3 — Action: What the business owner must do in the next 24 hours, and "
-        "roughly how long it takes. Write as if speaking to a shop owner, not a sysadmin — "
-        "no commands, no package names, no acronyms."
+        "Write a 3-paragraph executive risk brief. No lists. No headers. Exactly three paragraphs.\n\n"
+        "Paragraph 1 — Posture: State the grade and what it means for the organization in plain language. "
+        "List the finding count by severity. Keep it factual and direct.\n\n"
+        "Paragraph 2 — Primary Threat: Name the worst vulnerability — what software it affects, "
+        "what an attacker can do, and whether it is being actively exploited right now. "
+        "If no KEV exists, describe the most severe CVE found. "
+        "Do not invent vulnerabilities not in the scan data above.\n\n"
+        "Paragraph 3 — Urgency and Action: Describe how urgent this is based on the severity above. "
+        "Do NOT say '24 hours' or give specific time estimates — use urgency language (immediate, this week, etc.). "
+        "Refer to 'the system owner' or 'the IT team', not 'our team' or 'our organization'. "
+        "Describe the type of action needed in plain language — no shell commands, no package names."
     )
 
 
 def _build_remediation_prompt(meta: dict, findings: list[dict]) -> str:
     target = meta.get("target", "unknown")
 
-    sorted_f = sorted(
-        findings,
-        key=lambda x: (not x.get("kev"), -(x.get("cvss_score") or 0)),
-    )
+    if not findings:
+        return (
+            f"Scan of {target} found no vulnerabilities. "
+            "Write one short paragraph: no remediation is needed based on this scan. "
+            "Recommend periodic rescanning and general security hygiene."
+        )
 
-    lines = []
+    # Pre-process: group by software, extract versions from descriptions
+    # Key: (severity, software_name)
+    groups: dict[tuple, dict] = {}
+    ungrouped: list[dict] = []
+
+    sorted_f = sorted(findings, key=lambda x: (not x.get("kev"), -(x.get("cvss_score") or 0)))
+
     for f in sorted_f:
         sev = (f.get("cvss_severity") or "LOW").upper()
-        kev = " ⚠ KEV" if f.get("kev") else ""
-        score = f.get("cvss_score", "?")
-        desc = (f.get("description") or "")[:120]
-        lines.append(f"  {f['cve_id']} [{sev}{kev}] CVSS={score} — {desc}")
+        desc = f.get("description") or ""
+        software, url = _detect_software(desc)
+        fix_ver = _extract_fix_version(desc)
+        curr_ver = _extract_current_version(desc)
 
-    findings_block = "\n".join(lines) if lines else "  No findings."
+        if software:
+            key = (sev, software)
+            if key not in groups:
+                groups[key] = {
+                    "software": software,
+                    "url": url,
+                    "severity": sev,
+                    "kev": False,
+                    "cves": [],
+                    "fix_versions": set(),
+                    "current_versions": set(),
+                }
+            g = groups[key]
+            g["kev"] = g["kev"] or bool(f.get("kev"))
+            g["cves"].append(f["cve_id"])
+            if fix_ver:
+                g["fix_versions"].add(fix_ver)
+            if curr_ver:
+                g["current_versions"].add(curr_ver)
+        else:
+            ungrouped.append({
+                "cve_id": f["cve_id"],
+                "severity": sev,
+                "kev": bool(f.get("kev")),
+                "desc": desc[:180],
+                "fix_ver": fix_ver,
+                "curr_ver": curr_ver,
+            })
+
+    lines = [f"Target: {target}\nGrouped findings (pre-processed):\n"]
+    for sev in ["CRITICAL", "HIGH", "MEDIUM", "LOW"]:
+        sev_groups = [(k, g) for k, g in groups.items() if g["severity"] == sev]
+        sev_ung = [u for u in ungrouped if u["severity"] == sev]
+        if not sev_groups and not sev_ung:
+            continue
+        lines.append(f"\n  {sev}:")
+        for _, g in sev_groups:
+            kev = " [URGENT — actively exploited]" if g["kev"] else ""
+            cves = ", ".join(g["cves"][:6])
+            if len(g["cves"]) > 6:
+                cves += f" + {len(g['cves'])-6} more"
+            fix = max(g["fix_versions"]) if g["fix_versions"] else "unknown"
+            curr = max(g["current_versions"]) if g["current_versions"] else "unknown"
+            lines.append(
+                f"    Software: {g['software']}{kev}\n"
+                f"    CVEs: {cves}\n"
+                f"    Installed version: {curr}\n"
+                f"    Fix version: {fix}\n"
+                f"    Vendor: {g['url']}\n"
+            )
+        for u in sev_ung:
+            kev = " [URGENT — actively exploited]" if u["kev"] else ""
+            fix = u["fix_ver"] or "unknown"
+            lines.append(
+                f"    {u['cve_id']}{kev}: {u['desc'][:120]}\n"
+                f"    Fix version: {fix}\n"
+            )
+
+    block = "\n".join(lines)
 
     return (
-        f"Target: {target}\n"
-        f"Findings ({len(findings)} total):\n{findings_block}\n\n"
-        "Write a priority-ordered remediation plan for a Linux sysadmin. "
-        "Group under severity headers (## CRITICAL, ## HIGH, ## MEDIUM, ## LOW). "
-        "Under each header, use a numbered list. For each CVE:\n"
-        "  1. CVE ID\n"
-        "  2. Affected software and version currently installed (if known)\n"
-        "  3. EXACT version that fixes it — not 'latest', a specific release number. "
-        "If truly unknown, say 'Fixed version unknown — upgrade to latest stable.'\n"
-        "  4. One concrete action: exact apt/dnf/pip command or specific config change\n\n"
-        "Omit severity groups with zero findings. Cover every finding."
+        f"{block}\n\n"
+        "Write a remediation plan using the pre-processed data above. "
+        "Use severity headers (## CRITICAL, ## HIGH, ## MEDIUM, ## LOW). "
+        "Under each header, write one numbered entry per software group:\n"
+        "  1. Software name + CVE list (abbreviated if long)\n"
+        "  2. Installed version (from data above, or 'unknown')\n"
+        "  3. Fix version — use the EXACT version from the data above. "
+        "If fix version is 'unknown', write: 'Update to the latest stable release.'\n"
+        "  4. ONE generic action: 'Update via your OS package manager, or download from [vendor URL]'\n\n"
+        "RULES: No shell commands (apt, dnf, etc.) — OS is unknown. "
+        "Combine all CVEs for the same software into one entry. "
+        "If [URGENT — actively exploited], prepend the entry with '⚠ URGENT: '. "
+        "Omit empty severity sections."
     )
+
+
+def _resolve_api_key(provider_name: str, api_key: str | None) -> str | None:
+    if api_key:
+        return api_key
+    if provider_name == "groq":
+        try:
+            from aivas import config as _cfg
+            key = _cfg.load().get("api_key")
+            if key:
+                return key
+        except Exception:
+            pass
+        import os
+        return os.environ.get("GROQ_API_KEY") or None
+    return None
 
 
 async def stream_analysis(
@@ -142,7 +278,6 @@ async def stream_analysis(
     from aivas.history import get_scan_meta, get_scan_findings
     from aivas.narrator.providers.factory import get_provider
 
-    # Show tool call
     yield _ev({"type": "tool_call", "name": "get_scan_findings", "args": {"scan_id": scan_id}})
 
     meta = get_scan_meta(conn, scan_id)
@@ -151,8 +286,6 @@ async def stream_analysis(
         return
 
     findings = get_scan_findings(conn, scan_id)
-
-    # Show tool result
     yield _ev({
         "type": "tool_result",
         "name": "get_scan_findings",
@@ -163,16 +296,16 @@ async def stream_analysis(
         user_prompt = _build_risk_prompt(meta, findings)
         system = (
             "You are a concise security advisor writing executive briefs. "
-            "Be clear, direct, and avoid technical jargon. "
-            "Follow the paragraph structure exactly as instructed."
+            "Use only the data provided. Never invent CVEs, software names, or vulnerabilities "
+            "not present in the scan data. Follow the paragraph structure exactly."
         )
-        max_tokens = 420
+        max_tokens = 450
     else:
         user_prompt = _build_remediation_prompt(meta, findings)
         system = (
-            "You are a Linux sysadmin writing precise remediation checklists. "
-            "Be specific about versions and commands. "
-            "Use ## severity headers and numbered lists exactly as instructed."
+            "You are a security engineer writing remediation guidance. "
+            "Use only the pre-processed data provided. "
+            "Never write shell commands. Group CVEs by software as instructed."
         )
         max_tokens = 900
 
