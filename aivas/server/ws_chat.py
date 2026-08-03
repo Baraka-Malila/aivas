@@ -9,7 +9,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from aivas.server.chat_stream import stream_agent_response
 from aivas.server.chat_memory import (
     load_history, save_user, save_assistant, save_tool_result,
-    update_title_if_unset, touch_session,
+    update_title_if_unset, touch_session, get_session,
 )
 from aivas.narrator.providers.factory import get_provider
 
@@ -62,6 +62,14 @@ async def chat_ws(
             text = msg.get("text", "").strip()
             if not text:
                 continue
+
+            # Session may have been deleted from History while WebSocket stayed open
+            if not get_session(_main._conn, session_id):
+                _main._conn.execute(
+                    "INSERT OR IGNORE INTO chat_sessions(id, title) VALUES (?, ?)",
+                    (session_id, text[:60]),
+                )
+                _main._conn.commit()
 
             save_user(_main._conn, session_id, text)
             update_title_if_unset(_main._conn, session_id, text)
