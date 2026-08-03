@@ -25,6 +25,8 @@ from aivas.server.chat_memory import (
     create_session, get_session, list_sessions, delete_session, load_history,
 )
 from aivas.server.ws_chat import router as _ws_router
+from aivas.server import scheduler_routes as _sched_routes
+from aivas.server.scheduler import scheduler_loop
 
 _pending: dict[str, tuple] = {}
 _conn: sqlite3.Connection | None = None
@@ -39,11 +41,19 @@ async def lifespan(app: FastAPI):
     if _conn is None:
         _conn = get_db(DB_PATH)
         create_schema(_conn)
+    _sched_routes.set_conn(_conn)
+    _sched_task = asyncio.create_task(scheduler_loop(_conn))
     yield
+    _sched_task.cancel()
+    try:
+        await _sched_task
+    except asyncio.CancelledError:
+        pass
 
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(_ws_router)
+app.include_router(_sched_routes.router)
 
 
 @app.get("/health")

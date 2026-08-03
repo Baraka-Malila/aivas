@@ -130,6 +130,18 @@ def create_schema(conn: sqlite3.Connection) -> None:
             key_path    TEXT,
             created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS scheduled_scans (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            label            TEXT NOT NULL,
+            target           TEXT NOT NULL,
+            remote_target_id INTEGER REFERENCES remote_targets(id) ON DELETE SET NULL,
+            interval         TEXT NOT NULL DEFAULT 'daily',
+            enabled          INTEGER DEFAULT 1,
+            last_run         TEXT,
+            next_run         TEXT NOT NULL,
+            created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
     """)
     conn.commit()
     # Migration: add kev column if DB predates this sprint
@@ -162,3 +174,21 @@ def create_schema(conn: sqlite3.Connection) -> None:
         conn.commit()
     except Exception:
         pass  # column already exists
+    # Migration: add scheduled_scans table if DB predates this sprint
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS scheduled_scans (
+                id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                label            TEXT NOT NULL,
+                target           TEXT NOT NULL,
+                remote_target_id INTEGER REFERENCES remote_targets(id) ON DELETE SET NULL,
+                interval         TEXT NOT NULL DEFAULT 'daily',
+                enabled          INTEGER DEFAULT 1,
+                last_run         TEXT,
+                next_run         TEXT NOT NULL,
+                created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.commit()
+    except Exception:
+        pass
