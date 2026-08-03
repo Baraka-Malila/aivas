@@ -30,3 +30,19 @@ body {
 .cursor-blink {
   animation: blink 1s step-start infinite;
 }
+
+/* 14c — Center bloom thinking animation */
+@keyframes aivas-logoCenter {
+  0%   { stroke-dasharray: 0 1; stroke-dashoffset: -0.5; opacity: 1; }
+  58%  { stroke-dasharray: 1 1; stroke-dashoffset: 0;    opacity: 1; }
+  80%  { stroke-dasharray: 1 1; stroke-dashoffset: 0;    opacity: 1; }
+  96%, 100% { stroke-dasharray: 1 1; stroke-dashoffset: 0; opacity: 0; }
+}
+
+/* 14b — Slow fill fallback */
+@keyframes aivas-logoFill {
+  0%   { stroke-dashoffset: 1; opacity: 1; }
+  62%  { stroke-dashoffset: 0; opacity: 1; }
+  82%  { stroke-dashoffset: 0; opacity: 1; }
+  96%, 100% { stroke-dashoffset: 0; opacity: 0; }
+}
