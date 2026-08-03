@@ -6,6 +6,7 @@ import SessionDrawer from './components/SessionDrawer'
 import SettingsModal from './components/SettingsModal'
 import LoginPage from './components/LoginPage'
 import AdminPanel from './components/AdminPanel'
+import ReportsView from './components/ReportsView'
 import { useAuth } from './hooks/useAuth'
 import { useChat } from './hooks/useChat'
 import { useScan } from './hooks/useScan'
@@ -26,7 +27,9 @@ function AuthenticatedApp({ user, token, logout }) {
   const [sessionId, setSessionId] = useState(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsSection, setSettingsSection] = useState('general')
   const [adminOpen, setAdminOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState('console')
 
   const authHeaders = token ? { Authorization: `Bearer ${token}` } : {}
   const authFetch = (url, opts = {}) => fetch(url, {
@@ -309,29 +312,51 @@ function AuthenticatedApp({ user, token, logout }) {
 
   // --- Render ---
 
+  const handleTabChange = useCallback((tab) => {
+    if (tab === 'history') {
+      setActiveTab('history')
+      setDrawerOpen(true)
+      refreshSessions()
+    } else if (tab === 'targets') {
+      setActiveTab('targets')
+      setSettingsSection('targets')
+      setSettingsOpen(true)
+    } else {
+      setActiveTab(tab)
+    }
+  }, [refreshSessions])
+
   return (
     <div style={{ background: '#0a0a0a' }} className="flex flex-col h-screen">
       <Header
-        onHistory={() => { setDrawerOpen(true); refreshSessions() }}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
         onSettings={() => setSettingsOpen(true)}
         onAdmin={() => setAdminOpen(true)}
         user={user}
         onLogout={logout}
       />
-      <ChatArea messages={messages} onSend={handleSend} onAnalysis={handleAnalysis} onStopScan={stopScan} />
-      <ChatInput onSend={handleSend} disabled={chatStatus !== 'open'} />
+      {activeTab === 'reports' ? (
+        <ReportsView token={token} />
+      ) : (
+        <>
+          <ChatArea messages={messages} onSend={handleSend} onAnalysis={handleAnalysis} onStopScan={stopScan} />
+          <ChatInput onSend={handleSend} disabled={chatStatus !== 'open'} />
+        </>
+      )}
       <SessionDrawer
         open={drawerOpen}
         sessions={sessions}
-        onClose={() => setDrawerOpen(false)}
+        onClose={() => { setDrawerOpen(false); setActiveTab('console') }}
         onSelect={handleSelectSession}
         onDelete={deleteSession}
         onRename={renameSession}
-        onNew={() => { handleNewConversation(); setDrawerOpen(false) }}
+        onNew={() => { handleNewConversation(); setDrawerOpen(false); setActiveTab('console') }}
       />
       <SettingsModal
         open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
+        initialSection={settingsSection}
+        onClose={() => { setSettingsOpen(false); if (activeTab === 'targets') setActiveTab('console') }}
         onScan={handleDirectScan}
       />
       <AdminPanel

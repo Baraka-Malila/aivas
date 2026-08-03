@@ -1,5 +1,8 @@
 import { useEffect, useState, useRef } from 'react'
-import { X, Trash2, Plus, Pencil, Check } from 'lucide-react'
+import { X, Plus, Check } from 'lucide-react'
+import ContextMenu from './ContextMenu'
+
+const MONO = { fontFamily: '"Fira Code", monospace' }
 
 function InlineRename({ value, onSave, onCancel }) {
   const [text, setText] = useState(value)
@@ -23,15 +26,16 @@ function InlineRename({ value, onSave, onCancel }) {
   )
 }
 
-function SessionItem({ session, onSelect, onDelete, onRename }) {
+function SessionItem({ session, onSelect, onDelete, onRename, onContextMenu }) {
   const [editing, setEditing] = useState(false)
   return (
     <div
       style={{ borderBottom: '1px solid #141414' }}
-      className="group flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors cursor-pointer"
+      className="flex items-center px-4 py-3 hover:bg-white/5 transition-colors cursor-pointer"
       onClick={onSelect}
+      onContextMenu={e => { e.preventDefault(); onContextMenu(e, { onRename: () => setEditing(true), onDelete }) }}
     >
-      <div className="flex-1 min-w-0 pr-2">
+      <div className="flex-1 min-w-0">
         {editing ? (
           <InlineRename
             value={session.title || 'New conversation'}
@@ -39,40 +43,23 @@ function SessionItem({ session, onSelect, onDelete, onRename }) {
             onCancel={() => setEditing(false)}
           />
         ) : (
-          <div style={{ color: '#e0e0e0' }} className="text-xs truncate">
+          <div style={{ color: '#e0e0e0', fontSize: 12 }} className="truncate">
             {session.title || 'New conversation'}
           </div>
         )}
-        <div style={{ color: '#666' }} className="text-xs mt-0.5">{formatDate(session.updated_at)}</div>
+        <div style={{ ...MONO, color: '#444', fontSize: 10, marginTop: 2 }}>{formatDate(session.updated_at)}</div>
       </div>
-      {!editing && (
-        <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 shrink-0 transition-opacity">
-          <button
-            onClick={e => { e.stopPropagation(); setEditing(true) }}
-            style={{ color: '#444' }}
-            className="p-1 hover:text-[#4a9eff] transition-colors"
-            aria-label="Rename conversation"
-          >
-            <Pencil size={11} />
-          </button>
-          <button
-            onClick={e => { e.stopPropagation(); onDelete() }}
-            style={{ color: '#444' }}
-            className="p-1 hover:text-red-400 transition-colors"
-            aria-label="Delete conversation"
-          >
-            <Trash2 size={13} />
-          </button>
-        </div>
-      )}
     </div>
   )
 }
 
 export default function SessionDrawer({ open, sessions, onClose, onSelect, onDelete, onNew, onRename }) {
+  const [ctxMenu, setCtxMenu] = useState(null)
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' && open) {
+        if (ctxMenu) { setCtxMenu(null); return }
         onClose()
       }
     }
@@ -80,9 +67,20 @@ export default function SessionDrawer({ open, sessions, onClose, onSelect, onDel
       document.addEventListener('keydown', handleKeyDown)
       return () => document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [open, onClose])
+  }, [open, onClose, ctxMenu])
 
   if (!open) return null
+
+  const handleContextMenu = (e, { onRename: rename, onDelete: del }) => {
+    setCtxMenu({
+      x: e.clientX,
+      y: e.clientY,
+      items: [
+        { label: 'Rename', onClick: rename },
+        { label: 'Delete', onClick: del, danger: true },
+      ],
+    })
+  }
 
   return (
     <>
@@ -93,7 +91,7 @@ export default function SessionDrawer({ open, sessions, onClose, onSelect, onDel
       />
       <div
         data-testid="session-drawer"
-        style={{ background: '#111111', borderLeft: '1px solid #1e1e1e', width: 320 }}
+        style={{ background: '#111111', borderLeft: '1px solid #1e1e1e', width: 300 }}
         className="fixed right-0 top-0 bottom-0 z-50 flex flex-col"
       >
         {/* Header */}
@@ -101,25 +99,31 @@ export default function SessionDrawer({ open, sessions, onClose, onSelect, onDel
           style={{ borderBottom: '1px solid #1e1e1e' }}
           className="flex items-center justify-between px-4 py-3 shrink-0"
         >
-          <span style={{ color: '#e0e0e0' }} className="font-medium text-sm">Conversations</span>
-          <button onClick={onClose} style={{ color: '#666' }} className="p-1 hover:text-white transition-colors">
-            <X size={16} />
+          <span style={{ ...MONO, color: '#555', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+            Conversations
+          </span>
+          <button onClick={onClose} style={{ color: '#444', background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 3 }}
+            onMouseEnter={e => e.currentTarget.style.color = '#e0e0e0'}
+            onMouseLeave={e => e.currentTarget.style.color = '#444'}
+          >
+            <X size={14} />
           </button>
         </div>
 
         {/* New conversation */}
         <button
           onClick={onNew}
-          style={{ borderBottom: '1px solid #1e1e1e', color: '#4a9eff' }}
-          className="flex items-center gap-2 px-4 py-2.5 text-xs hover:bg-white/5 transition-colors text-left shrink-0"
+          style={{ borderBottom: '1px solid #1e1e1e', color: '#4a9eff', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', fontSize: 12 }}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'none'}
         >
-          <Plus size={14} /> New conversation
+          <Plus size={13} /> New conversation
         </button>
 
         {/* Session list */}
         <div className="flex-1 overflow-y-auto">
           {sessions.length === 0 && (
-            <div style={{ color: '#666' }} className="px-4 py-8 text-xs text-center">
+            <div style={{ color: '#444', fontSize: 12 }} className="px-4 py-8 text-center">
               No conversations yet
             </div>
           )}
@@ -128,10 +132,20 @@ export default function SessionDrawer({ open, sessions, onClose, onSelect, onDel
               onSelect={() => { onSelect(s.id); onClose() }}
               onDelete={() => onDelete(s.id)}
               onRename={title => onRename?.(s.id, title)}
+              onContextMenu={handleContextMenu}
             />
           ))}
         </div>
       </div>
+
+      {ctxMenu && (
+        <ContextMenu
+          x={ctxMenu.x}
+          y={ctxMenu.y}
+          items={ctxMenu.items}
+          onClose={() => setCtxMenu(null)}
+        />
+      )}
     </>
   )
 }

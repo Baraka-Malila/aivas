@@ -71,6 +71,21 @@ async def health():
     return {"status": "ok"}
 
 
+@app.get("/api/stats")
+async def stats():
+    cve_count = _conn.execute("SELECT COUNT(*) FROM cves").fetchone()[0]
+    kev_count = _conn.execute("SELECT COUNT(*) FROM cves WHERE kev=1").fetchone()[0]
+    last_sync_row = _conn.execute("SELECT MAX(last_modified_date) FROM cves").fetchone()
+    last_sync = (last_sync_row[0] or "")[:10] if last_sync_row and last_sync_row[0] else None
+    return {
+        "cve_count": cve_count,
+        "kev_count": kev_count,
+        "last_sync": last_sync,
+        "version": "1.2.0",
+        "engine": "Nmap · NIST NVD",
+    }
+
+
 @app.post("/api/auth/register")
 async def auth_register(body: AuthRequest):
     user = register_user(_conn, body.username, body.password)

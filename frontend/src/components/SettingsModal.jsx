@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
-import { X, SlidersHorizontal, Bot, Link, Server, CalendarClock, History } from 'lucide-react'
+import { X } from 'lucide-react'
 import RemoteTargetsSection from './RemoteTargetsSection'
 import ScheduleSection from './ScheduleSection'
 import HistorySection from './HistorySection'
+
+const MONO = { fontFamily: '"Fira Code", monospace' }
 
 const LANGS = [
   { value: 'auto', label: 'Auto' },
@@ -23,17 +25,17 @@ const MODEL_DEFAULTS = {
 }
 
 const NAV = [
-  { id: 'general',      label: 'General',        Icon: SlidersHorizontal },
-  { id: 'provider',     label: 'AI Provider',     Icon: Bot },
-  { id: 'integrations', label: 'Integrations',   Icon: Link },
-  { id: 'targets',      label: 'Remote Targets',  Icon: Server },
-  { id: 'schedule',     label: 'Schedule',        Icon: CalendarClock },
-  { id: 'history',      label: 'History',         Icon: History },
+  { id: 'general',      label: 'General' },
+  { id: 'provider',     label: 'AI Provider' },
+  { id: 'integrations', label: 'Integrations' },
+  { id: 'targets',      label: 'Remote Targets' },
+  { id: 'schedule',     label: 'Schedule' },
+  { id: 'history',      label: 'History' },
 ]
 
 const inp = { background: '#0f0f0f', border: '1px solid #252525', color: '#e0e0e0' }
 
-export default function SettingsModal({ open, onClose, onScan }) {
+export default function SettingsModal({ open, onClose, onScan, initialSection }) {
   const [apiKey,    setApiKey]    = useState('')
   const [shodanKey, setShodanKey] = useState('')
   const [lang,      setLang]      = useState('auto')
@@ -55,8 +57,9 @@ export default function SettingsModal({ open, onClose, onScan }) {
     setProvider(p)
     setModel(localStorage.getItem('aivas_model') || MODEL_DEFAULTS[p] || MODEL_DEFAULTS.groq)
     setTestResult(null)
+    setSection(initialSection || 'general')
     fetch('/api/remote-targets').then(r => r.json()).then(setRemoteTargets).catch(() => {})
-  }, [open])
+  }, [open, initialSection])
 
   useEffect(() => {
     const fn = (e) => { if (e.key === 'Escape' && open) onClose() }
@@ -121,24 +124,34 @@ export default function SettingsModal({ open, onClose, onScan }) {
         className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-xl flex overflow-hidden"
       >
         {/* Sidebar */}
-        <div style={{ width: 220, borderRight: '1px solid #222', background: '#0f0f0f', flexShrink: 0 }}
-          className="flex flex-col py-4 overflow-y-auto"
+        <div style={{ width: 200, borderRight: '1px solid #1e1e1e', background: '#0d0d0d', flexShrink: 0 }}
+          className="flex flex-col pt-5 pb-4 overflow-y-auto"
         >
-          <p style={{ color: '#444', fontSize: 11 }} className="px-4 mb-2 uppercase tracking-widest font-medium">
+          <p style={{ ...MONO, color: '#444', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}
+             className="px-4 mb-3">
             Settings
           </p>
-          {NAV.map(({ id, label, Icon }) => (
+          {NAV.map(({ id, label }) => (
             <button
               key={id}
               onClick={() => setSection(id)}
               style={{
-                background: section === id ? '#1e1e1e' : 'transparent',
-                color: section === id ? '#e0e0e0' : '#666',
-                borderRadius: 6,
+                background: section === id ? '#161616' : 'transparent',
+                color: section === id ? '#e0e0e0' : '#555',
+                borderLeft: section === id ? '2px solid #4a9eff' : '2px solid transparent',
+                borderTop: 'none',
+                borderRight: 'none',
+                borderBottom: 'none',
+                fontSize: 12,
+                padding: '7px 14px',
+                textAlign: 'left',
+                cursor: 'pointer',
+                width: '100%',
+                transition: 'color 0.1s',
               }}
-              className="flex items-center gap-3 mx-2 px-3 py-2 text-sm text-left transition-colors hover:text-[#ccc]"
+              onMouseEnter={e => { if (section !== id) e.currentTarget.style.color = '#888' }}
+              onMouseLeave={e => { if (section !== id) e.currentTarget.style.color = '#555' }}
             >
-              <Icon size={15} />
               {label}
             </button>
           ))}

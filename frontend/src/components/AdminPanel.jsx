@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 
+const MONO = { fontFamily: '"Fira Code", monospace' }
+
 export default function AdminPanel({ open, onClose, token }) {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(false)
@@ -28,63 +30,58 @@ export default function AdminPanel({ open, onClose, token }) {
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
-        style={{ background: '#111111', border: '1px solid #1e1e1e', borderRadius: 10, width: '100%', maxWidth: 520 }}
+        style={{ background: '#111111', border: '1px solid #1e1e1e', borderRadius: 8, width: '100%', maxWidth: 480, overflow: 'hidden' }}
       >
         {/* Header */}
-        <div
-          style={{ borderBottom: '1px solid #1e1e1e' }}
-          className="flex items-center justify-between px-5 py-3.5"
-        >
+        <div style={{ borderBottom: '1px solid #1e1e1e', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px' }}>
           <div>
-            <div style={{ color: '#e0e0e0', fontWeight: 600, fontSize: 14 }}>User Management</div>
-            <div style={{ color: '#555', fontSize: 12, marginTop: 1 }}>{users.length} account{users.length !== 1 ? 's' : ''}</div>
+            <div style={{ color: '#e0e0e0', fontSize: 13, fontWeight: 600 }}>User Management</div>
+            <div style={{ ...MONO, color: '#444', fontSize: 10, marginTop: 2 }}>
+              {users.length} account{users.length !== 1 ? 's' : ''}
+            </div>
           </div>
           <button
             onClick={onClose}
-            style={{ color: '#666' }}
-            className="p-1.5 hover:text-white transition-colors rounded"
+            style={{ color: '#444', background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 3 }}
+            onMouseEnter={e => e.currentTarget.style.color = '#e0e0e0'}
+            onMouseLeave={e => e.currentTarget.style.color = '#444'}
           >
-            <X size={16} />
+            <X size={14} />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-5">
+        <div>
           {loading && (
-            <div style={{ color: '#555', fontSize: 13 }} className="text-center py-6">Loading…</div>
+            <div style={{ color: '#444', fontSize: 12, textAlign: 'center', padding: '32px 0' }}>Loading…</div>
           )}
           {error && (
-            <div style={{ color: '#ef5350', fontSize: 13 }} className="text-center py-6">{error}</div>
+            <div style={{ color: '#ef5350', fontSize: 12, textAlign: 'center', padding: '32px 0' }}>{error}</div>
           )}
           {!loading && !error && users.length === 0 && (
-            <div style={{ color: '#555', fontSize: 13 }} className="text-center py-6">No users found</div>
+            <div style={{ color: '#444', fontSize: 12, textAlign: 'center', padding: '32px 0' }}>No users found</div>
           )}
           {!loading && !error && users.length > 0 && (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid #1a1a1a' }}>
-                  <th style={{ color: '#555', fontSize: 11, fontWeight: 500, textAlign: 'left', padding: '0 0 8px 0' }}>Username</th>
-                  <th style={{ color: '#555', fontSize: 11, fontWeight: 500, textAlign: 'left', padding: '0 0 8px 16px' }}>Role</th>
-                  <th style={{ color: '#555', fontSize: 11, fontWeight: 500, textAlign: 'right', padding: '0 0 8px 0' }}>ID</th>
+                <tr style={{ background: '#0d0d0d', borderBottom: '1px solid #1a1a1a' }}>
+                  <th style={{ ...MONO, color: '#444', fontSize: 10, fontWeight: 400, letterSpacing: '0.08em', textAlign: 'left', padding: '7px 16px', textTransform: 'uppercase' }}>Username</th>
+                  <th style={{ ...MONO, color: '#444', fontSize: 10, fontWeight: 400, letterSpacing: '0.08em', textAlign: 'left', padding: '7px 12px', textTransform: 'uppercase' }}>Role</th>
+                  <th style={{ ...MONO, color: '#444', fontSize: 10, fontWeight: 400, letterSpacing: '0.08em', textAlign: 'right', padding: '7px 16px', textTransform: 'uppercase' }}>ID</th>
                 </tr>
               </thead>
               <tbody>
                 {users.map(u => (
-                  <tr
-                    key={u.id}
-                    style={{ borderBottom: '1px solid #141414' }}
-                  >
-                    <td style={{ color: '#e0e0e0', fontSize: 13, padding: '9px 0' }}>{u.username}</td>
-                    <td style={{ padding: '9px 0 9px 16px' }}>
+                  <tr key={u.id} style={{ borderBottom: '1px solid #141414' }}>
+                    <td style={{ ...MONO, color: '#e0e0e0', fontSize: 12, padding: '10px 16px' }}>{u.username}</td>
+                    <td style={{ padding: '10px 12px' }}>
                       {u.role === 'admin' ? (
-                        <span style={{ background: '#4a9eff18', color: '#4a9eff', borderRadius: 4, fontSize: 10, padding: '2px 6px', fontWeight: 600 }}>
-                          ADMIN
-                        </span>
+                        <span style={{ ...MONO, color: '#4a9eff', fontSize: 10, letterSpacing: '0.06em' }}>ADMIN</span>
                       ) : (
-                        <span style={{ color: '#555', fontSize: 12 }}>user</span>
+                        <span style={{ ...MONO, color: '#444', fontSize: 11 }}>user</span>
                       )}
                     </td>
-                    <td style={{ color: '#444', fontSize: 11, fontFamily: 'monospace', textAlign: 'right', padding: '9px 0' }}>
+                    <td style={{ ...MONO, color: '#333', fontSize: 11, textAlign: 'right', padding: '10px 16px' }}>
                       #{u.id}
                     </td>
                   </tr>
