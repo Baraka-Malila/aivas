@@ -192,3 +192,9 @@ def create_schema(conn: sqlite3.Connection) -> None:
         conn.commit()
     except Exception:
         pass
+    # Migration: add label column to scans if DB predates this sprint
+    try:
+        conn.execute("ALTER TABLE scans ADD COLUMN label TEXT")
+        conn.commit()
+    except Exception:
+        pass  # column already exists

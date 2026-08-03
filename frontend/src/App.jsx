@@ -148,7 +148,7 @@ export default function App() {
     lang: storedLang,
   })
   const { start: startScan, stop: stopScan } = useScan(handleScanProgress, handleScanDone)
-  const { sessions, refresh: refreshSessions, deleteSession } = useSessions()
+  const { sessions, refresh: refreshSessions, deleteSession, renameSession } = useSessions()
 
   // Wire refs after hooks resolve
   useEffect(() => { startScanRef.current = startScan }, [startScan])
@@ -306,6 +306,7 @@ export default function App() {
         onClose={() => setDrawerOpen(false)}
         onSelect={handleSelectSession}
         onDelete={deleteSession}
+        onRename={renameSession}
         onNew={() => { handleNewConversation(); setDrawerOpen(false) }}
       />
       <SettingsModal

@@ -1,7 +1,75 @@
-import { useEffect } from 'react'
-import { X, Trash2, Plus } from 'lucide-react'
+import { useEffect, useState, useRef } from 'react'
+import { X, Trash2, Plus, Pencil, Check } from 'lucide-react'
 
-export default function SessionDrawer({ open, sessions, onClose, onSelect, onDelete, onNew }) {
+function InlineRename({ value, onSave, onCancel }) {
+  const [text, setText] = useState(value)
+  const ref = useRef(null)
+  useEffect(() => { ref.current?.focus() }, [])
+  const commit = () => { if (text.trim()) onSave(text.trim()); else onCancel() }
+  return (
+    <div className="flex items-center gap-1 flex-1 min-w-0" onClick={e => e.stopPropagation()}>
+      <input
+        ref={ref}
+        value={text}
+        onChange={e => setText(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') onCancel() }}
+        style={{ background: '#1a1a1a', border: '1px solid #4a9eff', color: '#e0e0e0', borderRadius: 4 }}
+        className="flex-1 min-w-0 px-2 py-0.5 text-xs outline-none"
+      />
+      <button onClick={commit} style={{ color: '#66bb6a' }} className="p-0.5 hover:opacity-80">
+        <Check size={11} />
+      </button>
+    </div>
+  )
+}
+
+function SessionItem({ session, onSelect, onDelete, onRename }) {
+  const [editing, setEditing] = useState(false)
+  return (
+    <div
+      style={{ borderBottom: '1px solid #141414' }}
+      className="group flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors cursor-pointer"
+      onClick={onSelect}
+    >
+      <div className="flex-1 min-w-0 pr-2">
+        {editing ? (
+          <InlineRename
+            value={session.title || 'New conversation'}
+            onSave={t => { onRename(t); setEditing(false) }}
+            onCancel={() => setEditing(false)}
+          />
+        ) : (
+          <div style={{ color: '#e0e0e0' }} className="text-xs truncate">
+            {session.title || 'New conversation'}
+          </div>
+        )}
+        <div style={{ color: '#666' }} className="text-xs mt-0.5">{formatDate(session.updated_at)}</div>
+      </div>
+      {!editing && (
+        <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 shrink-0 transition-opacity">
+          <button
+            onClick={e => { e.stopPropagation(); setEditing(true) }}
+            style={{ color: '#444' }}
+            className="p-1 hover:text-[#4a9eff] transition-colors"
+            aria-label="Rename conversation"
+          >
+            <Pencil size={11} />
+          </button>
+          <button
+            onClick={e => { e.stopPropagation(); onDelete() }}
+            style={{ color: '#444' }}
+            className="p-1 hover:text-red-400 transition-colors"
+            aria-label="Delete conversation"
+          >
+            <Trash2 size={13} />
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function SessionDrawer({ open, sessions, onClose, onSelect, onDelete, onNew, onRename }) {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' && open) {
@@ -56,29 +124,11 @@ export default function SessionDrawer({ open, sessions, onClose, onSelect, onDel
             </div>
           )}
           {sessions.map(s => (
-            <div
-              key={s.id}
-              style={{ borderBottom: '1px solid #141414' }}
-              className="group flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors cursor-pointer"
-              onClick={() => { onSelect(s.id); onClose() }}
-            >
-              <div className="flex-1 min-w-0 pr-2">
-                <div style={{ color: '#e0e0e0' }} className="text-xs truncate">
-                  {s.title || 'New conversation'}
-                </div>
-                <div style={{ color: '#666' }} className="text-xs mt-0.5">
-                  {formatDate(s.updated_at)}
-                </div>
-              </div>
-              <button
-                onClick={e => { e.stopPropagation(); onDelete(s.id) }}
-                style={{ color: '#444' }}
-                className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition-all shrink-0"
-                aria-label="Delete conversation"
-              >
-                <Trash2 size={13} />
-              </button>
-            </div>
+            <SessionItem key={s.id} session={s}
+              onSelect={() => { onSelect(s.id); onClose() }}
+              onDelete={() => onDelete(s.id)}
+              onRename={title => onRename?.(s.id, title)}
+            />
           ))}
         </div>
       </div>

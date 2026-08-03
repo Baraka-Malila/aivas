@@ -13,12 +13,15 @@ def save_scan(
     scored = score_findings(findings)
     hosts = {f.get("host") for f in findings if f.get("host")}
 
+    date_str = datetime.now(timezone.utc).strftime("%b %d")
+    grade = scored["grade"]
+    auto_label = f"{target} — Grade {grade} — {date_str}"
     cur = conn.execute(
         """INSERT INTO scans
-               (target, started_at, finished_at, host_count, finding_count,
+               (target, label, started_at, finished_at, host_count, finding_count,
                 risk_score, grade, report_path)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-        (target, now, now, len(hosts), len(findings),
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (target, auto_label, now, now, len(hosts), len(findings),
          scored["score"], f"Grade {scored['grade']}", report_path),
     )
     scan_id = cur.lastrowid
@@ -52,7 +55,7 @@ def save_scan(
 def list_scans(conn: sqlite3.Connection, limit: int = 20) -> list[dict]:
     rows = conn.execute(
         """
-        SELECT s.id, s.target, s.started_at, s.finding_count, s.risk_score, s.grade,
+        SELECT s.id, s.target, s.label, s.started_at, s.finding_count, s.risk_score, s.grade,
                COALESCE((
                  SELECT COUNT(DISTINCT f.cve_id)
                    FROM findings f

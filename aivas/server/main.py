@@ -77,6 +77,20 @@ async def get_scan(scan_id: int):
     return findings
 
 
+@app.patch("/api/scan/{scan_id}")
+async def rename_scan(scan_id: int, body: dict):
+    label = (body.get("label") or "").strip()
+    if not label:
+        raise HTTPException(status_code=400, detail="label is required")
+    changes = _conn.execute(
+        "UPDATE scans SET label=? WHERE id=?", (label, scan_id)
+    ).rowcount
+    _conn.commit()
+    if not changes:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    return {"id": scan_id, "label": label}
+
+
 @app.delete("/api/scan/{scan_id}")
 async def delete_scan(scan_id: int):
     _conn.execute("DELETE FROM findings WHERE scan_id = ?", (scan_id,))
@@ -193,6 +207,20 @@ async def get_session_messages_route(session_id: str):
     if not s:
         raise HTTPException(status_code=404, detail="Session not found")
     return load_history(_conn, session_id, max_turns=100)
+
+
+@app.patch("/api/sessions/{session_id}")
+async def rename_session_route(session_id: str, body: dict):
+    title = (body.get("title") or "").strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="title is required")
+    changes = _conn.execute(
+        "UPDATE chat_sessions SET title=? WHERE id=?", (title, session_id)
+    ).rowcount
+    _conn.commit()
+    if not changes:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {"id": session_id, "title": title}
 
 
 @app.delete("/api/sessions/{session_id}")

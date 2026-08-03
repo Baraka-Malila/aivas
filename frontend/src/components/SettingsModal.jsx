@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { X, SlidersHorizontal, Bot, Link, Server, CalendarClock } from 'lucide-react'
+import { X, SlidersHorizontal, Bot, Link, Server, CalendarClock, History } from 'lucide-react'
 import RemoteTargetsSection from './RemoteTargetsSection'
 import ScheduleSection from './ScheduleSection'
+import HistorySection from './HistorySection'
 
 const LANGS = [
   { value: 'auto', label: 'Auto' },
@@ -27,6 +28,7 @@ const NAV = [
   { id: 'integrations', label: 'Integrations',   Icon: Link },
   { id: 'targets',      label: 'Remote Targets',  Icon: Server },
   { id: 'schedule',     label: 'Schedule',        Icon: CalendarClock },
+  { id: 'history',      label: 'History',         Icon: History },
 ]
 
 const inp = { background: '#0f0f0f', border: '1px solid #252525', color: '#e0e0e0' }
@@ -260,6 +262,10 @@ export default function SettingsModal({ open, onClose, onScan }) {
 
             {section === 'schedule' && (
               <ScheduleSection remoteTargets={remoteTargets} />
+            )}
+
+            {section === 'history' && (
+              <HistorySection />
             )}
           </div>
         </div>
