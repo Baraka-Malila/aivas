@@ -26,7 +26,8 @@ def test_register_and_login(client):
     data = r.json()
     assert "token" in data
     assert data["user"]["username"] == "alice"
-    assert data["user"]["role"] == "user"
+    # alice is the first user in a fresh DB → auto-promoted to admin
+    assert data["user"]["role"] == "admin"
 
 
 def test_login_returns_token(client):
@@ -67,7 +68,10 @@ def test_me_returns_user(client):
 
 
 def test_users_list_requires_admin(client):
-    tc, _ = client
+    tc, db = client
+    from aivas.server.auth import register_user
+    # Seed an admin first so frank registers as a regular user
+    register_user(db, "seed_admin", "adminpass", role="admin")
     reg = tc.post("/api/auth/register", json={"username": "frank", "password": "pass1234"})
     token = reg.json()["token"]
     r = tc.get("/api/auth/users", headers={"Authorization": f"Bearer {token}"})
@@ -89,3 +93,18 @@ def test_short_password_rejected(client):
     tc, _ = client
     r = tc.post("/api/auth/register", json={"username": "grace", "password": "abc"})
     assert r.status_code == 400
+
+
+def test_first_user_becomes_admin(client):
+    tc, _ = client
+    r = tc.post("/api/auth/register", json={"username": "first", "password": "secret123"})
+    assert r.status_code == 200
+    assert r.json()["user"]["role"] == "admin"
+
+
+def test_second_user_stays_user(client):
+    tc, _ = client
+    tc.post("/api/auth/register", json={"username": "first", "password": "secret123"})
+    r = tc.post("/api/auth/register", json={"username": "second", "password": "secret123"})
+    assert r.status_code == 200
+    assert r.json()["user"]["role"] == "user"

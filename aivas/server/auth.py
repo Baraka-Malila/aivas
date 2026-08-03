@@ -55,6 +55,9 @@ def register_user(
     ).fetchone()
     if existing:
         raise HTTPException(status_code=409, detail="Username already taken")
+    user_count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    if user_count == 0:
+        role = "admin"
     pw_hash = hash_password(password)
     cur = conn.execute(
         "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
