@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { X } from 'lucide-react'
+import { X, SlidersHorizontal, Bot, Link, Server } from 'lucide-react'
+import RemoteTargetsSection from './RemoteTargetsSection'
 
 const LANGS = [
   { value: 'auto', label: 'Auto' },
@@ -19,17 +20,27 @@ const MODEL_DEFAULTS = {
   ollama: 'llama3',
 }
 
+const NAV = [
+  { id: 'general',      label: 'General',        Icon: SlidersHorizontal },
+  { id: 'provider',     label: 'AI Provider',     Icon: Bot },
+  { id: 'integrations', label: 'Integrations',   Icon: Link },
+  { id: 'targets',      label: 'Remote Targets',  Icon: Server },
+]
+
+const inp = { background: '#0f0f0f', border: '1px solid #252525', color: '#e0e0e0' }
+
 export default function SettingsModal({ open, onClose, onScan }) {
   const [apiKey,    setApiKey]    = useState('')
   const [shodanKey, setShodanKey] = useState('')
   const [lang,      setLang]      = useState('auto')
   const [provider,  setProvider]  = useState('groq')
   const [model,     setModel]     = useState(MODEL_DEFAULTS.groq)
+  const [section,   setSection]   = useState('general')
 
   const [remoteTargets, setRemoteTargets] = useState([])
-  const [newTarget, setNewTarget] = useState({ label: '', host: '', method: 'ssh', username: '', password: '', port: 22 })
-  const [testResult, setTestResult] = useState(null)
-  const [testing, setTesting] = useState(false)
+  const [newTarget,     setNewTarget]     = useState({ label: '', host: '', method: 'ssh', username: '', password: '', port: 22 })
+  const [testResult,    setTestResult]    = useState(null)
+  const [testing,       setTesting]       = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -40,27 +51,15 @@ export default function SettingsModal({ open, onClose, onScan }) {
     setProvider(p)
     setModel(localStorage.getItem('aivas_model') || MODEL_DEFAULTS[p] || MODEL_DEFAULTS.groq)
     setTestResult(null)
-    fetch('/api/remote-targets')
-      .then(r => r.json())
-      .then(setRemoteTargets)
-      .catch(() => {})
+    fetch('/api/remote-targets').then(r => r.json()).then(setRemoteTargets).catch(() => {})
   }, [open])
 
   useEffect(() => {
-    const handleKeyDown = (e) => { if (e.key === 'Escape' && open) onClose() }
-    if (open) {
-      document.addEventListener('keydown', handleKeyDown)
-      return () => document.removeEventListener('keydown', handleKeyDown)
-    }
+    const fn = (e) => { if (e.key === 'Escape' && open) onClose() }
+    if (open) { document.addEventListener('keydown', fn); return () => document.removeEventListener('keydown', fn) }
   }, [open, onClose])
 
   if (!open) return null
-
-  const handleProviderChange = (e) => {
-    const p = e.target.value
-    setProvider(p)
-    setModel(MODEL_DEFAULTS[p] || MODEL_DEFAULTS.groq)
-  }
 
   const save = () => {
     localStorage.setItem('aivas_api_key',    apiKey)
@@ -74,249 +73,190 @@ export default function SettingsModal({ open, onClose, onScan }) {
   const saveTarget = async () => {
     if (!newTarget.host || !newTarget.username) return
     const label = newTarget.label || `${newTarget.username}@${newTarget.host}`
-    try {
-      const resp = await fetch('/api/remote-targets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...newTarget, label }),
-      })
-      if (resp.ok) {
-        const saved = await resp.json()
-        setRemoteTargets(prev => [saved, ...prev])
-        setNewTarget({ label: '', host: '', method: 'ssh', username: '', password: '', port: 22 })
-        setTestResult(null)
-      }
-    } catch { /* silent */ }
+    const resp = await fetch('/api/remote-targets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...newTarget, label }),
+    }).catch(() => null)
+    if (resp?.ok) {
+      const saved = await resp.json()
+      setRemoteTargets(prev => [saved, ...prev])
+      setNewTarget({ label: '', host: '', method: 'ssh', username: '', password: '', port: 22 })
+      setTestResult(null)
+    }
   }
 
   const deleteTarget = async (id) => {
-    try {
-      await fetch(`/api/remote-targets/${id}`, { method: 'DELETE' })
-      setRemoteTargets(prev => prev.filter(t => t.id !== id))
-    } catch { /* silent */ }
+    await fetch(`/api/remote-targets/${id}`, { method: 'DELETE' }).catch(() => {})
+    setRemoteTargets(prev => prev.filter(t => t.id !== id))
   }
 
   const testConnection = async () => {
-    setTesting(true)
-    setTestResult(null)
+    setTesting(true); setTestResult(null)
     try {
       const resp = await fetch('/api/probe/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...newTarget }),
+        body: JSON.stringify(newTarget),
       })
       setTestResult(await resp.json())
-    } catch {
-      setTestResult({ ok: false, error: 'Network error' })
-    }
+    } catch { setTestResult({ ok: false, error: 'Network error' }) }
     setTesting(false)
   }
 
-  const inputStyle = { background: '#161616', border: '1px solid #1e1e1e', color: '#e0e0e0' }
-
   return (
     <>
-      <div style={{ background: 'rgba(0,0,0,0.7)' }} className="fixed inset-0 z-40" onClick={onClose} />
+      <div
+        style={{ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', background: 'rgba(0,0,0,0.55)' }}
+        className="fixed inset-0 z-40"
+        onClick={onClose}
+      />
       <div
         data-testid="settings-modal"
-        style={{ background: '#111111', border: '1px solid #1e1e1e', width: 440, maxHeight: '90vh', overflowY: 'auto' }}
-        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-lg p-5"
+        style={{ background: '#141414', border: '1px solid #222', width: 820, maxWidth: '95vw', height: 'min(85vh, 600px)' }}
+        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-xl flex overflow-hidden"
       >
-        <div className="flex items-center justify-between mb-5">
-          <span style={{ color: '#e0e0e0' }} className="font-medium text-sm">Settings</span>
-          <button onClick={onClose} style={{ color: '#666' }} className="p-1 hover:text-white transition-colors">
-            <X size={16} />
-          </button>
-        </div>
-
-        {/* Provider */}
-        <div className="mb-4">
-          <label style={{ color: '#666' }} className="text-xs block mb-1.5">Provider</label>
-          <select
-            value={provider}
-            onChange={handleProviderChange}
-            style={{ ...inputStyle, width: '100%' }}
-            className="rounded px-3 py-2 text-sm outline-none focus:border-[#4a9eff] transition-colors"
-          >
-            {PROVIDERS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-          </select>
-        </div>
-
-        {/* Model */}
-        <div className="mb-4">
-          <label style={{ color: '#666' }} className="text-xs block mb-1.5">Model</label>
-          <input
-            type="text"
-            value={model}
-            onChange={e => setModel(e.target.value)}
-            style={inputStyle}
-            className="w-full rounded px-3 py-2 text-sm outline-none focus:border-[#4a9eff] transition-colors"
-          />
-        </div>
-
-        {/* API Key */}
-        <div className="mb-4">
-          <label style={{ color: '#666' }} className="text-xs block mb-1.5">
-            API Key ({provider === 'claude' ? 'Anthropic' : provider === 'groq' ? 'Groq' : 'not needed'})
-          </label>
-          <input
-            type="password"
-            value={apiKey}
-            onChange={e => setApiKey(e.target.value)}
-            placeholder={provider === 'groq' ? 'gsk_…' : provider === 'claude' ? 'sk-ant-…' : 'not required'}
-            style={inputStyle}
-            className="w-full rounded px-3 py-2 text-sm outline-none focus:border-[#4a9eff] placeholder:text-[#444] transition-colors"
-          />
-        </div>
-
-        {/* Shodan Key */}
-        <div className="mb-4">
-          <label style={{ color: '#666' }} className="text-xs block mb-1.5">Shodan API Key (optional)</label>
-          <input
-            type="password"
-            value={shodanKey}
-            onChange={e => setShodanKey(e.target.value)}
-            placeholder="shodan api key…"
-            style={inputStyle}
-            className="w-full rounded px-3 py-2 text-sm outline-none focus:border-[#4a9eff] placeholder:text-[#444] transition-colors"
-          />
-        </div>
-
-        {/* Language */}
-        <div className="mb-4">
-          <label style={{ color: '#666' }} className="text-xs block mb-1.5">Language</label>
-          <div className="flex gap-2">
-            {LANGS.map(l => (
-              <button
-                key={l.value}
-                onClick={() => setLang(l.value)}
-                style={{
-                  background: lang === l.value ? '#4a9eff' : '#161616',
-                  border: `1px solid ${lang === l.value ? '#4a9eff' : '#1e1e1e'}`,
-                  color: lang === l.value ? '#000' : '#e0e0e0',
-                }}
-                className="flex-1 py-1.5 text-xs rounded font-medium transition-all"
-              >
-                {l.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Remote Targets */}
-        <div className="mb-4">
-          <label style={{ color: '#666' }} className="text-xs block mb-2">Remote Targets (SSH / WinRM)</label>
-
-          {remoteTargets.map((t) => (
-            <div key={t.id} style={{ background: '#161616', border: '1px solid #1e1e1e', borderRadius: 4 }}
-                 className="flex items-center gap-2 px-3 py-2 mb-1.5 text-xs">
-              <span style={{ color: '#4a9eff', fontFamily: 'monospace' }}>{(t.method || 'ssh').toUpperCase()}</span>
-              <div className="flex flex-col min-w-0">
-                <span style={{ color: '#e0e0e0' }}>{t.label || `${t.username}@${t.host}`}</span>
-                <span style={{ color: '#555' }}>{t.username}@{t.host}:{t.port}</span>
-              </div>
-              <div className="ml-auto flex gap-3">
-                {onScan && (
-                  <button
-                    onClick={() => { onScan(t.host, { method: t.method, username: t.username, password: t.password, port: t.port }); onClose() }}
-                    style={{ color: '#4a9eff' }} className="hover:opacity-80 transition-opacity">
-                    Scan
-                  </button>
-                )}
-                <button onClick={() => deleteTarget(t.id)} style={{ color: '#555' }} className="hover:text-red-400 transition-colors">✕</button>
-              </div>
-            </div>
-          ))}
-
-          <div style={{ border: '1px solid #1e1e1e', borderRadius: 4 }} className="p-2.5 mt-2">
-            <div className="mb-2">
-              <input
-                type="text"
-                placeholder="Label (e.g. Kali Lab)"
-                value={newTarget.label}
-                onChange={e => setNewTarget(t => ({ ...t, label: e.target.value }))}
-                style={{ ...inputStyle, width: '100%' }}
-                className="rounded px-2 py-1.5 text-xs outline-none"
-              />
-            </div>
-            <div className="flex gap-2 mb-2">
-              <select
-                value={newTarget.method}
-                onChange={e => setNewTarget(t => ({ ...t, method: e.target.value, port: e.target.value === 'ssh' ? 22 : 5985 }))}
-                style={{ ...inputStyle, width: 80 }}
-                className="rounded px-2 py-1.5 text-xs outline-none"
-              >
-                <option value="ssh">SSH</option>
-                <option value="winrm">WinRM</option>
-              </select>
-              <input
-                type="text"
-                placeholder="host or IP"
-                value={newTarget.host}
-                onChange={e => setNewTarget(t => ({ ...t, host: e.target.value }))}
-                style={{ ...inputStyle, flex: 1 }}
-                className="rounded px-2 py-1.5 text-xs outline-none"
-              />
-              <input
-                type="number"
-                placeholder="port"
-                value={newTarget.port}
-                onChange={e => setNewTarget(t => ({ ...t, port: Number(e.target.value) }))}
-                style={{ ...inputStyle, width: 60 }}
-                className="rounded px-2 py-1.5 text-xs outline-none"
-              />
-            </div>
-            <div className="flex gap-2 mb-2">
-              <input
-                type="text"
-                placeholder="username"
-                value={newTarget.username}
-                onChange={e => setNewTarget(t => ({ ...t, username: e.target.value }))}
-                style={{ ...inputStyle, flex: 1 }}
-                className="rounded px-2 py-1.5 text-xs outline-none"
-              />
-              <input
-                type="password"
-                placeholder="password"
-                value={newTarget.password}
-                onChange={e => setNewTarget(t => ({ ...t, password: e.target.value }))}
-                style={{ ...inputStyle, flex: 1 }}
-                className="rounded px-2 py-1.5 text-xs outline-none"
-              />
-            </div>
-            <div className="flex gap-2 items-center">
-              <button
-                onClick={testConnection}
-                disabled={testing || !newTarget.host || !newTarget.username}
-                style={{ background: '#161616', border: '1px solid #1e1e1e', color: testing ? '#555' : '#e0e0e0' }}
-                className="text-xs px-3 py-1.5 rounded hover:opacity-80 transition-opacity disabled:cursor-not-allowed"
-              >
-                {testing ? 'Testing…' : 'Test Connection'}
-              </button>
-              <button
-                onClick={saveTarget}
-                disabled={!newTarget.host || !newTarget.username}
-                style={{ background: '#161616', border: '1px solid #4a9eff', color: '#4a9eff' }}
-                className="text-xs px-3 py-1.5 rounded hover:opacity-80 transition-opacity disabled:cursor-not-allowed"
-              >
-                Save Target
-              </button>
-              {testResult && (
-                <span style={{ color: testResult.ok ? '#66bb6a' : '#ef5350' }} className="text-xs">
-                  {testResult.ok ? '✓ Connected' : `✗ ${testResult.error}`}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <button
-          onClick={save}
-          style={{ background: '#4a9eff' }}
-          className="w-full py-2 text-sm font-semibold text-black rounded hover:opacity-90 transition-opacity"
+        {/* Sidebar */}
+        <div style={{ width: 220, borderRight: '1px solid #222', background: '#0f0f0f', flexShrink: 0 }}
+          className="flex flex-col py-4 overflow-y-auto"
         >
-          Save
-        </button>
+          <p style={{ color: '#444', fontSize: 11 }} className="px-4 mb-2 uppercase tracking-widest font-medium">
+            Settings
+          </p>
+          {NAV.map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              onClick={() => setSection(id)}
+              style={{
+                background: section === id ? '#1e1e1e' : 'transparent',
+                color: section === id ? '#e0e0e0' : '#666',
+                borderRadius: 6,
+              }}
+              className="flex items-center gap-3 mx-2 px-3 py-2 text-sm text-left transition-colors hover:text-[#ccc]"
+            >
+              <Icon size={15} />
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Content panel */}
+        <div className="flex-1 flex flex-col min-w-0">
+          <div style={{ borderBottom: '1px solid #1e1e1e' }} className="flex items-center justify-between px-6 py-4 shrink-0">
+            <span style={{ color: '#e0e0e0' }} className="font-semibold text-sm">
+              {NAV.find(n => n.id === section)?.label}
+            </span>
+            <button onClick={onClose} style={{ color: '#555' }} className="p-1 hover:text-white transition-colors rounded">
+              <X size={16} />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-6 py-5">
+            {section === 'general' && (
+              <>
+                <div className="mb-6">
+                  <p style={{ color: '#e0e0e0' }} className="text-sm font-medium mb-0.5">Language</p>
+                  <p style={{ color: '#555' }} className="text-xs mb-3">Language used for AI-generated reports and descriptions.</p>
+                  <div className="flex gap-2">
+                    {LANGS.map(l => (
+                      <button key={l.value} onClick={() => setLang(l.value)}
+                        style={{
+                          background: lang === l.value ? '#4a9eff22' : 'transparent',
+                          border: `1px solid ${lang === l.value ? '#4a9eff' : '#252525'}`,
+                          color: lang === l.value ? '#4a9eff' : '#888',
+                        }}
+                        className="flex-1 py-1.5 text-xs rounded font-medium transition-all"
+                      >{l.label}</button>
+                    ))}
+                  </div>
+                </div>
+                <button onClick={save} style={{ background: '#4a9eff' }}
+                  className="px-5 py-2 text-sm font-semibold text-black rounded hover:opacity-90 transition-opacity">
+                  Save Changes
+                </button>
+              </>
+            )}
+
+            {section === 'provider' && (
+              <>
+                <div className="mb-5">
+                  <p style={{ color: '#e0e0e0' }} className="text-sm font-medium mb-0.5">Provider</p>
+                  <p style={{ color: '#555' }} className="text-xs mb-3">AI backend for risk analysis and Swahili translation.</p>
+                  <select value={provider}
+                    onChange={e => { setProvider(e.target.value); setModel(MODEL_DEFAULTS[e.target.value] || MODEL_DEFAULTS.groq) }}
+                    style={{ ...inp, width: '100%' }}
+                    className="rounded px-3 py-2 text-sm outline-none"
+                  >
+                    {PROVIDERS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+                  </select>
+                </div>
+                <div className="mb-5">
+                  <p style={{ color: '#e0e0e0' }} className="text-sm font-medium mb-0.5">Model</p>
+                  <p style={{ color: '#555' }} className="text-xs mb-3">Model ID for the selected provider.</p>
+                  <input type="text" value={model} onChange={e => setModel(e.target.value)}
+                    style={{ ...inp, width: '100%' }}
+                    className="rounded px-3 py-2 text-sm outline-none"
+                  />
+                </div>
+                <div className="mb-6">
+                  <p style={{ color: '#e0e0e0' }} className="text-sm font-medium mb-0.5">
+                    API Key{provider === 'ollama' ? ' (not needed)' : ''}
+                  </p>
+                  <p style={{ color: '#555' }} className="text-xs mb-3">
+                    {provider === 'groq' ? 'Groq Cloud API key — get one free at console.groq.com' :
+                     provider === 'claude' ? 'Anthropic API key — available at console.anthropic.com' :
+                     'Ollama runs locally — no API key required'}
+                  </p>
+                  <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)}
+                    placeholder={provider === 'groq' ? 'gsk_…' : provider === 'claude' ? 'sk-ant-…' : 'not required'}
+                    disabled={provider === 'ollama'}
+                    style={{ ...inp, width: '100%', opacity: provider === 'ollama' ? 0.4 : 1 }}
+                    className="rounded px-3 py-2 text-sm outline-none placeholder:text-[#444]"
+                  />
+                </div>
+                <button onClick={save} style={{ background: '#4a9eff' }}
+                  className="px-5 py-2 text-sm font-semibold text-black rounded hover:opacity-90 transition-opacity">
+                  Save Changes
+                </button>
+              </>
+            )}
+
+            {section === 'integrations' && (
+              <>
+                <div className="mb-6">
+                  <p style={{ color: '#e0e0e0' }} className="text-sm font-medium mb-0.5">Shodan API Key</p>
+                  <p style={{ color: '#555' }} className="text-xs mb-3">
+                    Optional. Enables internet exposure lookups for scanned IPs. Leave empty to skip.
+                  </p>
+                  <input type="password" value={shodanKey} onChange={e => setShodanKey(e.target.value)}
+                    placeholder="shodan api key…"
+                    style={{ ...inp, width: '100%' }}
+                    className="rounded px-3 py-2 text-sm outline-none placeholder:text-[#444]"
+                  />
+                </div>
+                <button onClick={save} style={{ background: '#4a9eff' }}
+                  className="px-5 py-2 text-sm font-semibold text-black rounded hover:opacity-90 transition-opacity">
+                  Save Changes
+                </button>
+              </>
+            )}
+
+            {section === 'targets' && (
+              <RemoteTargetsSection
+                remoteTargets={remoteTargets}
+                newTarget={newTarget}
+                setNewTarget={setNewTarget}
+                testResult={testResult}
+                testing={testing}
+                onSave={saveTarget}
+                onDelete={deleteTarget}
+                onTest={testConnection}
+                onScan={onScan}
+                onClose={onClose}
+              />
+            )}
+          </div>
+        </div>
       </div>
     </>
   )
