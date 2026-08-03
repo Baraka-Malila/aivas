@@ -56,6 +56,29 @@ async def _exec_tool(
             ),
         }), (target, level)
 
+    if name == "remote_scan":
+        target = _as_str(args.get("target"))
+        method = _as_str(args.get("method")) or "ssh"
+        username = _as_str(args.get("username"))
+        password = _as_str(args.get("password"))
+        port = _as_int(args.get("port")) or (22 if method == "ssh" else 5985)
+        key_path = _as_str(args.get("key_path")) or None
+        if not target:
+            return json.dumps({"error": "target is required for remote_scan"}), None
+        if not username:
+            return json.dumps({"error": "username is required for remote_scan"}), None
+        creds = {
+            "method": method, "username": username,
+            "password": password, "port": port, "key_path": key_path,
+        }
+        return json.dumps({
+            "status": "running_in_background",
+            "instruction": (
+                "Credentialed scan is running. Results will appear in the scan card. "
+                "Do NOT predict or describe findings."
+            ),
+        }), (target, 2, creds)
+
     if name == "get_history":
         limit = _as_int(args.get("limit"), default=5) or 5
         scans = list_scans(conn, limit=limit)

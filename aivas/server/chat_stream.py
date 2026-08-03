@@ -44,7 +44,10 @@ _PHASE_A_SYSTEM = (
     "If no explicit target, call get_local_info first, then call "
     "discover_hosts(target=<network>) using the 'network' field. "
     "Never guess a network address.\n"
-    "(5) Complete multi-step tasks without stopping to explain between tool calls."
+    "(5) Complete multi-step tasks without stopping to explain between tool calls.\n"
+    "(6) User provides SSH credentials, says 'scan as <username>', 'scan via SSH', "
+    "or 'scan my Windows machine with WinRM' → call remote_scan with target, "
+    "method (ssh or winrm), username, and password if provided."
 )
 
 
@@ -243,7 +246,13 @@ async def stream_agent_response(
                 scan_intent = None
 
             if scan_intent:
-                yield {"type": "scan_triggered", "target": scan_intent[0], "level": scan_intent[1]}
+                creds_payload = scan_intent[2] if len(scan_intent) > 2 else None
+                yield {
+                    "type": "scan_triggered",
+                    "target": scan_intent[0],
+                    "level": scan_intent[1],
+                    **({"creds": creds_payload} if creds_payload else {}),
+                }
                 scan_triggered_this_step = True
             elif tc.function.name not in _SILENT_TOOLS:
                 yield {"type": "tool_result", "name": tc.function.name,

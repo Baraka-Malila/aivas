@@ -24,6 +24,7 @@ Tools available:
 - get_findings: get CVE findings for a specific scan ID.
 - explain_cve: look up a CVE in the local vulnerability database.
 - query_shodan: get threat intelligence for an IP from Shodan.
+- remote_scan: scan a remote host using SSH credentials (Linux) or WinRM (Windows) to enumerate installed packages and services from inside the machine. More accurate than a port scan — finds vulnerabilities in software not listening on any port.
 
 Rules:
 - Never fabricate CVE details. Only cite CVEs returned by tools in this session.
@@ -120,5 +121,30 @@ TOOLS = [
         "parameters": {"type": "object", "required": ["target"], "properties": {
             "target": {"type": "string", "description": "CIDR range e.g. 10.88.91.0/24"},
         }},
+    }},
+    {"type": "function", "function": {
+        "name": "remote_scan",
+        "description": (
+            "Scan a host using SSH (Linux) or WinRM (Windows) credentials to enumerate "
+            "installed packages and services from inside the machine. "
+            "Use when the user says 'scan via SSH', 'scan as ubuntu', 'credentialed scan', "
+            "provides a username/password, or says 'scan my Windows machine'. "
+            "For Linux/Mac: method=ssh. For Windows: method=winrm."
+        ),
+        "parameters": {
+            "type": "object",
+            "required": ["target", "method", "username"],
+            "properties": {
+                "target": {"type": "string", "description": "IP address or hostname"},
+                "method": {"type": "string", "enum": ["ssh", "winrm"],
+                           "description": "ssh for Linux/Mac, winrm for Windows"},
+                "username": {"type": "string", "description": "Login username"},
+                "password": {"type": "string", "description": "Login password"},
+                "port": {"type": "integer",
+                         "description": "SSH port (default 22) or WinRM port (default 5985)"},
+                "key_path": {"type": "string",
+                             "description": "Path to SSH private key file (optional)"},
+            },
+        },
     }},
 ]
