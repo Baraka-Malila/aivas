@@ -62,6 +62,11 @@ async def cve_events(
     for svc in services:
         yield _ev("cve_lookup", f"{indent}{_svc_label(svc)} (port {svc.get('port','?')})…")
         svc_findings = await asyncio.to_thread(correlate, conn, [svc], os_hint)
+        # Tag each finding with the service's installed version (from dpkg/rpm)
+        svc_version = svc.get("version") or None
+        if svc_version:
+            for f in svc_findings:
+                f.setdefault("installed_version", svc_version)
         await asyncio.sleep(0.05)
         probable = [f for f in svc_findings if f.get("confidence") in ("probable", "confirmed")]
         if probable:
@@ -75,7 +80,15 @@ async def cve_events(
         else:
             yield _ev("cve_none", f"{indent}→ no CVEs matched")
         all_findings.extend(svc_findings)
-    yield {"__findings": all_findings}
+    # Deduplicate by CVE ID — the same CVE can match multiple service entries
+    # when correlate() is called per-service (each call has its own seen set).
+    seen_cves: set[str] = set()
+    deduped: list[dict] = []
+    for f in all_findings:
+        if f["cve_id"] not in seen_cves:
+            seen_cves.add(f["cve_id"])
+            deduped.append(f)
+    yield {"__findings": deduped}
 
 
 async def http_probe_events(

@@ -29,9 +29,22 @@ _SOFTWARE_PATTERNS = [
     (r'mysql',               'MySQL',               'https://dev.mysql.com/'),
     (r'mariadb',             'MariaDB',             'https://mariadb.org/'),
     (r'\bphp\b',             'PHP',                 'https://www.php.net/'),
-    (r'linux kernel|kernel', 'Linux Kernel',        'https://kernel.org/'),
+    (r'linux kernel|\bkernel\b', 'Linux Kernel',    'https://kernel.org/'),
     (r'wordpress',           'WordPress',           'https://wordpress.org/'),
     (r'samba',               'Samba',               'https://www.samba.org/'),
+    (r'\bbind\b|named|dns-over-https|isc bind', 'BIND (ISC)', 'https://www.isc.org/bind/'),
+    (r'sudo',                'sudo',                'https://www.sudo.ws/'),
+    (r'glibc|gnu c library', 'glibc',               'https://www.gnu.org/software/libc/'),
+    (r'curl|libcurl',        'curl',                'https://curl.se/'),
+    (r'python',              'Python',              'https://www.python.org/'),
+    (r'postgresql',          'PostgreSQL',          'https://www.postgresql.org/'),
+    (r'redis',               'Redis',               'https://redis.io/'),
+    (r'docker|moby',         'Docker',              'https://docs.docker.com/'),
+    (r'git\b',               'Git',                 'https://git-scm.com/'),
+    (r'vim\b',               'Vim',                 'https://www.vim.org/'),
+    (r'expat|libexpat',      'Expat XML',           'https://libexpat.github.io/'),
+    (r'zlib',                'zlib',                'https://zlib.net/'),
+    (r'log4j',               'Log4j',               'https://logging.apache.org/log4j/'),
 ]
 
 
@@ -172,6 +185,9 @@ def _build_remediation_prompt(meta: dict, findings: list[dict]) -> str:
         fix_ver = _extract_fix_version(desc)
         curr_ver = _extract_current_version(desc)
 
+        # Prefer the actual installed version recorded by the probe over regex extraction
+        installed_ver = f.get("installed_version") or None
+
         if software:
             key = (sev, software)
             if key not in groups:
@@ -189,8 +205,10 @@ def _build_remediation_prompt(meta: dict, findings: list[dict]) -> str:
             g["cves"].append(f["cve_id"])
             if fix_ver:
                 g["fix_versions"].add(fix_ver)
-            if curr_ver:
-                g["current_versions"].add(curr_ver)
+            # Use probe-recorded version first; fall back to CVE description regex
+            best_curr = installed_ver or curr_ver
+            if best_curr:
+                g["current_versions"].add(best_curr)
         else:
             ungrouped.append({
                 "cve_id": f["cve_id"],
@@ -198,7 +216,7 @@ def _build_remediation_prompt(meta: dict, findings: list[dict]) -> str:
                 "kev": bool(f.get("kev")),
                 "desc": desc[:180],
                 "fix_ver": fix_ver,
-                "curr_ver": curr_ver,
+                "curr_ver": installed_ver or curr_ver,
             })
 
     lines = [f"Target: {target}\nGrouped findings (pre-processed):\n"]
@@ -238,13 +256,16 @@ def _build_remediation_prompt(meta: dict, findings: list[dict]) -> str:
         "Use severity headers (## CRITICAL, ## HIGH, ## MEDIUM, ## LOW). "
         "Under each header, write one numbered entry per software group:\n"
         "  1. Software name + CVE list (abbreviated if long)\n"
-        "  2. Installed version (from data above, or 'unknown')\n"
-        "  3. Fix version — use the EXACT version from the data above. "
+        "  2. Installed version (from 'Installed version' field above, or 'unknown')\n"
+        "  3. Fix version — use the EXACT version from the 'Fix version' field above. "
         "If fix version is 'unknown', write: 'Update to the latest stable release.'\n"
-        "  4. ONE generic action: 'Update via your OS package manager, or download from [vendor URL]'\n\n"
+        "  4. ONE action: 'Update via your OS package manager, or download from <Vendor URL from data above>.'\n"
+        "     Use the EXACT vendor URL from the 'Vendor:' field above — do not invent or omit it.\n\n"
         "RULES: No shell commands (apt, dnf, etc.) — OS is unknown. "
         "Combine all CVEs for the same software into one entry. "
         "If [URGENT — actively exploited], prepend the entry with '⚠ URGENT: '. "
+        "For ungrouped CVEs (no software detected), write a brief one-line action based on the description. "
+        "If no fix information is available, write: 'Monitor vendor advisories for a patch.' "
         "Omit empty severity sections."
     )
 

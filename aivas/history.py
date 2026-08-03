@@ -26,8 +26,8 @@ def save_scan(
     conn.executemany(
         """INSERT INTO findings
                (scan_id, host, cve_id, cvss_score, cvss_severity, confidence,
-                en_risk, sw_risk, en_fix, sw_fix)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                en_risk, sw_risk, en_fix, sw_fix, version)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         [
             (
                 scan_id,
@@ -40,6 +40,7 @@ def save_scan(
                 f.get("narration_sw"),
                 f.get("fix_en"),
                 f.get("fix_sw"),
+                f.get("installed_version"),
             )
             for f in findings
         ],
@@ -101,7 +102,8 @@ def get_scan_meta(conn: sqlite3.Connection, scan_id: int) -> dict | None:
 def get_scan_findings(conn: sqlite3.Connection, scan_id: int) -> list[dict]:
     rows = conn.execute(
         """SELECT f.host, f.cve_id, f.cvss_score, f.cvss_severity, f.confidence,
-                  f.en_risk, f.sw_risk, f.en_fix, f.sw_fix, c.description, c.kev
+                  f.en_risk, f.sw_risk, f.en_fix, f.sw_fix, f.version,
+                  c.description, c.kev
            FROM findings f
            LEFT JOIN cves c ON c.cve_id = f.cve_id
            WHERE f.scan_id = ?""",
@@ -118,6 +120,7 @@ def get_scan_findings(conn: sqlite3.Connection, scan_id: int) -> list[dict]:
             "narration_sw": r["sw_risk"] or "",
             "fix_en": r["en_fix"] or "",
             "fix_sw": r["sw_fix"] or "",
+            "installed_version": r["version"] or "",
             "description": r["description"] or "",
             "kev": bool(r["kev"]),
         }
