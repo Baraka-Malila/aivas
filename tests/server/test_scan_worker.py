@@ -1,11 +1,11 @@
 import asyncio
 import sqlite3
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from aivas.database.schema import create_schema
-from aivas.server.scan_worker import run_scan
+from aivas.server.scan_worker import run_scan, _async_nmap
 
 
 @pytest.fixture
@@ -133,6 +133,34 @@ def test_run_scan_does_not_call_llm(conn):
     assert "log" in done
     assert isinstance(done["log"], list)
     assert len(done["log"]) > 0
+
+
+def test_async_nmap_retries_without_os_flag_on_root_error():
+    """When nmap exits non-zero with 'root' in stderr and -O in cmd, retries without -O."""
+    call_count = [0]
+
+    async def fake_create(*args, **kwargs):
+        call_count[0] += 1
+        proc = MagicMock()
+        proc.kill = MagicMock()
+        proc.wait = AsyncMock()
+        if call_count[0] == 1:
+            proc.returncode = 1
+            proc.communicate = AsyncMock(
+                return_value=(b"", b"Warning: OS detection requires root privileges")
+            )
+        else:
+            proc.returncode = 0
+            proc.communicate = AsyncMock(return_value=(b"<nmaprun/>", b""))
+        return proc
+
+    async def run():
+        with patch("asyncio.create_subprocess_exec", side_effect=fake_create):
+            return await _async_nmap("10.0.0.1", "", os_detect=True)
+
+    result = asyncio.run(run())
+    assert result == "<nmaprun/>"
+    assert call_count[0] == 2
 
 
 def test_done_event_has_log_with_phase_events(conn):

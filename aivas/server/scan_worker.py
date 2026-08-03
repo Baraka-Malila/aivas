@@ -22,36 +22,57 @@ from aivas.server.scan_helpers import (
 )
 
 
-async def _async_nmap(target: str, scripts: str, timeout: int = 300, fast: bool = False) -> str:
-    """Run nmap as a cancellable async subprocess."""
+async def _async_nmap(
+    target: str, scripts: str, timeout: int = 300,
+    fast: bool = False, os_detect: bool = True,
+) -> str:
+    """Run nmap as a cancellable async subprocess.
+
+    When os_detect=True, appends -O. If nmap exits non-zero with 'root'
+    in stderr, retries without -O (graceful degradation on non-root hosts).
+    """
     nmap_bin = shutil.which("nmap") or "nmap"
     cmd = [nmap_bin, "-sV", "-oX", "-", target]
     if fast:
-        # Network scan per-host mode: capped version probing + nmap-side host timeout
-        # so nmap exits cleanly (returns data it found) rather than being killed by asyncio.
         nmap_host_timeout = max(timeout - 15, 30)
         cmd += [
             "-T4", "--version-intensity", "5",
             "--max-retries", "1",
             "--host-timeout", f"{nmap_host_timeout}s",
         ]
+    if os_detect:
+        cmd += ["-O"]
     if scripts:
         cmd += ["--script", scripts]
-    proc = await asyncio.create_subprocess_exec(
-        *cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    try:
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-    except (asyncio.TimeoutError, asyncio.CancelledError):
-        proc.kill()
-        await proc.wait()
-        raise
-    if proc.returncode != 0:
-        raise RuntimeError(
-            f"nmap exited {proc.returncode}: {stderr.decode()[:300]}"
+
+    async def _run(run_cmd: list[str]) -> tuple[bytes, bytes, int]:
+        proc = await asyncio.create_subprocess_exec(
+            *run_cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
+        try:
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+        except (asyncio.TimeoutError, asyncio.CancelledError):
+            proc.kill()
+            await proc.wait()
+            raise
+        return stdout, stderr, proc.returncode
+
+    stdout, stderr, returncode = await _run(cmd)
+
+    if returncode != 0:
+        stderr_text = stderr.decode()
+        if os_detect and "root" in stderr_text.lower() and "-O" in cmd:
+            cmd = [c for c in cmd if c != "-O"]
+            stdout, stderr, returncode = await _run(cmd)
+            if returncode != 0:
+                raise RuntimeError(
+                    f"nmap exited {returncode}: {stderr.decode()[:300]}"
+                )
+        else:
+            raise RuntimeError(f"nmap exited {returncode}: {stderr_text[:300]}")
+
     return stdout.decode()
 
 
