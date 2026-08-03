@@ -97,14 +97,12 @@ async def _exec_tool_local(
 
 _LANG_DIRECTIVES = {
     "auto": (
-        "Detect the user's language from their message and respond ONLY in that language. "
-        "English input → reply entirely in English. "
-        "Swahili input → reply entirely in Swahili. "
-        "STRICT RULES — no exceptions: "
-        "(1) Never mix languages. "
-        "(2) Never add parenthetical translations like '(Good morning)' or '(hello)'. "
-        "(3) Never write the same idea twice in two languages. "
-        "(4) Never start with a greeting in the other language."
+        "Language rule: respond in ENGLISH by default. "
+        "Switch to Swahili ONLY if the user's message clearly contains Swahili words "
+        "(e.g., habari, ninataka, asante, karibu, tafadhali, nakushukuru, mtandao). "
+        "A message like 'hello', 'hi', 'scan my network', or any English sentence → reply in English only. "
+        "NEVER mix languages. NEVER add parenthetical translations like '(Good morning)'. "
+        "NEVER write the same sentence in two languages."
     ),
     "en": (
         "Always respond in English. "
@@ -206,10 +204,15 @@ async def stream_agent_response(
             return
 
         # Handle tool calls
+        # Normalize arguments: Groq sometimes sends "null" instead of "{}",
+        # which causes a 400 when replayed in the next Phase A call.
         tool_calls_payload = [
             {
                 "id": tc.id, "type": "function",
-                "function": {"name": tc.function.name, "arguments": tc.function.arguments},
+                "function": {
+                    "name": tc.function.name,
+                    "arguments": (tc.function.arguments or "{}") if (tc.function.arguments or "{}") != "null" else "{}",
+                },
             }
             for tc in msg.tool_calls
         ]
