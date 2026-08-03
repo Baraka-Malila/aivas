@@ -17,3 +17,8 @@ def test_quick_scripts_is_subset_of_full():
     quick = set(QUICK_SCRIPTS.split(","))
     full = set(FULL_SCRIPTS.split(","))
     assert quick.issubset(full)
+
+
+def test_full_scripts_includes_tls_checks():
+    for script in ("ssl-enum-ciphers", "ssl-cert", "http-security-headers"):
+        assert script in FULL_SCRIPTS, f"{script} missing from FULL_SCRIPTS"

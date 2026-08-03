@@ -7,6 +7,8 @@ from typing import AsyncGenerator
 
 from aivas.correlator import correlate
 from aivas.parser import parse_nmap_xml
+from aivas.scanner.tls_check import parse_tls_misconfigs
+from aivas.scanner.misconfig_check import check_port_misconfigs
 
 _HTTP_PORTS = {80, 443, 8080, 8443, 8000, 8888, 3000}
 
@@ -140,8 +142,10 @@ async def http_probe_events(
             yield _ev("http_finding",
                       f"  {label} — {f.get('title', 'finding')} "
                       f"[{f.get('severity', 'MEDIUM')}]")
+    all_misconfigs.extend(parse_tls_misconfigs(services))
+    all_misconfigs.extend(check_port_misconfigs(services))
     if not all_misconfigs:
-        yield _ev("http_clean", "  No HTTP misconfigurations detected")
+        yield _ev("http_clean", "  No HTTP/TLS misconfigurations detected")
     yield {"__misconfigs": all_misconfigs}
 
 
