@@ -1,0 +1,2 @@
+# Bundled minified JS — source maps are in the frontend/src directory
+aivas source: source-is-missing [aivas/server/static/assets/*.js]

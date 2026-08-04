@@ -1,10 +1,11 @@
-aivas (0.1.0-1) noble; urgency=medium
+aivas (0.1.0-1~noble1) noble; urgency=medium
 
-  * Initial Launchpad PPA release.
-  * Textual TUI with Groq/Mistral/Ollama AI support.
-  * FastAPI + React web UI (bundled static assets).
-  * Local CVE database with NIST NVD JSON feeds.
-  * Bilingual English/Swahili vulnerability narration.
-  * aivas serve command to launch web UI.
+  * Initial release for Ubuntu 24.04 (Noble).
+  * Textual terminal UI with Groq/Mistral/Ollama AI inference.
+  * FastAPI + React web UI bundled as static assets (aivas serve --open).
+  * Local offline CVE database synced from NIST NVD JSON feeds.
+  * Bilingual English/Swahili LLM-powered vulnerability narration.
+  * Nmap integration: TCP/UDP scanning, OS fingerprinting, TLS checks.
+  * aivas serve command launches web UI; aivas launches TUI.
 
- -- Baraka Malila <bmalila87@gmail.com>  Mon, 04 Aug 2026 15:00:00 +0300
+ -- Baraka Malila <bmalila87@gmail.com>  Mon, 04 Aug 2026 15:00:00 +0000

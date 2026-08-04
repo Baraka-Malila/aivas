@@ -1,0 +1,6 @@
+[malila-arch-aivas]
+fqdn = ppa.launchpad.net
+method = ftp
+incoming = ~malila-arch/ubuntu/aivas
+login = anonymous
+allow_unsigned_uploads = 0

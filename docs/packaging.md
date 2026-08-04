@@ -1,122 +1,161 @@
 # AIVAS Packaging Guide
 
-## Local install (pip)
+## PyPI (pip install aivas)
+
+### One-time setup — create your PyPI account and token
+
+1. **Create account:** go to https://pypi.org/account/register/  
+   (email verification required — check inbox)
+
+2. **Create API token:** Account Settings → API tokens → "Add API token"  
+   - Token name: `aivas-upload`  
+   - Scope: **Entire account** (first upload only; restrict to `aivas` after)  
+   - Click "Add token" — copy the token immediately, it is shown only once.
+
+3. **Save token** in `~/.pypirc` (this is on your local machine, never commit this file):
+   ```ini
+   [distutils]
+   index-servers = pypi
+
+   [pypi]
+   username = __token__
+   password = pypi-AgAAA...YOUR_TOKEN_HERE
+   ```
+   ```bash
+   chmod 600 ~/.pypirc
+   ```
+
+### Upload
 
 ```bash
-# From repo root
-python3 -m build          # creates dist/aivas-*.whl and dist/aivas-*.tar.gz
-pip install dist/aivas-0.1.0-py3-none-any.whl
+# Install twine if not already present
+pip install twine --break-system-packages
 
-# Or, directly editable during development:
-pip install -e .
+# Upload (uses ~/.pypirc automatically)
+cd /home/cyberpunk/aivas
+twine upload dist/*
+
+# Expected output:
+#   Uploading aivas-0.1.0-py3-none-any.whl
+#   Uploading aivas-0.1.0.tar.gz
+#   View at: https://pypi.org/project/aivas/0.1.0/
 ```
 
-## Kali / Debian / Ubuntu — install.sh
+### After upload — install anywhere
 
 ```bash
-bash install.sh           # user install (no root, uses pipx if available)
-bash install.sh --system  # system-wide (uses --break-system-packages)
+pip install aivas                    # standard
+pipx install aivas                   # isolated (recommended on Kali/Ubuntu)
+pip install aivas --break-system-packages   # Kali without pipx
 ```
 
-## PyPI upload
-
-Requires a PyPI account and API token at https://pypi.org/manage/account/token/
+### Future versions (bump + re-upload)
 
 ```bash
-pip install twine                                    # one-time setup
-python3 -m build                                     # rebuild if needed
-twine upload dist/*                                  # prompts for token
-# Username: __token__
-# Password: pypi-AgAAAA...  (paste your token)
+# 1. Edit pyproject.toml: version = "0.1.1"
+# 2. Rebuild frontend if changed: cd frontend && npm run build && cd ..
+# 3. Copy new dist to bundled static: cp frontend/dist/* aivas/server/static/
+# 4. python3 -m build
+# 5. twine upload dist/aivas-0.1.1*
 ```
 
-After upload, users can install with:
-```bash
-pip install aivas
-# or on Kali/Ubuntu:
-pipx install aivas
-```
+---
 
-## Web UI
+## Launchpad PPA (sudo apt install aivas)
 
-After install, start the web UI:
+### One-time setup — create the AIVAS PPA
 
-```bash
-aivas serve --open       # opens http://127.0.0.1:8000 in browser
-aivas serve --port 9000  # custom port
-```
+1. Go to https://launchpad.net/~malila-arch  
+2. Click "Create a new PPA"  
+3. Name: `aivas`  
+4. Display name: `AIVAS — AI Vulnerability Scanner`  
+5. Description: `Ubuntu packaging for AIVAS (aivas.cli terminal UI + web UI)`  
+6. Click "Activate"
 
-## Launchpad PPA
+PPA URL will be: `ppa:malila-arch/aivas`
 
-### Prerequisites
-- Launchpad account: https://launchpad.net/
-- GPG key uploaded to Launchpad and keyserver
-- `dput`, `devscripts`, `debhelper`, `dh-python` installed
-
-### Build the source package
+### Install build tools (one-time)
 
 ```bash
-# Install build tools
-sudo apt install devscripts debhelper dh-python python3-all
-
-# From repo root — builds the signed .changes file
-debuild -S -sa
-
-# This produces (in parent directory):
-#   aivas_0.1.0-1.dsc
-#   aivas_0.1.0-1.tar.gz
-#   aivas_0.1.0-1_source.changes  (signed with your GPG key)
+sudo apt install devscripts debhelper dput
 ```
 
-### Upload to PPA
+### Update the pre-built wheel when code changes
+
+Every time you push a new version, rebuild the wheel and update `debian/prebuilt/`:
 
 ```bash
-# Replace YOUR_LAUNCHPAD_ID with your Launchpad username
-dput ppa:YOUR_LAUNCHPAD_ID/aivas ../aivas_0.1.0-1_source.changes
+cd /home/cyberpunk/aivas
+
+# If frontend changed:
+cd frontend && npm run build && cd ..
+cp -r frontend/dist/* aivas/server/static/
+
+# Rebuild wheel
+python3 -m build
+cp dist/aivas-0.1.0-py3-none-any.whl debian/prebuilt/
 ```
 
-### dput configuration (~/.dput.cf)
-
-```ini
-[aivas-ppa]
-fqdn = ppa.launchpad.net
-method = ftp
-incoming = ~YOUR_LAUNCHPAD_ID/ubuntu/aivas
-login = anonymous
-allow_unsigned_uploads = 0
-```
-
-### After upload
-
-Launchpad build queue typically takes 15–30 minutes.  
-Users install from your PPA with:
+### Build the signed source package
 
 ```bash
-sudo add-apt-repository ppa:YOUR_LAUNCHPAD_ID/aivas
+# For Ubuntu 24.04 (Noble):
+./scripts/build-source-package.sh noble
+
+# For Ubuntu 22.04 (Jammy):
+./scripts/build-source-package.sh jammy
+```
+
+This builds in `/tmp/aivas-launchpad-build/` and signs with your GPG key (`bmalila87@gmail.com`).
+
+### Upload to Launchpad
+
+```bash
+./scripts/upload-ppa.sh noble
+# Then for Jammy if needed:
+./scripts/upload-ppa.sh jammy
+```
+
+Build status: https://launchpad.net/~malila-arch/+archive/ubuntu/aivas/+builds  
+(Takes 15–30 min on Launchpad's build farm.)
+
+### After the build finishes — users install with
+
+```bash
+sudo add-apt-repository ppa:malila-arch/aivas
 sudo apt update
 sudo apt install aivas
 ```
 
-### Version bumps
+### Bump version for a new release
 
-Edit `debian/changelog` with `dch -i` to increment version, then rebuild and re-upload.
+1. Edit `pyproject.toml`: `version = "0.1.1"`
+2. Edit `debian/changelog` — add entry at the top:
+   ```
+   aivas (0.1.1-1~noble1) noble; urgency=medium
+
+     * What changed here.
+
+    -- Baraka Malila <bmalila87@gmail.com>  DATE HERE
+   ```
+   Generate the date with: `date -R`
+3. Rebuild wheel, copy to `debian/prebuilt/`, run build + upload scripts.
+
+---
+
+## Kali quick-install (tomorrow's test)
 
 ```bash
-dch -i "Fixed: describe changes here"
-debuild -S -sa
-dput ppa:YOUR_LAUNCHPAD_ID/aivas ../aivas_0.1.1-1_source.changes
-```
+# Option A — from PyPI (after upload):
+pipx install aivas
 
-### Target Ubuntu series
+# Option B — from local wheel (no internet needed):
+pip install /path/to/aivas-0.1.0-py3-none-any.whl --break-system-packages
 
-The `debian/changelog` series (currently `noble`) controls which Ubuntu
-version Launchpad builds for.  To publish for multiple series, copy the
-changelog entry with `dch -b`, change `noble` to e.g. `jammy`, bump the
-Debian revision to `-2`, rebuild, and re-upload.
+# Option C — using install.sh (handles Kali PEP 668 automatically):
+bash install.sh
 
-```bash
-dch -b "Rebuild for jammy"
-# Edit changelog: change noble → jammy, version to 0.1.0-2~jammy
-debuild -S -sa
-dput ppa:YOUR_LAUNCHPAD_ID/aivas ../aivas_0.1.0-2~jammy_source.changes
+# Launch:
+aivas serve --open    # web UI in browser at http://127.0.0.1:8000
+aivas                 # terminal UI
 ```

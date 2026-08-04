@@ -1,0 +1,20 @@
+#!/bin/bash
+set -e
+
+case "$1" in
+    configure)
+        echo "Installing AIVAS Python package and dependencies..."
+        python3 -m pip install /usr/share/aivas/aivas-*.whl \
+            --break-system-packages --quiet --no-warn-script-location \
+            2>&1 | grep -v "WARNING" || true
+
+        # Ensure the entry point is on PATH for all users
+        if [ ! -f /usr/local/bin/aivas ] && [ ! -f /usr/bin/aivas ]; then
+            ln -sf "$(python3 -c 'import site; print(site.getsitepackages()[0])')/../../bin/aivas 2>/dev/null || true" \
+                /usr/local/bin/aivas 2>/dev/null || true
+        fi
+        ;;
+esac
+
+#DEBHELPER#
+exit 0

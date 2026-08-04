@@ -1,8 +1,18 @@
 #!/usr/bin/make -f
-# AIVAS debian/rules — uses dh-python pybuild
-
-export PYBUILD_NAME=aivas
-export DH_VERBOSE=1
+export DH_VERBOSE = 1
 
 %:
-	dh $@ --with python3 --buildsystem=pybuild
+	dh $@
+
+override_dh_auto_build:
+	# Wheel is pre-built in debian/prebuilt/ — nothing to compile
+
+override_dh_auto_test:
+	# Skip: tests require network access and hardware
+
+override_dh_auto_install:
+	install -d debian/aivas/usr/share/aivas/
+	cp debian/prebuilt/aivas-*.whl debian/aivas/usr/share/aivas/
+
+override_dh_auto_clean:
+	dh_auto_clean

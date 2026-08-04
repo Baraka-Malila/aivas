@@ -1,0 +1,12 @@
+#!/bin/bash
+set -e
+
+case "$1" in
+    remove|purge)
+        echo "Removing AIVAS Python package..."
+        python3 -m pip uninstall aivas -y --break-system-packages 2>/dev/null || true
+        ;;
+esac
+
+#DEBHELPER#
+exit 0
