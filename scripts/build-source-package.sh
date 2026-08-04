@@ -5,7 +5,7 @@ set -euo pipefail
 
 DISTRO="${1:-noble}"
 PKG="aivas"
-VERSION="0.1.0"
+VERSION="0.1.1"
 DEB_REV="1"
 FULL_VERSION="${VERSION}-${DEB_REV}~${DISTRO}1"
 

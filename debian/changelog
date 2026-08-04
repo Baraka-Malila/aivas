@@ -1,3 +1,22 @@
+aivas (0.1.1-1~noble1) noble; urgency=medium
+
+  * Fix: web chat rate-limit cascade — orphan user messages stripped from
+    history before replay to prevent consecutive-user-message 400 errors.
+  * Fix: Phase B streaming now uses Mistral when Phase A fell back to it;
+    fallback is now end-to-end, not routing-only.
+  * Fix: save_user() moved after agent 'done' event (mirrors TUI pattern)
+    so failed turns never leave dangling messages in the DB.
+  * Fix: network (CIDR) scans use QUICK_SCRIPTS to avoid ssl-enum-ciphers
+    host-timeout killing scan results on multi-host sweeps.
+  * Fix: PDF download uses <a download> instead of window.open() to bypass
+    browser popup blockers.
+  * Fix: Windows-1252 mojibake (â€") corrected to proper Unicode in the
+    web chat renderer.
+  * Fix: Shodan API key now correctly passed through to the web chat handler.
+  * Fix: AI agent no longer invents SSH credentials when scanning saved targets.
+
+ -- Baraka Malila <bmalila87@gmail.com>  Mon, 04 Aug 2026 22:00:00 +0000
+
 aivas (0.1.0-1~noble1) noble; urgency=medium
 
   * Initial release for Ubuntu 24.04 (Noble).

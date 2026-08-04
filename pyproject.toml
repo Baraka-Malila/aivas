@@ -11,7 +11,7 @@ aivas = ["**/*.jinja2", "**/*.html", "**/*.css", "server/static/**/*", "server/s
 
 [project]
 name = "aivas"
-version = "0.1.0"
+version = "0.1.1"
 description = "AI-Assisted Network Vulnerability Assessment System — offline CVE scanning, bilingual risk narration, Textual TUI"
 authors = [
     { name = "Baraka Malila", email = "bmalila87@gmail.com" },
