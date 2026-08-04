@@ -297,7 +297,10 @@ async def run_agent(
         messages.extend(history)
     messages.append({"role": "user", "content": text})
     scan_intent: tuple | None = None
-    turns_to_persist: list[dict] = []
+    # Only persist clean user/assistant pairs — no tool_call/tool_result plumbing.
+    # Tool call IDs are provider-specific (Groq vs Mistral); storing them breaks
+    # history when the user switches providers mid-session.
+    turns_to_persist: list[dict] = [{"role": "user", "content": text}]
 
     use_mistral = (provider == "mistral")
 
@@ -360,7 +363,8 @@ async def run_agent(
         ]
         assistant_turn = {"role": "assistant", "content": msg.content or "", "tool_calls": tool_calls_payload}
         messages.append(assistant_turn)
-        turns_to_persist.append(assistant_turn)
+        # tool_call/tool_result turns are NOT added to turns_to_persist:
+        # their IDs are provider-specific and corrupt history on provider switch.
 
         for tc in msg.tool_calls:
             try:
@@ -372,7 +376,7 @@ async def run_agent(
                 scan_intent = si
             tool_msg = {"role": "tool", "tool_call_id": tc.id, "content": result}
             messages.append(tool_msg)
-            turns_to_persist.append(tool_msg)
+            # (not added to turns_to_persist — see comment above)
 
     # Exhausted steps — one final call without tools
     try:

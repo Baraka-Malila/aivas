@@ -163,6 +163,28 @@ async def _probe_misconfigs(app: "AIVASApp", services: list) -> list[dict]:
         app.store_scan_output(mc_table)
     return misconfigs
 
+async def _run_nmap_with_fallback(
+    app: "AIVASApp", target: str, scripts: str, udp: bool, use_sudo: bool, timeout: int = 300,
+) -> tuple[str, bool]:
+    """Run nmap; if UDP fails on permissions, warn and retry TCP-only. Returns (xml, udp_skipped)."""
+    try:
+        if use_sudo:
+            return await _run_nmap_sudo(app, target, scripts, udp, timeout), False
+        return await _run_nmap_threaded(app, target, scripts=scripts, udp=udp, os_detect=True, timeout=timeout), False
+    except asyncio.CancelledError:
+        raise
+    except RuntimeError as exc:
+        err = str(exc)
+        _priv = any(kw in err.lower() for kw in ("root", "privileges", "sudo denied", "permission"))
+        if udp and _priv:
+            app.tui_print(
+                "[#fdd835]UDP scan needs root — retrying TCP only.[/#fdd835]\n"
+                "[#555555]Permanent fix: sudo setcap cap_net_raw,cap_net_admin+eip $(which nmap)[/#555555]"
+            )
+            return await _run_nmap_threaded(app, target, scripts=scripts, udp=False, os_detect=True, timeout=timeout), True
+        raise
+
+
 async def run_scan_pipeline(app: "AIVASApp", target: str,
                              level: int = 2, udp: bool = False) -> None:
     """Run the full scan pipeline: validate → nmap → correlate → display."""
@@ -191,9 +213,9 @@ async def run_scan_pipeline(app: "AIVASApp", target: str,
     level_desc = {1: "TCP sV", 2: "TCP sV + OS + scripts", 3: "TCP+UDP sV + OS + scripts"}.get(level, f"level {level}")
     app.tui_print(f"    [#888888]nmap [{level_desc}]{' · sudo' if use_sudo else ''}  {target}[/#888888]")
     try:
-        xml = (await _run_nmap_sudo(app, target, scripts_for_level(level), udp)
-               if use_sudo else
-               await _run_nmap_threaded(app, target, scripts=scripts_for_level(level), udp=udp, os_detect=True))
+        xml, _udp_skipped = await _run_nmap_with_fallback(
+            app, target, scripts_for_level(level), udp, use_sudo
+        )
     except asyncio.CancelledError:
         prog.fail("Port discovery + service detection", "cancelled")
         app.set_scan_idle()
