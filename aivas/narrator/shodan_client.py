@@ -1,8 +1,22 @@
 """Shodan free-tier IP intelligence lookup."""
 from __future__ import annotations
+import ipaddress
 import requests
 
 _BASE = "https://api.shodan.io/shodan/host"
+
+_PRIVATE_MSG = (
+    "Shodan does not index private/internal IP addresses (RFC 1918). "
+    "This address is only reachable inside your local network — Shodan has no data for it. "
+    "Try a public-facing IP or hostname instead."
+)
+
+
+def _is_private(ip: str) -> bool:
+    try:
+        return ipaddress.ip_address(ip).is_private
+    except ValueError:
+        return False
 
 
 def query_shodan(ip: str, api_key: str) -> dict:
@@ -13,6 +27,8 @@ def query_shodan(ip: str, api_key: str) -> dict:
     """
     if not api_key:
         return {"ip": ip, "error": "Shodan key not configured."}
+    if _is_private(ip):
+        return {"ip": ip, "error": _PRIVATE_MSG}
     try:
         resp = requests.get(
             f"{_BASE}/{ip}",
