@@ -142,6 +142,9 @@ async def _probe_misconfigs(app: "AIVASApp", services: list) -> list[dict]:
                 or svc.get("port") in _HTTP_PORTS):
             _is_ssl = "ssl" in svc.get("service", "") or svc.get("port") in (443, 8443)
             _scheme = "https" if _is_ssl else "http"
+            _host = svc.get("host", "?")
+            _port = svc.get("port", "?")
+            app.tui_print(f"    [#888888]probing {_scheme}://{_host}:{_port}…[/#888888]")
             try:
                 _result = await asyncio.to_thread(
                     probe_http_service, svc["host"], svc["port"], _scheme)
@@ -185,6 +188,8 @@ async def run_scan_pipeline(app: "AIVASApp", target: str,
     prog = StepProgress(app)
     await prog.step("Port discovery + service detection")
     use_sudo = await _nmap_needs_sudo(udp)
+    level_desc = {1: "TCP sV", 2: "TCP sV + OS + scripts", 3: "TCP+UDP sV + OS + scripts"}.get(level, f"level {level}")
+    app.tui_print(f"    [#888888]nmap [{level_desc}]{' · sudo' if use_sudo else ''}  {target}[/#888888]")
     try:
         xml = (await _run_nmap_sudo(app, target, scripts_for_level(level), udp)
                if use_sudo else
@@ -217,7 +222,9 @@ async def run_scan_pipeline(app: "AIVASApp", target: str,
         app.tui_print(f"[yellow]{target}[/yellow]: no open ports — host may be offline or firewalled.\n"
                       "[#888888]Tip: scan a known-active IP, e.g. your router or default gateway.[/#888888]")
         return
-    await prog.done("Port discovery + service detection", f"{len(services)} open port(s)")
+    os_hint = services[0].get("os_family") or None
+    os_suffix = f"  [#888888]OS: {os_hint}[/#888888]" if os_hint else ""
+    await prog.done("Port discovery + service detection", f"{len(services)} open port(s){os_suffix}")
     for svc in services:
         port = svc.get("port", "?")
         proto = svc.get("protocol", "tcp")
@@ -227,7 +234,6 @@ async def run_scan_pipeline(app: "AIVASApp", target: str,
         app.tui_print(f"    [#888888]{port}/{proto}[/#888888]  OPEN  [cyan]{label}[/cyan]")
         await asyncio.sleep(0.03)
     await prog.step("CVE correlation")
-    os_hint = services[0].get("os_family") or None
     all_findings: list[dict] = []
     for svc in services:
         port = svc.get("port", "?")
@@ -235,6 +241,7 @@ async def run_scan_pipeline(app: "AIVASApp", target: str,
         product = svc.get("product") or svc.get("service") or "unknown"
         version = svc.get("version") or ""
         label = f"{product} {version}".strip()
+        app.tui_print(f"    [#888888]{port}/{proto}  {label}…[/#888888]")
         svc_findings = await asyncio.to_thread(correlate, app.conn, [svc], os_hint)
         probable = [f for f in svc_findings if f.get("confidence") in ("probable", "confirmed")]
         if probable:
@@ -245,10 +252,7 @@ async def run_scan_pipeline(app: "AIVASApp", target: str,
             cve_tag = (f"[{sev_col}]{worst.get('cve_id','')}[/{sev_col}] "
                        f"[#888888]{worst.get('cvss_severity','')} {worst.get('cvss_score','')}[/#888888]")
             extra = f"  [#888888]+{len(probable)-1} more[/#888888]" if len(probable) > 1 else ""
-            app.tui_print(
-                f"    [#555555]╴[/#555555] [#888888]{port}/{proto}[/#888888]  [cyan]{label}[/cyan]"
-                f"  {cve_tag}{extra}"
-            )
+            app.tui_print(f"      [#555555]╴[/#555555] {cve_tag}{extra}")
         all_findings.extend(svc_findings)
         await asyncio.sleep(0.02)
     findings = [f for f in all_findings if f.get("confidence") in ("probable", "confirmed")][:30]
@@ -263,9 +267,17 @@ async def run_scan_pipeline(app: "AIVASApp", target: str,
     app._last_findings = findings
     app._last_misconfigs = misconfigs
     app._last_target = target
-    from .screens import ScanResultScreen
-    grade = score_findings(findings)["grade"] if findings else "A+"
-    choice = await app.push_screen_wait(ScanResultScreen(target, grade, len(findings)))
-    if choice:
-        from .handlers import post_scan_handler
-        await post_scan_handler(app, choice)
+    if findings:
+        from aivas.formatting import cve_table
+        display_findings = findings[:10]
+        table = cve_table("CVE Findings", display_findings)
+        app.tui_print(table)
+        app.store_scan_output(table)
+        if len(findings) > 10:
+            app.tui_print(
+                f"[#888888]… {len(findings) - 10} more — /history show <id> for full list[/#888888]"
+            )
+    app.tui_print(
+        f"\n[#2a2a2a]{'─' * 58}[/#2a2a2a]\n"
+        "[#888888]Ask a question about these results, or /copy for clipboard.[/#888888]\n"
+    )

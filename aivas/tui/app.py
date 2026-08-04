@@ -127,6 +127,7 @@ class AIVASApp(InputActionsMixin, App):
             self._cmd_history.insert(0, text)
         self._history_idx = -1
         log = self.query_one("#output", RichLog)
+        log.write("")
         log.write(f"[#555555]❯ {text}[/#555555]")
         try:
             await self._route(text)

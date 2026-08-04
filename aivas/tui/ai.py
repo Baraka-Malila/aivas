@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import re
 import socket
 from typing import TYPE_CHECKING
@@ -78,6 +79,8 @@ async def dispatch(
     text = _normalize(text)
     context = build_context(getattr(app, "_scan_history", []))
     use_local = not api_key
+    _rate_limited = False
+    _rate_wait = ""
 
     if api_key:
         from .agent import run_agent
@@ -93,7 +96,7 @@ async def dispatch(
             )
             app._chat_history = (history + turns)[-12:]
             if response:
-                app.tui_print(f"[#888888]AIVAS:[/#888888] {response}")
+                app.tui_print(f"\n[#888888]AIVAS:[/#888888] {response}\n")
             if scan_intent:
                 from .scan import run_scan_pipeline
                 app.run_worker(
@@ -106,16 +109,64 @@ async def dispatch(
             if "401" in s or "invalid_api_key" in s.lower() or "Unauthorized" in s:
                 key_cmd = "mistral_api_key" if provider == "mistral" else "api_key"
                 app.tui_print(
-                    f"[#888888]{provider.title()} key rejected — falling back to local model.[/#888888]\n"
+                    f"\n[#888888]{provider.title()} key rejected — falling back to local model.[/#888888]\n"
                     f"[#888888]Fix: [bold]/config set {key_cmd} YOUR_KEY[/bold][/#888888]"
                 )
                 use_local = True
+            elif "429" in s or "rate_limit" in s.lower():
+                _rate_limited = True
+                m = re.search(r'try again in (\S+)', s, re.IGNORECASE)
+                _rate_wait = f" Retry in {m.group(1)}." if m else ""
             else:
-                app.tui_print(f"[#e53935]AI error:[/#e53935] {exc}")
+                app.tui_print(f"\n[#e53935]AI error:[/#e53935] {exc}\n")
                 return
         finally:
             if _idle:
                 _idle()
+
+    if _rate_limited:
+        from aivas import config as _cfg_rl
+        mistral_key = _cfg_rl.load().get("mistral_api_key") or os.environ.get("MISTRAL_API_KEY")
+        if mistral_key and provider != "mistral":
+            app.tui_print(
+                f"\n[#fdd835]Rate limit ({provider}).{_rate_wait}[/#fdd835]"
+                "  [#888888]Auto-switching to Mistral…[/#888888]"
+            )
+            from .agent import run_agent as _run_agent2
+            _busy2 = getattr(app, 'set_busy', None)
+            _idle2 = getattr(app, 'set_scan_idle', None)
+            if _busy2:
+                _busy2("AIVAS thinking (Mistral)…")
+            try:
+                history2 = getattr(app, '_chat_history', [])
+                response2, scan_intent2, turns2 = await _run_agent2(
+                    app, text, mistral_key, provider="mistral",
+                    shodan_key=shodan_key, context=context, history=history2,
+                )
+                app._chat_history = (history2 + turns2)[-12:]
+                if response2:
+                    app.tui_print(f"\n[#888888]AIVAS (mistral):[/#888888] {response2}\n")
+                if scan_intent2:
+                    from .scan import run_scan_pipeline as _rsp2
+                    app.run_worker(_rsp2(app, scan_intent2[0], scan_intent2[1]), exclusive=True)
+                return
+            except Exception as mexc:
+                ms = str(mexc)
+                if "429" in ms:
+                    app.tui_print("\n[#fdd835]Mistral also rate limited. Try again later.[/#fdd835]\n")
+                else:
+                    app.tui_print(f"\n[#e53935]Mistral fallback failed:[/#e53935] {mexc}\n")
+            finally:
+                if _idle2:
+                    _idle2()
+            return
+        else:
+            app.tui_print(
+                f"\n[#fdd835]Rate limit reached.{_rate_wait}[/#fdd835]\n"
+                "[#888888]Quick fix: [bold]/switch mistral[/bold]"
+                "  or  [bold]/switch ollama[/bold][/#888888]\n"
+            )
+            return
 
     if use_local:
         prompt = f"{context}\n\nUser: {text}"

@@ -30,6 +30,7 @@ REGISTRY: dict[str, tuple[str, str]] = {
     "doctor":  ("/doctor",                               "Check dependencies and configuration"),
     "history": ("/history [list|show <id>]",             "View past scan results"),
     "config":  ("/config [set <key> <value>|show]",      "Manage configuration"),
+    "switch":  ("/switch groq|mistral|ollama",            "Switch AI provider (fast rate-limit fix)"),
     "clear":   ("/clear",                                "Clear the output pane"),
     "copy":    ("/copy",                                 "Copy last scan output to clipboard"),
     "exit":    ("/exit",                                 "Quit AIVAS"),
@@ -54,7 +55,7 @@ async def handle(app: "AIVASApp", raw: str) -> None:
 _HELP_GROUPS = [
     ("Scanning", ["scan", "quick", "deep"]),
     ("Results",  ["history", "copy"]),
-    ("Setup",    ["config", "doctor"]),
+    ("Setup",    ["config", "switch", "doctor"]),
     ("Interface",["clear", "help", "exit"]),
 ]
 
@@ -141,6 +142,31 @@ async def _cmd_deep(app: "AIVASApp", args: str) -> None:
     app.run_worker(run_scan_pipeline(app, parts[0], level=2, udp=True), exclusive=True)
 
 
+async def _cmd_switch(app: "AIVASApp", args: str) -> None:
+    from aivas import config as _config
+    valid = ("groq", "mistral", "ollama")
+    target = args.strip().lower() if args else ""
+    if target not in valid:
+        cfg = _config.load()
+        current = cfg.get("provider", "groq")
+        app.tui_print(
+            f"\n  Current provider: [bold #4a9eff]{current}[/bold #4a9eff]\n"
+            f"  [#888888]Usage: [bold]/switch groq[/bold]  ·  "
+            f"[bold]/switch mistral[/bold]  ·  [bold]/switch ollama[/bold][/#888888]\n"
+        )
+        return
+    _config.save("provider", target)
+    hints = {
+        "groq": "Fast, free tier. Rate limit? Switch to mistral.",
+        "mistral": "Reliable. Good fallback when Groq is rate-limited.",
+        "ollama": "Local, private. Ensure Ollama is running: ollama serve",
+    }
+    app.tui_print(
+        f"\n[green]✓[/green] Provider switched → [bold #4a9eff]{target}[/bold #4a9eff]\n"
+        f"  [#888888]{hints[target]}[/#888888]\n"
+    )
+
+
 _HANDLERS: dict[str, object] = {
     "scan":    _cmd_scan,
     "quick":   _cmd_quick,
@@ -148,6 +174,7 @@ _HANDLERS: dict[str, object] = {
     "doctor":  cmd_doctor,
     "history": cmd_history,
     "config":  cmd_config,
+    "switch":  _cmd_switch,
     "clear":   _cmd_clear,
     "copy":    cmd_copy,
     "exit":    _cmd_exit,
