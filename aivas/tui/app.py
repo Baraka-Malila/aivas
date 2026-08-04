@@ -4,6 +4,7 @@ import asyncio
 import os
 import sqlite3
 import subprocess
+import time
 
 from io import StringIO
 
@@ -86,6 +87,7 @@ class AIVASApp(InputActionsMixin, App):
         self._spinner_timer = None
         self._status_msg: str = ""
         self._spinner_idx: int = 0
+        self._scan_start_time: float | None = None
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -173,13 +175,18 @@ class AIVASApp(InputActionsMixin, App):
             self._spinner_timer = self.set_interval(0.1, self._tick_spinner)
 
     def set_scan_running(self, target: str = "") -> None:
+        self._scan_start_time = time.monotonic()
         self.set_busy(f"Scanning {target}…  (ESC to cancel)", lock_input=True)
 
     def _tick_spinner(self) -> None:
         self._spinner_idx = (self._spinner_idx + 1) % len(self._SPIN)
-        self.query_one("#scan-status", Label).update(f"  {self._SPIN[self._spinner_idx]} {self._status_msg}")
+        elapsed = f"  [{int(time.monotonic() - self._scan_start_time)}s]" if self._scan_start_time else ""
+        self.query_one("#scan-status", Label).update(
+            f"  {self._SPIN[self._spinner_idx]} {self._status_msg}{elapsed}"
+        )
 
     def set_scan_idle(self) -> None:
+        self._scan_start_time = None
         if not self.is_running:
             return
         if self._spinner_timer is not None:

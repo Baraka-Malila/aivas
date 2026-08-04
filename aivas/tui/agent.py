@@ -18,6 +18,19 @@ if TYPE_CHECKING:
 
 _MAX_STEPS = 5
 
+_TOOL_STATUS: dict[str, str] = {
+    "get_local_info":     "Looking up this device's IP and hostname…",
+    "discover_hosts":     "Discovering devices on network (nmap -sn)…",
+    "get_history":        "Checking scan history…",
+    "get_last_scan":      "Loading most recent scan findings…",
+    "get_findings":       "Loading CVE findings…",
+    "explain_cve":        "Looking up CVE in local database…",
+    "query_shodan":       "Querying Shodan for threat intelligence…",
+    "scan_host":          "Starting scan…",
+    "list_saved_targets": "Loading saved targets…",
+    "remote_scan":        "Connecting for credentialed scan…",
+}
+
 
 def _as_int(v, default: int | None = None) -> int | None:
     if v is None:
@@ -371,6 +384,8 @@ async def run_agent(
                 args = json.loads(tc.function.arguments or "{}") or {}
             except (json.JSONDecodeError, TypeError):
                 args = {}
+            _status = _TOOL_STATUS.get(tc.function.name, f"Calling {tc.function.name}…")
+            app.tui_print(f"  [#555555]⟳[/#555555] [#888888]{_status}[/#888888]")
             result, si = await _exec_tool(tc.function.name, args, app.conn, shodan_key=shodan_key)
             if si:
                 scan_intent = si

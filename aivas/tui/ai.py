@@ -108,6 +108,7 @@ async def dispatch(
         _idle = getattr(app, 'set_scan_idle', None)
         if _busy:
             _busy("AIVAS thinking…")
+        _scan_started = False
         try:
             history = getattr(app, '_chat_history', [])
             response, scan_intent, turns = await run_agent(
@@ -123,6 +124,7 @@ async def dispatch(
                     run_scan_pipeline(app, scan_intent[0], scan_intent[1]),
                     exclusive=True,
                 )
+                _scan_started = True
             return
         except Exception as exc:
             s = str(exc)
@@ -141,7 +143,8 @@ async def dispatch(
                 app.tui_print(f"\n[#e53935]AI error:[/#e53935] {exc}\n")
                 return
         finally:
-            if _idle:
+            # Don't clear spinner if scan pipeline just started — it sets its own state
+            if _idle and not _scan_started:
                 _idle()
 
     if _rate_limited:
@@ -157,6 +160,7 @@ async def dispatch(
             _idle2 = getattr(app, 'set_scan_idle', None)
             if _busy2:
                 _busy2("AIVAS thinking (Mistral)…")
+            _scan_started2 = False
             try:
                 history2 = getattr(app, '_chat_history', [])
                 response2, scan_intent2, turns2 = await _run_agent2(
@@ -169,6 +173,7 @@ async def dispatch(
                 if scan_intent2:
                     from .scan import run_scan_pipeline as _rsp2
                     app.run_worker(_rsp2(app, scan_intent2[0], scan_intent2[1]), exclusive=True)
+                    _scan_started2 = True
                 return
             except Exception as mexc:
                 ms = str(mexc)
@@ -177,7 +182,7 @@ async def dispatch(
                 else:
                     app.tui_print(f"\n[#e53935]Mistral fallback failed:[/#e53935] {mexc}\n")
             finally:
-                if _idle2:
+                if _idle2 and not _scan_started2:
                     _idle2()
             return
         else:

@@ -1,15 +1,48 @@
-import { useState } from 'react'
+import { useState, useRef, forwardRef, useImperativeHandle } from 'react'
 import { Send } from 'lucide-react'
 
-export default function ChatInput({ onSend, disabled }) {
+const ChatInput = forwardRef(function ChatInput({ onSend, disabled }, ref) {
   const [text, setText] = useState('')
+  const [history, setHistory] = useState([])
+  const [histIdx, setHistIdx] = useState(-1)
+  const inputRef = useRef(null)
+  const savedTextRef = useRef('')
+
+  useImperativeHandle(ref, () => ({
+    focus: () => inputRef.current?.focus(),
+  }))
 
   const submit = (e) => {
     e.preventDefault()
     const t = text.trim()
     if (!t || disabled) return
+    setHistory(prev => [t, ...prev])
+    setHistIdx(-1)
+    savedTextRef.current = ''
     onSend(t)
     setText('')
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { submit(e); return }
+
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      if (history.length === 0) return
+      if (histIdx === -1) savedTextRef.current = text
+      const next = Math.min(histIdx + 1, history.length - 1)
+      setHistIdx(next)
+      setText(history[next])
+      return
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      if (histIdx === -1) return
+      const next = histIdx - 1
+      setHistIdx(next)
+      setText(next === -1 ? savedTextRef.current : history[next])
+    }
   }
 
   return (
@@ -23,10 +56,11 @@ export default function ChatInput({ onSend, disabled }) {
         style={{ maxWidth: 800 }}
       >
         <input
+          ref={inputRef}
           data-testid="chat-input"
           value={text}
           onChange={e => setText(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) submit(e) }}
+          onKeyDown={handleKeyDown}
           placeholder="Type a message…"
           disabled={disabled}
           style={{ background: '#161616', border: '1px solid #2a2a2a', color: '#e0e0e0' }}
@@ -44,4 +78,6 @@ export default function ChatInput({ onSend, disabled }) {
       </form>
     </div>
   )
-}
+})
+
+export default ChatInput

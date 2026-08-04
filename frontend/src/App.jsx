@@ -39,6 +39,7 @@ function AuthenticatedApp({ user, token, logout }) {
 
   // Refs to break circular dep: handleChatEvent → startScan, and onDone → refresh
   const chatAreaRef      = useRef(null)
+  const chatInputRef     = useRef(null)
   const thinkingIdRef    = useRef(null)
   const streamingTextRef = useRef('')
   const scanningIdRef    = useRef(null)
@@ -181,6 +182,19 @@ function AuthenticatedApp({ user, token, logout }) {
   useEffect(() => { startScanRef.current = startScan }, [startScan])
   useEffect(() => { refreshSessRef.current = refreshSessions }, [refreshSessions])
   useEffect(() => { sessionIdRef.current = sessionId }, [sessionId])
+
+  // Global keydown → focus chat input so user can type without clicking first
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.ctrlKey || e.altKey || e.metaKey) return
+      if (e.key.length !== 1) return  // skip Escape, Enter, Arrow*, F-keys, etc.
+      const tag = document.activeElement?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return  // already typing somewhere
+      chatInputRef.current?.focus()
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [])
 
   // Persist session across page refreshes
   useEffect(() => {
@@ -406,7 +420,7 @@ function AuthenticatedApp({ user, token, logout }) {
       ) : (
         <>
           <ChatArea ref={chatAreaRef} messages={messages} onSend={handleSend} onAnalysis={handleAnalysis} onPdfRequest={handlePdfRequest} onStopScan={stopScan} />
-          <ChatInput onSend={handleSend} disabled={chatStatus !== 'open'} />
+          <ChatInput ref={chatInputRef} onSend={handleSend} disabled={chatStatus !== 'open'} />
         </>
       )}
       <SessionDrawer
