@@ -13,9 +13,9 @@ if TYPE_CHECKING:
     from .app import AIVASApp
 
 _SYSTEM_PROMPT = """\
-You are AIVAS, a network security assistant for small businesses in Tanzania.
-Keep responses under 3 sentences. Only answer questions about network security.
-If the user writes in Swahili, respond in Swahili. Otherwise English.\
+You are AIVAS, a network security assistant for small businesses.
+Always respond in English. Keep responses under 3 sentences.
+Only answer questions about network security.\
 """
 
 _LOCAL_RE = re.compile(
@@ -78,9 +78,20 @@ async def dispatch(
     """Route free text: normalize → agent → Ollama Q&A → direct scan fallback."""
     text = _normalize(text)
     context = build_context(getattr(app, "_scan_history", []))
-    use_local = not api_key
     _rate_limited = False
     _rate_wait = ""
+
+    # Cloud provider selected but no key configured — stop here with a clear message
+    if not api_key and provider in ("groq", "mistral"):
+        key_cmd = "mistral_api_key" if provider == "mistral" else "api_key"
+        app.tui_print(
+            f"\n[#fdd835]No API key configured for {provider}.[/#fdd835]\n"
+            f"[#888888]Set one:  [bold]/config set {key_cmd} YOUR_KEY[/bold]\n"
+            f"Or use local Ollama:  [bold]/switch ollama[/bold][/#888888]\n"
+        )
+        return
+
+    use_local = not api_key  # True only when provider is "ollama" (no key expected)
 
     if api_key:
         from .agent import run_agent

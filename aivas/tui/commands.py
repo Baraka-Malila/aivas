@@ -143,6 +143,7 @@ async def _cmd_deep(app: "AIVASApp", args: str) -> None:
 
 
 async def _cmd_switch(app: "AIVASApp", args: str) -> None:
+    import os as _os
     from aivas import config as _config
     valid = ("groq", "mistral", "ollama")
     target = args.strip().lower() if args else ""
@@ -156,13 +157,30 @@ async def _cmd_switch(app: "AIVASApp", args: str) -> None:
         )
         return
     _config.save("provider", target)
+    cfg = _config.load()
+    # Check if the target provider has a key; warn clearly if not
+    if target == "groq" and not (cfg.get("api_key") or _os.environ.get("GROQ_API_KEY")):
+        app.tui_print(
+            f"\n[green]✓[/green] Provider → [bold #4a9eff]groq[/bold #4a9eff]\n"
+            "[#fdd835]⚠ No Groq API key set.[/#fdd835]\n"
+            "[#888888]Add one: [bold]/config set api_key YOUR_GROQ_KEY[/bold][/#888888]\n"
+        )
+        return
+    if target == "mistral" and not (cfg.get("mistral_api_key") or _os.environ.get("MISTRAL_API_KEY")):
+        app.tui_print(
+            f"\n[green]✓[/green] Provider → [bold #4a9eff]mistral[/bold #4a9eff]\n"
+            "[#fdd835]⚠ No Mistral API key set.[/#fdd835]\n"
+            "[#888888]Add one: [bold]/config set mistral_api_key YOUR_KEY[/bold]\n"
+            "Get a free key at mistral.ai → console → API keys[/#888888]\n"
+        )
+        return
     hints = {
-        "groq": "Fast, free tier. Rate limit? Switch to mistral.",
-        "mistral": "Reliable. Good fallback when Groq is rate-limited.",
-        "ollama": "Local, private. Ensure Ollama is running: ollama serve",
+        "groq": "Fast, free tier. If you hit rate limits: /switch mistral",
+        "mistral": "Reliable cloud provider. Good when Groq is rate-limited.",
+        "ollama": "Local, offline. Ensure Ollama is running: ollama serve",
     }
     app.tui_print(
-        f"\n[green]✓[/green] Provider switched → [bold #4a9eff]{target}[/bold #4a9eff]\n"
+        f"\n[green]✓[/green] Provider → [bold #4a9eff]{target}[/bold #4a9eff]\n"
         f"  [#888888]{hints[target]}[/#888888]\n"
     )
 
