@@ -54,5 +54,7 @@ class GroqProvider(BaseProvider):
             s = str(exc)
             if "429" in s or "rate_limit" in s.lower():
                 yield "\n\n*Rate limit reached — please wait a moment and try again.*"
+            elif "401" in s or "invalid_api_key" in s.lower() or "authentication" in s.lower():
+                yield "\n\n*Groq API key invalid or expired — update it in Settings → AI Provider.*"
             else:
-                raise
+                yield f"\n\n*Connection error: {type(exc).__name__}. Check your network and try again.*"

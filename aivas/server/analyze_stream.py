@@ -15,9 +15,10 @@ _LANG_DIRECTIVE = {
 }
 
 _PROVIDER_DEFAULTS = {
-    "groq": "llama-3.1-8b-instant",
-    "claude": "claude-haiku-4-5-20251001",
-    "ollama": "llama3",
+    "groq":    "llama-3.1-8b-instant",
+    "mistral": "mistral-small-latest",
+    "claude":  "claude-haiku-4-5-20251001",
+    "ollama":  "llama3",
 }
 
 # Software detection from CVE descriptions
@@ -233,21 +234,24 @@ def _build_remediation_prompt(meta: dict, findings: list[dict]) -> str:
             cves = ", ".join(g["cves"][:6])
             if len(g["cves"]) > 6:
                 cves += f" + {len(g['cves'])-6} more"
-            fix = max(g["fix_versions"]) if g["fix_versions"] else "unknown"
-            curr = max(g["current_versions"]) if g["current_versions"] else "unknown"
+            fix = max(g["fix_versions"]) if g["fix_versions"] else None
+            curr = max(g["current_versions"]) if g["current_versions"] else None
+            fix_line = f"    Fix version: {fix}" if fix else f"    Fix version: [LOOK UP — state the exact patched version for {g['software']} that fixes these CVEs]"
+            curr_line = f"    Installed version: {curr}" if curr else "    Installed version: unknown"
             lines.append(
                 f"    Software: {g['software']}{kev}\n"
                 f"    CVEs: {cves}\n"
-                f"    Installed version: {curr}\n"
-                f"    Fix version: {fix}\n"
+                f"{curr_line}\n"
+                f"{fix_line}\n"
                 f"    Vendor: {g['url']}\n"
             )
         for u in sev_ung:
             kev = " [URGENT — actively exploited]" if u["kev"] else ""
-            fix = u["fix_ver"] or "unknown"
+            fix = u["fix_ver"] or None
+            fix_line = f"    Fix version: {fix}" if fix else "    Fix version: [LOOK UP — state exact patched version or 'latest stable release']"
             lines.append(
                 f"    {u['cve_id']}{kev}: {u['desc'][:120]}\n"
-                f"    Fix version: {fix}\n"
+                f"{fix_line}\n"
             )
 
     block = "\n".join(lines)
@@ -258,16 +262,17 @@ def _build_remediation_prompt(meta: dict, findings: list[dict]) -> str:
         "Use severity headers (## CRITICAL, ## HIGH, ## MEDIUM, ## LOW). "
         "Under each header, write one numbered entry per software group:\n"
         "  1. Software name + CVE list (abbreviated if long)\n"
-        "  2. Installed version (from 'Installed version' field above, or 'unknown')\n"
-        "  3. Fix version — use the EXACT version from the 'Fix version' field above. "
-        "If fix version is 'unknown', write: 'Update to the latest stable release.'\n"
+        "  2. Installed version (from 'Installed version' field above, or 'not detected')\n"
+        "  3. Fix version — CRITICAL RULE: NEVER output 'unknown'. "
+        "If the field says 'LOOK UP', use your training knowledge to state the exact version number that patches these CVEs "
+        "(e.g. 'OpenSSH 9.8p1', 'Apache HTTP Server 2.4.62'). "
+        "If you genuinely cannot determine a specific version, write 'latest stable release'.\n"
         "  4. ONE action: 'Update via your OS package manager, or download from <Vendor URL from data above>.'\n"
         "     Use the EXACT vendor URL from the 'Vendor:' field above — do not invent or omit it.\n\n"
         "RULES: No shell commands (apt, dnf, etc.) — OS is unknown. "
         "Combine all CVEs for the same software into one entry. "
         "If [URGENT — actively exploited], prepend the entry with '⚠ URGENT: '. "
-        "For ungrouped CVEs (no software detected), write a brief one-line action based on the description. "
-        "If no fix information is available, write: 'Monitor vendor advisories for a patch.' "
+        "For ungrouped CVEs (no software detected), write a brief one-line action and the patched version. "
         "Omit empty severity sections."
     )
 
@@ -275,16 +280,26 @@ def _build_remediation_prompt(meta: dict, findings: list[dict]) -> str:
 def _resolve_api_key(provider_name: str, api_key: str | None) -> str | None:
     if api_key:
         return api_key
-    if provider_name == "groq":
-        try:
-            from aivas import config as _cfg
-            key = _cfg.load().get("api_key")
+    import os
+    try:
+        from aivas import config as _cfg
+        cfg = _cfg.load()
+        if provider_name == "groq":
+            key = cfg.get("api_key")
             if key:
                 return key
-        except Exception:
-            pass
-        import os
+            return os.environ.get("GROQ_API_KEY") or None
+        if provider_name == "mistral":
+            key = cfg.get("mistral_api_key")
+            if key:
+                return key
+            return os.environ.get("MISTRAL_API_KEY") or None
+    except Exception:
+        pass
+    if provider_name == "groq":
         return os.environ.get("GROQ_API_KEY") or None
+    if provider_name == "mistral":
+        return os.environ.get("MISTRAL_API_KEY") or None
     return None
 
 
@@ -296,6 +311,7 @@ async def stream_analysis(
     model: str | None,
     api_key: str | None,
     lang: str = "auto",
+    mistral_key: str | None = None,
 ):
     """Yield newline-delimited JSON events compatible with the chat WebSocket protocol."""
     from aivas.history import get_scan_meta, get_scan_findings
@@ -327,7 +343,9 @@ async def stream_analysis(
         user_prompt = _build_remediation_prompt(meta, findings)
         system = (
             "You are a security engineer writing remediation guidance. "
-            "Use only the pre-processed data provided. "
+            "Use the pre-processed data provided. "
+            "When a field says 'LOOK UP', use your knowledge to fill in the exact patched version — "
+            "never output 'unknown'. "
             "Never write shell commands. Group CVEs by software as instructed."
         )
         max_tokens = 900
@@ -339,7 +357,9 @@ async def stream_analysis(
     ]
 
     chosen_model = model or _PROVIDER_DEFAULTS.get(provider_name, "llama-3.1-8b-instant")
-    resolved_key = _resolve_api_key(provider_name, api_key)
+    # For Mistral: prefer the explicitly passed mistral_key, then fall back to api_key or config
+    effective_key = (mistral_key if provider_name == "mistral" else None) or api_key
+    resolved_key = _resolve_api_key(provider_name, effective_key)
 
     try:
         provider = get_provider(provider_name, model=chosen_model, api_key=resolved_key)

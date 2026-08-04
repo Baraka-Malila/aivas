@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 
-const FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+const LOGO_PATH = "M12 27.5 C8.5 29.8 4.5 30 3.6 28.4 C5.5 26.6 7.4 24 8.6 20.8 L18 3 L26.2 20.5 C27.6 19.4 29.6 19 30.6 19.6 C29.8 21.2 28.2 21.9 27 22 L29.3 30.2 L13.8 23.8 L26.3 18.4"
 
 const STATUS_LABEL = {
   complete: 'SCAN COMPLETE',
@@ -9,19 +9,8 @@ const STATUS_LABEL = {
 }
 
 export default function ScanProgress({ log = [], onStop, scanStatus }) {
-  const [frame, setFrame] = useState(0)
-  const timer = useRef(null)
   const scrollRef = useRef(null)
   const isDone = !!scanStatus
-
-  useEffect(() => {
-    if (isDone) {
-      clearInterval(timer.current)
-      return
-    }
-    timer.current = setInterval(() => setFrame(f => (f + 1) % FRAMES.length), 120)
-    return () => clearInterval(timer.current)
-  }, [isDone])
 
   useEffect(() => {
     if (scrollRef.current && !isDone) {
@@ -29,15 +18,32 @@ export default function ScanProgress({ log = [], onStop, scanStatus }) {
     }
   }, [log.length, isDone])
 
-  const headerLabel = isDone ? (STATUS_LABEL[scanStatus] || 'SCAN DONE') : 'SCAN IN PROGRESS'
-  const headerColor = isDone ? '#555' : '#4a9eff'
-
   return (
     <div className="py-3" data-testid="scan-progress">
       <div className="flex items-center justify-between mb-1.5">
-        <div style={{ color: headerColor }} className="text-xs font-medium select-none">
-          {headerLabel}
-        </div>
+        {isDone ? (
+          <div style={{ color: '#555' }} className="text-xs font-medium select-none">
+            {STATUS_LABEL[scanStatus] || 'SCAN DONE'}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <svg width="28" height="28" viewBox="0 0 34 34" fill="none">
+              <path d={LOGO_PATH} stroke="#1e1e1e" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+              <path
+                d={LOGO_PATH}
+                stroke="#4a9eff"
+                strokeWidth="2.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                pathLength="1"
+                style={{ animation: 'aivas-logoCenter 2.2s cubic-bezier(0.2,0.7,0.4,1) infinite' }}
+              />
+            </svg>
+            <span style={{ fontFamily: '"Fira Code", monospace', fontSize: 11, color: '#555', letterSpacing: '0.1em' }}>
+              SCANNING
+            </span>
+          </div>
+        )}
         {!isDone && onStop && (
           <button
             onClick={onStop}
@@ -88,17 +94,14 @@ export default function ScanProgress({ log = [], onStop, scanStatus }) {
           }}
           className="text-xs font-mono"
         >
-          {log.map((line, i) => {
-            const isLast = i === log.length - 1
-            return (
-              <div
-                key={i}
-                style={{ color: isLast ? '#aaa' : '#555', marginBottom: '2px' }}
-              >
-                {isLast ? `${FRAMES[frame]} ` : '  '}{line}
-              </div>
-            )
-          })}
+          {log.map((line, i) => (
+            <div
+              key={i}
+              style={{ color: i === log.length - 1 ? '#aaa' : '#555', marginBottom: '2px' }}
+            >
+              {'  '}{line}
+            </div>
+          ))}
         </div>
       )}
     </div>

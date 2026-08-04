@@ -11,6 +11,8 @@ def save_scan(
     report_path: str | None = None,
     user_id: int | None = None,
     misconfigs: list[dict] | None = None,
+    session_id: str | None = None,
+    scan_log: list[str] | None = None,
 ) -> int:
     now = datetime.now(timezone.utc).isoformat()
     scored = score_findings(findings)
@@ -20,13 +22,14 @@ def save_scan(
     grade = scored["grade"]
     auto_label = f"{target} — Grade {grade} — {date_str}"
     mc_json = json.dumps(misconfigs or [])
+    log_json = json.dumps(scan_log or [])
     cur = conn.execute(
         """INSERT INTO scans
                (target, label, started_at, finished_at, host_count, finding_count,
-                risk_score, grade, report_path, user_id, misconfigs)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                risk_score, grade, report_path, user_id, misconfigs, session_id, scan_log)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (target, auto_label, now, now, len(hosts), len(findings),
-         scored["score"], f"Grade {scored['grade']}", report_path, user_id, mc_json),
+         scored["score"], f"Grade {scored['grade']}", report_path, user_id, mc_json, session_id, log_json),
     )
     scan_id = cur.lastrowid
 

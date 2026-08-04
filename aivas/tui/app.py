@@ -138,8 +138,13 @@ class AIVASApp(InputActionsMixin, App):
             from .ai import dispatch
             from aivas import config as _cfg
             cfg = _cfg.load()
-            api_key = cfg.get("api_key") or os.environ.get("GROQ_API_KEY")
-            await dispatch(self, text, api_key=api_key)
+            provider = cfg.get("provider") or "groq"
+            if provider == "mistral":
+                api_key = cfg.get("mistral_api_key") or os.environ.get("MISTRAL_API_KEY")
+            else:
+                api_key = cfg.get("api_key") or os.environ.get("GROQ_API_KEY")
+            shodan_key = cfg.get("shodan_key") or os.environ.get("SHODAN_API_KEY")
+            await dispatch(self, text, api_key=api_key, provider=provider, shodan_key=shodan_key)
 
     def tui_print(self, content: object) -> None:
         self.query_one("#output", RichLog).write(content)

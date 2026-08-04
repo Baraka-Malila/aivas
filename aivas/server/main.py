@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import sqlite3
 import uuid
 from contextlib import asynccontextmanager
@@ -159,9 +160,32 @@ async def get_logo():
     raise HTTPException(status_code=404, detail="Logo not found")
 
 
+async def _warm_report_cache(scan_id: int) -> None:
+    """Pre-generate LLM fixes for every CVE in a scan before report rendering."""
+    from aivas import config as _aivas_cfg
+    from aivas.server.cve_advice import warm_cache
+    cfg = _aivas_cfg.load()
+    mistral_key = cfg.get("mistral_api_key") or os.environ.get("MISTRAL_API_KEY")
+    groq_key = cfg.get("api_key") or os.environ.get("GROQ_API_KEY")
+    # Prefer Mistral — no per-minute rate limits that cause 429 storms
+    if mistral_key:
+        warm_key, provider = mistral_key, "mistral"
+    elif groq_key:
+        warm_key, provider = groq_key, "groq"
+    else:
+        return
+    cve_ids = [r["cve_id"] for r in _conn.execute(
+        "SELECT DISTINCT cve_id FROM findings WHERE scan_id=? AND cve_id IS NOT NULL",
+        (scan_id,),
+    ).fetchall()]
+    if cve_ids:
+        await warm_cache(_conn, cve_ids, warm_key, provider_name=provider, max_concurrent=1)
+
+
 @app.get("/api/report/{scan_id}")
 async def get_report(scan_id: int):
     from aivas.server.report_gen import generate_html_report
+    await _warm_report_cache(scan_id)
     html = generate_html_report(_conn, scan_id)
     if html is None:
         raise HTTPException(status_code=404, detail="Scan not found")
@@ -184,13 +208,22 @@ async def get_fix_script(scan_id: int):
 @app.get("/api/report/{scan_id}/pdf")
 async def get_pdf_report(scan_id: int):
     from aivas.server.report_pdf import generate_pdf_report
+    import re as _re
+    await _warm_report_cache(scan_id)
     pdf = await asyncio.to_thread(generate_pdf_report, _conn, scan_id)
     if pdf is None:
         raise HTTPException(status_code=404, detail="Scan not found")
+    row = _conn.execute("SELECT target, started_at FROM scans WHERE id=?", (scan_id,)).fetchone()
+    if row:
+        safe_target = _re.sub(r'[^\w.\-]', '_', str(row["target"]))
+        date_str = str(row["started_at"] or "")[:10]
+        fname = f"aivas-report-{safe_target}-{date_str}.pdf"
+    else:
+        fname = f"aivas-report-{scan_id}.pdf"
     return Response(
         content=pdf,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=aivas-report-{scan_id}.pdf"},
+        headers={"Content-Disposition": f"inline; filename=\"{fname}\""},
     )
 
 
@@ -212,6 +245,7 @@ class AnalyzeRequest(BaseModel):
     provider: str = "groq"
     model: str | None = None
     api_key: str | None = None
+    mistral_key: str | None = None
     lang: str = "auto"
 
 
@@ -229,6 +263,7 @@ async def analyze(scan_id: int, body: AnalyzeRequest):
         async for chunk in stream_analysis(
             _conn, scan_id, body.type,
             body.provider, body.model, body.api_key, body.lang,
+            mistral_key=body.mistral_key,
         ):
             yield chunk
 
@@ -263,12 +298,88 @@ async def get_session_route(session_id: str):
     return s
 
 
+def _sev_counts(findings: list[dict]) -> dict:
+    c = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
+    for f in findings:
+        s = (f.get("cvss_severity") or "LOW").upper()
+        if s in c:
+            c[s] += 1
+    return c
+
+
 @app.get("/api/sessions/{session_id}/messages")
 async def get_session_messages_route(session_id: str):
     s = get_session(_conn, session_id)
     if not s:
         raise HTTPException(status_code=404, detail="Session not found")
-    return load_history(_conn, session_id, max_turns=100)
+
+    # Load all messages without turn trimming (for full display history)
+    rows = _conn.execute(
+        "SELECT role, content, tool_calls, tool_call_id "
+        "FROM chat_messages WHERE session_id=? "
+        "ORDER BY created_at ASC, id ASC",
+        (session_id,),
+    ).fetchall()
+    msgs: list[dict] = []
+    for r in rows:
+        m: dict = {"role": r["role"], "content": r["content"] or ""}
+        if r["tool_calls"]:
+            try:
+                m["tool_calls"] = json.loads(r["tool_calls"])
+            except Exception:
+                m["tool_calls"] = []
+        if r["tool_call_id"]:
+            m["tool_call_id"] = r["tool_call_id"]
+        msgs.append(m)
+
+    # Load scans linked to this session (ordered so first scan matches first trigger)
+    scan_rows = _conn.execute(
+        "SELECT id, target, grade, risk_score, finding_count, misconfigs, scan_log "
+        "FROM scans WHERE session_id=? ORDER BY id ASC",
+        (session_id,),
+    ).fetchall()
+    scan_queue = list(scan_rows)
+
+    # Inject synthetic {role:'scan'} entries after background-scan tool results
+    result: list[dict] = []
+    for m in msgs:
+        result.append(m)
+        if m.get("role") == "tool" and scan_queue:
+            try:
+                payload = json.loads(m.get("content") or "{}")
+                if payload.get("status") == "running_in_background":
+                    row = scan_queue.pop(0)
+                    findings = get_scan_findings(_conn, row["id"])
+                    grade_raw = (row["grade"] or "").replace("Grade ", "").strip()
+                    try:
+                        mc = json.loads(row["misconfigs"] or "[]")
+                    except Exception:
+                        mc = []
+                    try:
+                        log = json.loads(row["scan_log"] or "[]")
+                    except Exception:
+                        log = []
+                    if log:
+                        result.append({"role": "scan_progress", "log": log})
+                    result.append({
+                        "role": "scan",
+                        "scan_data": {
+                            "scan_id": row["id"],
+                            "target": row["target"],
+                            "grade": grade_raw,
+                            "score": int(row["risk_score"] or 0),
+                            "service_count": 0,
+                            "findings": findings,
+                            "counts": _sev_counts(findings),
+                            "log": log,
+                            "misconfigs": mc,
+                            "partial": False,
+                        },
+                    })
+            except Exception:
+                pass
+
+    return result
 
 
 @app.patch("/api/sessions/{session_id}")
@@ -283,6 +394,20 @@ async def rename_session_route(session_id: str, body: dict):
     if not changes:
         raise HTTPException(status_code=404, detail="Session not found")
     return {"id": session_id, "title": title}
+
+
+@app.post("/api/sessions/{session_id}/messages")
+async def save_session_message_route(session_id: str, body: dict):
+    """Save an assistant message to the session (used to persist analysis results)."""
+    content = (body.get("content") or "").strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="content required")
+    s = get_session(_conn, session_id)
+    if not s:
+        raise HTTPException(status_code=404, detail="Session not found")
+    from aivas.server.chat_memory import save_assistant
+    save_assistant(_conn, session_id, content)
+    return {"ok": True}
 
 
 @app.delete("/api/sessions/{session_id}")
@@ -392,10 +517,11 @@ async def scan_ws(websocket: WebSocket, scan_key: str):
     level = entry[1]
     creds = entry[2] if len(entry) > 2 else None
     scan_user_id = entry[3] if len(entry) > 3 else None
+    scan_session_id = entry[4] if len(entry) > 4 else None
     _log.info("Scan started: %s (level %d, creds=%s, user=%s)", target, level, bool(creds), scan_user_id)
     from aivas.server.scan_worker import run_scan
     _partial_out: dict = {}
-    scan_gen = run_scan(_conn, target, level, creds=creds, _partial_out=_partial_out, user_id=scan_user_id)
+    scan_gen = run_scan(_conn, target, level, creds=creds, _partial_out=_partial_out, user_id=scan_user_id, session_id=scan_session_id)
 
     async def _stream():
         async for event in scan_gen:

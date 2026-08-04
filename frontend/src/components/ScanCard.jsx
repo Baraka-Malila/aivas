@@ -17,7 +17,7 @@ const SECTION_LABEL = {
   textTransform: 'uppercase',
 }
 
-export default function ScanCard({ scanData, onSend, onAnalysis }) {
+export default function ScanCard({ scanData, onSend, onAnalysis, onPdfRequest }) {
   const {
     scan_id, target, grade: rawGrade, score,
     service_count, findings = [], misconfigs = [], partial,
@@ -44,6 +44,7 @@ export default function ScanCard({ scanData, onSend, onAnalysis }) {
     CRITICAL: hasCritical, HIGH: false, MEDIUM: false, LOW: false,
   })
   const toggleGroup = (sev) => setExpanded(e => ({ ...e, [sev]: !e[sev] }))
+
 
   const totalFindings = findings.length
 
@@ -223,16 +224,18 @@ export default function ScanCard({ scanData, onSend, onAnalysis }) {
         >
           Remediation Plan
         </button>
-        <a
-          href={`/api/report/${scan_id}/pdf`}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ ...MONO, fontSize: 11, color: '#555', textDecoration: 'none', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5 }}
+        <button
+          onClick={() => onPdfRequest?.(scan_id, target)}
+          style={{
+            ...MONO, fontSize: 11, color: '#555', background: 'none', border: 'none',
+            marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', padding: 0,
+          }}
           onMouseEnter={e => e.currentTarget.style.color = '#888'}
           onMouseLeave={e => e.currentTarget.style.color = '#555'}
+          title="Generate PDF report"
         >
           PDF Report <ExternalLink size={10} />
-        </a>
+        </button>
       </div>
     </div>
   )

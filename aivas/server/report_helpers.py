@@ -69,6 +69,10 @@ def _legacy_template_fix(f: dict, lang: str = "en") -> str:
 
 
 def executive_summary(grade: str, score: int, target: str, findings: list[dict]) -> str:
+    """Returns an HTML fragment (contains <strong> tags). Do NOT html-escape the output."""
+    def _e(s: str) -> str:
+        return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
     n = len(findings)
     by = {s: [f for f in findings if f.get("cvss_severity") == s] for s in _SEV_ORDER}
     nc, nh = len(by["CRITICAL"]), len(by["HIGH"])
@@ -84,16 +88,20 @@ def executive_summary(grade: str, score: int, target: str, findings: list[dict])
     else:
         risk = "No CVEs matched in the local database. Verify that services are fully up to date."
 
-    body = (f"Host <strong>{target}</strong> received a risk score of <strong>{score}/100</strong> "
-            f"(Grade <strong>{grade}</strong> — {label}). {risk}")
+    body = (
+        f"Host <strong>{_e(target)}</strong> received a risk score of "
+        f"<strong>{_e(str(score))}/100</strong> "
+        f"(Grade <strong>{_e(grade)}</strong> &mdash; {_e(label)}). {_e(risk)}"
+    )
 
     kev_n = sum(1 for f in findings if f.get("kev"))
     if kev_n:
         unit = "vulnerability" if kev_n == 1 else "vulnerabilities"
         kev_note = (
-            f"<strong>WARNING — {kev_n} actively-exploited {unit} detected.</strong> "
-            "These CVEs are in CISA's Known Exploited Vulnerabilities catalog — "
-            "confirmed in-the-wild attacks. Remediation cannot wait. "
+            f"<strong>&#9888;&nbsp;WARNING &mdash; {kev_n} actively-exploited "
+            f"{_e(unit)} detected.</strong> "
+            "These CVEs are in CISA's Known Exploited Vulnerabilities catalog &mdash; "
+            "confirmed in-the-wild attacks. Remediation cannot wait.<br><br>"
         )
         return kev_note + body
     return body
