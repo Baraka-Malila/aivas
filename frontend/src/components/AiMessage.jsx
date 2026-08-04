@@ -12,7 +12,8 @@ const TOOL_ACTIVE_LABEL = {
   get_history:     'SEARCHING',
   get_last_scan:   'SEARCHING',
   get_findings:    'SEARCHING',
-  explain_cve:     'LOOKING UP',
+  explain_cve:        'LOOKING UP',
+  list_saved_targets: 'SEARCHING',
 }
 
 function ThinkingIndicator({ label = 'THINKING' }) {

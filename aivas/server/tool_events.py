@@ -41,4 +41,22 @@ def _tool_summary(name: str, result_json: str) -> str:
         count = len(data) if isinstance(data, list) else 0
         return f"{count} scan{'s' if count != 1 else ''} in history"
 
+    if name == "query_shodan":
+        if isinstance(data, dict):
+            if data.get("error"):
+                return data["error"][:120]
+            ports = data.get("ports", [])
+            org = data.get("org", "")
+            country = data.get("country", "")
+            return f"{len(ports)} port(s) · {org or country or 'unknown org'}"
+        return "done"
+
+    if name == "list_saved_targets":
+        if isinstance(data, dict):
+            targets = data.get("targets", [])
+            if not targets:
+                return "no saved targets"
+            return f"{len(targets)} saved target{'s' if len(targets) != 1 else ''}"
+        return "done"
+
     return "done"

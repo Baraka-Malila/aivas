@@ -4,6 +4,7 @@ import { MessageSquare, ExternalLink } from 'lucide-react'
 const MONO = { fontFamily: '"Fira Code", monospace' }
 
 const GRADE_COLOR = { A: '#66bb6a', B: '#aed581', C: '#fdd835', D: '#ff7043', F: '#ef5350' }
+const LEVEL_LABEL = { 1: 'QUICK', 2: 'FULL', 3: 'DEEP' }
 const SEV_COLOR   = { CRITICAL: '#ef5350', HIGH: '#ff7043', MEDIUM: '#fdd835', LOW: '#66bb6a' }
 const SEV_ORDER   = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
 
@@ -21,7 +22,9 @@ export default function ScanCard({ scanData, onSend, onAnalysis, onPdfRequest })
   const {
     scan_id, target, grade: rawGrade, score,
     service_count, findings = [], misconfigs = [], partial,
+    credential_scan, scan_level, os_info,
   } = scanData
+  const scanTypeLabel = LEVEL_LABEL[scan_level] || ''
 
   const grade = (rawGrade || '').replace('Grade ', '')
   const gc = GRADE_COLOR[grade] || '#888'
@@ -72,6 +75,24 @@ export default function ScanCard({ scanData, onSend, onAnalysis, onPdfRequest })
           <div style={{ ...MONO, color: '#999', fontSize: 11, marginTop: 3 }}>
             {service_count} service{service_count !== 1 ? 's' : ''} · {totalFindings} finding{totalFindings !== 1 ? 's' : ''}
             {misconfigs.length > 0 ? ` · ${misconfigs.length} config issue${misconfigs.length !== 1 ? 's' : ''}` : ''}
+          </div>
+          {/* Scan type badges */}
+          <div style={{ display: 'flex', gap: 5, marginTop: 6, flexWrap: 'wrap' }}>
+            {scanTypeLabel && (
+              <span style={{ ...MONO, fontSize: 9, color: '#888', border: '1px solid #333', borderRadius: 2, padding: '1px 5px', letterSpacing: '0.08em' }}>
+                {scanTypeLabel}
+              </span>
+            )}
+            {credential_scan && (
+              <span style={{ ...MONO, fontSize: 9, color: '#4a9eff', border: '1px solid #1a2d45', background: '#0a1828', borderRadius: 2, padding: '1px 5px', letterSpacing: '0.08em' }}>
+                SSH
+              </span>
+            )}
+            {os_info && (
+              <span style={{ ...MONO, fontSize: 9, color: '#aaa', border: '1px solid #333', borderRadius: 2, padding: '1px 5px', letterSpacing: '0.08em' }}>
+                {os_info}
+              </span>
+            )}
           </div>
         </div>
 

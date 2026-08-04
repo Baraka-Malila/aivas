@@ -80,16 +80,19 @@ function AuthenticatedApp({ user, token, logout }) {
     } catch (_) { /* keep original findings */ }
 
     const scanData = {
-      scan_id:       doneEvent.scan_id,
-      target:        doneEvent.target,
-      grade:         doneEvent.grade,
-      score:         doneEvent.score,
-      service_count: doneEvent.service_count,
+      scan_id:        doneEvent.scan_id,
+      target:         doneEvent.target,
+      grade:          doneEvent.grade,
+      score:          doneEvent.score,
+      service_count:  doneEvent.service_count,
       findings,
-      counts:        countSeverities(findings),
-      log:           doneEvent.log || [],
-      misconfigs:    doneEvent.misconfigs || [],
-      partial:       doneEvent.type === 'partial_done',
+      counts:         countSeverities(findings),
+      log:            doneEvent.log || [],
+      misconfigs:     doneEvent.misconfigs || [],
+      partial:        doneEvent.type === 'partial_done',
+      credential_scan: doneEvent.credential_scan || false,
+      scan_level:     doneEvent.scan_level || 1,
+      os_info:        doneEvent.os_info || '',
     }
 
     if (scanningIdRef.current) {

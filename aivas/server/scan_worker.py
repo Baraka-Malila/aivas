@@ -272,6 +272,8 @@ async def run_scan(
         yield _emit(_ev("grade", f"Risk score: {score}/100 — Grade {grade}"))
         scan_id = save_scan(conn, target, findings, user_id=user_id, misconfigs=all_misconfigs, session_id=session_id, scan_log=_progress)
         _done = True
+        os_families = [s.get("os_family", "") for s in all_services if s.get("os_family")]
+        os_info = max(set(os_families), key=os_families.count) if os_families else ""
         yield {
             "type": "done",
             "target": target,
@@ -279,6 +281,9 @@ async def run_scan(
             "score": score,
             "grade": grade,
             "service_count": len(all_services),
+            "scan_level": level,
+            "os_info": os_info,
+            "credential_scan": creds is not None,
             "log": _progress,
             "services": [
                 {"port": s.get("port"), "protocol": s.get("protocol", "tcp"),
@@ -294,7 +299,6 @@ async def run_scan(
                 for f in findings
             ],
             "misconfigs": all_misconfigs,
-            "credential_scan": creds is not None,
         }
     finally:
         if not _done:
