@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=AIVAS Web UI
+GenericName=Vulnerability Scanner
+Comment=AIVAS web interface — opens in browser, reuses running server
+Exec=/home/cyberpunk/.local/bin/aivas-web
+Icon=/home/cyberpunk/.local/share/icons/hicolor/256x256/apps/aivas.png
+Terminal=false
+Categories=Security;Network;System;
+Keywords=security;vulnerability;nmap;cve;scan;web;
+StartupNotify=false

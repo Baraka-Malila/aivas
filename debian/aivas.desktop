@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=AIVAS
+GenericName=Vulnerability Scanner
+Comment=AI-Assisted Network Vulnerability Assessment System
+Exec=x-terminal-emulator -e bash -c 'export PATH="$HOME/.local/bin:$PATH"; $HOME/.local/bin/aivas; echo; read -rp "Press Enter to close..."'
+Icon=/home/cyberpunk/.local/share/icons/hicolor/256x256/apps/aivas.png
+Terminal=false
+Categories=Security;Network;System;
+Keywords=security;vulnerability;nmap;cve;scan;network;
+StartupNotify=true

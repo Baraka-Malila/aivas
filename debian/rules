@@ -13,6 +13,10 @@ override_dh_auto_test:
 override_dh_auto_install:
 	install -d debian/aivas/usr/share/aivas/
 	cp debian/prebuilt/aivas-*.whl debian/aivas/usr/share/aivas/
+	install -Dm644 debian/aivas.desktop     debian/aivas/usr/share/applications/aivas.desktop
+	install -Dm644 debian/aivas-web.desktop debian/aivas/usr/share/applications/aivas-web.desktop
+	install -Dm755 debian/aivas-web         debian/aivas/usr/local/bin/aivas-web
+	install -Dm644 frontend/src/assets/logo.png debian/aivas/usr/share/icons/hicolor/256x256/apps/aivas.png
 
 override_dh_auto_clean:
 	dh_auto_clean
