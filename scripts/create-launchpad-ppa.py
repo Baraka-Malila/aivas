@@ -6,6 +6,8 @@ Run once. Opens a browser page to authorize — paste the URL if it doesn't open
 Usage:
     python3 scripts/create-launchpad-ppa.py
 """
+import os
+from pathlib import Path
 from launchpadlib.launchpad import Launchpad
 
 LP_LOGIN   = "malila-arch"
@@ -17,13 +19,16 @@ PPA_DESC   = (
     "bilingual English/Swahili narration."
 )
 
+LP_DIR = Path.home() / ".launchpadlib"
+LP_DIR.mkdir(exist_ok=True)
+CREDS_FILE = LP_DIR / f"{LP_LOGIN}-credentials.txt"
+
 print("Connecting to Launchpad (browser window will open for authorization)...")
 lp = Launchpad.login_with(
     application_name="aivas-ppa-setup",
     service_root="production",
-    launchpadlib_dir="~/.launchpadlib",
-    # credentials_file keeps you logged in for future runs
-    credentials_file=f"~/.launchpadlib/{LP_LOGIN}-credentials.txt",
+    launchpadlib_dir=str(LP_DIR),
+    credentials_file=str(CREDS_FILE),
     version="devel",
 )
 
