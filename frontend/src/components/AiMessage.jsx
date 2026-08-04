@@ -36,7 +36,7 @@ function ThinkingIndicator({ label = 'THINKING' }) {
           style={{ animation: 'aivas-logoCenter 2.2s cubic-bezier(0.2,0.7,0.4,1) infinite' }}
         />
       </svg>
-      <span style={{ fontFamily: '"Fira Code", monospace', fontSize: 11, color: '#555555', letterSpacing: '0.1em' }}>
+      <span style={{ fontFamily: '"Fira Code", monospace', fontSize: 11, color: '#888', letterSpacing: '0.1em' }}>
         {label}
       </span>
     </div>

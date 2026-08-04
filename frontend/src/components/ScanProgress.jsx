@@ -22,7 +22,7 @@ export default function ScanProgress({ log = [], onStop, scanStatus }) {
     <div className="py-3" data-testid="scan-progress">
       <div className="flex items-center justify-between mb-1.5">
         {isDone ? (
-          <div style={{ color: '#555' }} className="text-xs font-medium select-none">
+          <div style={{ color: '#888' }} className="text-xs font-medium select-none">
             {STATUS_LABEL[scanStatus] || 'SCAN DONE'}
           </div>
         ) : (
@@ -39,7 +39,7 @@ export default function ScanProgress({ log = [], onStop, scanStatus }) {
                 style={{ animation: 'aivas-logoCenter 2.2s cubic-bezier(0.2,0.7,0.4,1) infinite' }}
               />
             </svg>
-            <span style={{ fontFamily: '"Fira Code", monospace', fontSize: 11, color: '#555', letterSpacing: '0.1em' }}>
+            <span style={{ fontFamily: '"Fira Code", monospace', fontSize: 11, color: '#888', letterSpacing: '0.1em' }}>
               SCANNING
             </span>
           </div>
@@ -47,7 +47,7 @@ export default function ScanProgress({ log = [], onStop, scanStatus }) {
         {!isDone && onStop && (
           <button
             onClick={onStop}
-            style={{ color: '#666', borderColor: '#333' }}
+            style={{ color: '#999', borderColor: '#333' }}
             className="text-xs border rounded px-2 py-0.5 hover:text-red-400 hover:border-red-900 transition-colors"
           >
             Stop
@@ -58,17 +58,17 @@ export default function ScanProgress({ log = [], onStop, scanStatus }) {
       {isDone ? (
         <details style={{ marginTop: 4 }}>
           <summary
-            style={{ color: '#444', fontSize: '0.72rem', cursor: 'pointer', userSelect: 'none' }}
+            style={{ color: '#666', fontSize: '0.72rem', cursor: 'pointer', userSelect: 'none' }}
           >
             ▶ {log.length} log line{log.length !== 1 ? 's' : ''}
           </summary>
           <div
             style={{
-              color: '#555',
+              color: '#888',
               maxHeight: '220px',
               overflowY: 'auto',
               background: '#0d0d0d',
-              border: '1px solid #1a1a1a',
+              border: '1px solid #252525',
               borderRadius: '6px',
               padding: '8px 10px',
               marginTop: 4,
@@ -76,7 +76,7 @@ export default function ScanProgress({ log = [], onStop, scanStatus }) {
             className="text-xs font-mono"
           >
             {log.map((line, i) => (
-              <div key={i} style={{ color: '#444', marginBottom: '2px' }}>{'  '}{line}</div>
+              <div key={i} style={{ color: '#666', marginBottom: '2px' }}>{'  '}{line}</div>
             ))}
           </div>
         </details>
@@ -84,11 +84,11 @@ export default function ScanProgress({ log = [], onStop, scanStatus }) {
         <div
           ref={scrollRef}
           style={{
-            color: '#666',
+            color: '#999',
             maxHeight: '220px',
             overflowY: 'auto',
             background: '#0d0d0d',
-            border: '1px solid #1a1a1a',
+            border: '1px solid #252525',
             borderRadius: '6px',
             padding: '8px 10px',
           }}
@@ -97,7 +97,7 @@ export default function ScanProgress({ log = [], onStop, scanStatus }) {
           {log.map((line, i) => (
             <div
               key={i}
-              style={{ color: i === log.length - 1 ? '#aaa' : '#555', marginBottom: '2px' }}
+              style={{ color: i === log.length - 1 ? '#aaa' : '#888', marginBottom: '2px' }}
             >
               {'  '}{line}
             </div>

@@ -50,7 +50,7 @@ function SessionItem({ session, active, onSelect, onDelete, onRename, onContextM
   const grade = (session.last_grade || '').replace('Grade ', '') || null
   return (
     <div
-      style={{ borderBottom: '1px solid #141414', padding: '10px 16px', cursor: 'pointer', background: active ? '#151515' : 'transparent' }}
+      style={{ borderBottom: '1px solid #1e1e1e', padding: '10px 16px', cursor: 'pointer', background: active ? '#151515' : 'transparent' }}
       onClick={onSelect}
       onMouseEnter={e => { if (!active) e.currentTarget.style.background = '#151515' }}
       onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
@@ -71,7 +71,7 @@ function SessionItem({ session, active, onSelect, onDelete, onRename, onContextM
         {!editing && <GradeChip grade={grade} />}
       </div>
       {!editing && (
-        <div style={{ ...MONO, fontSize: 10, color: '#555555', marginTop: 3 }}>
+        <div style={{ ...MONO, fontSize: 10, color: '#888', marginTop: 3 }}>
           {formatDate(session.updated_at)}
           {session.last_target ? ` · ${session.last_target}` : ''}
         </div>
@@ -118,20 +118,20 @@ export default function SessionDrawer({ open, sessions, activeSessionId, onClose
       />
       <div
         data-testid="session-drawer"
-        style={{ background: '#111111', borderLeft: '1px solid #1e1e1e', width: 320 }}
+        style={{ background: '#111111', borderLeft: '1px solid #2a2a2a', width: 320 }}
         className="fixed right-0 top-0 bottom-0 z-50 flex flex-col"
       >
         {/* Header */}
         <div
-          style={{ borderBottom: '1px solid #1e1e1e', flexShrink: 0 }}
+          style={{ borderBottom: '1px solid #2a2a2a', flexShrink: 0 }}
           className="flex items-center justify-between px-4 py-3"
         >
-          <span style={{ ...MONO, color: '#555555', fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+          <span style={{ ...MONO, color: '#888', fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
             Conversations
           </span>
-          <button onClick={onClose} style={{ color: '#555555', background: 'none', border: 'none', cursor: 'pointer', padding: 2, borderRadius: 3, display: 'flex' }}
+          <button onClick={onClose} style={{ color: '#888', background: 'none', border: 'none', cursor: 'pointer', padding: 2, borderRadius: 3, display: 'flex' }}
             onMouseEnter={e => e.currentTarget.style.color = '#e0e0e0'}
-            onMouseLeave={e => e.currentTarget.style.color = '#555555'}
+            onMouseLeave={e => e.currentTarget.style.color = '#888'}
           >
             <X size={15} />
           </button>
@@ -142,7 +142,7 @@ export default function SessionDrawer({ open, sessions, activeSessionId, onClose
           onClick={onNew}
           style={{
             color: '#4a9eff', background: 'transparent',
-            border: 'none', borderBottom: '1px solid #1e1e1e',
+            border: 'none', borderBottom: '1px solid #2a2a2a',
             cursor: 'pointer', display: 'flex', alignItems: 'center',
             gap: 8, padding: '10px 16px', fontSize: 12, fontFamily: 'inherit',
             textAlign: 'left', flexShrink: 0,
@@ -156,7 +156,7 @@ export default function SessionDrawer({ open, sessions, activeSessionId, onClose
         {/* Session list */}
         <div className="flex-1 overflow-y-auto">
           {sessions.length === 0 && (
-            <div style={{ color: '#444', fontSize: 12 }} className="px-4 py-8 text-center">
+            <div style={{ color: '#666', fontSize: 12 }} className="px-4 py-8 text-center">
               No conversations yet
             </div>
           )}
@@ -172,8 +172,8 @@ export default function SessionDrawer({ open, sessions, activeSessionId, onClose
         </div>
 
         {/* Footer */}
-        <div style={{ borderTop: '1px solid #1e1e1e', padding: '8px 16px', flexShrink: 0 }}>
-          <span style={{ ...MONO, fontSize: 10, color: '#444444' }}>
+        <div style={{ borderTop: '1px solid #2a2a2a', padding: '8px 16px', flexShrink: 0 }}>
+          <span style={{ ...MONO, fontSize: 10, color: '#666' }}>
             {sessions.length} conversation{sessions.length !== 1 ? 's' : ''} · right-click to rename / delete
           </span>
         </div>

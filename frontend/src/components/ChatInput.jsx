@@ -14,7 +14,7 @@ export default function ChatInput({ onSend, disabled }) {
 
   return (
     <div
-      style={{ background: '#0a0a0a', borderTop: '1px solid #1e1e1e' }}
+      style={{ background: '#0a0a0a', borderTop: '1px solid #2a2a2a' }}
       className="px-4 py-3 shrink-0"
     >
       <form
@@ -29,8 +29,8 @@ export default function ChatInput({ onSend, disabled }) {
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) submit(e) }}
           placeholder="Type a message…"
           disabled={disabled}
-          style={{ background: '#161616', border: '1px solid #1e1e1e', color: '#e0e0e0' }}
-          className="flex-1 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#4a9eff] placeholder:text-[#666] disabled:opacity-50 transition-colors"
+          style={{ background: '#161616', border: '1px solid #2a2a2a', color: '#e0e0e0' }}
+          className="flex-1 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#4a9eff] placeholder:text-[#999] disabled:opacity-50 transition-colors"
         />
         <button
           type="submit"

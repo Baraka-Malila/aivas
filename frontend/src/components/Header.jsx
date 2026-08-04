@@ -7,7 +7,7 @@ const TABS = ['Console', 'History', 'Targets', 'Reports']
 export default function Header({ activeTab, onTabChange, onSettings, onAdmin, user, onLogout }) {
   return (
     <header
-      style={{ background: '#0d0d0d', borderBottom: '1px solid #1a1a1a', height: 48 }}
+      style={{ background: '#0d0d0d', borderBottom: '1px solid #252525', height: 48 }}
       className="flex items-center justify-between px-4 shrink-0"
     >
       {/* Left: logo + name + tabs */}
@@ -30,7 +30,7 @@ export default function Header({ activeTab, onTabChange, onSettings, onAdmin, us
                   background: 'transparent',
                   border: 'none',
                   boxShadow: active ? 'inset 0 -2px 0 #4a9eff' : 'none',
-                  color: active ? '#e0e0e0' : '#666666',
+                  color: active ? '#e0e0e0' : '#999',
                   fontSize: 13,
                   padding: '0 14px',
                   cursor: 'pointer',
@@ -41,7 +41,7 @@ export default function Header({ activeTab, onTabChange, onSettings, onAdmin, us
                   alignItems: 'center',
                 }}
                 onMouseEnter={e => { if (!active) e.currentTarget.style.color = '#aaaaaa' }}
-                onMouseLeave={e => { if (!active) e.currentTarget.style.color = '#666666' }}
+                onMouseLeave={e => { if (!active) e.currentTarget.style.color = '#999' }}
               >
                 {tab}
               </button>
@@ -59,16 +59,16 @@ export default function Header({ activeTab, onTabChange, onSettings, onAdmin, us
                 ADMIN
               </span>
             )}
-            <span style={{ ...MONO, color: '#555', fontSize: 12 }}>{user.username}</span>
+            <span style={{ ...MONO, color: '#888', fontSize: 12 }}>{user.username}</span>
           </div>
         )}
 
         {user?.role === 'admin' && onAdmin && (
           <button
             onClick={onAdmin}
-            style={{ color: '#555', background: 'none', border: 'none', cursor: 'pointer', padding: 8, borderRadius: 4 }}
+            style={{ color: '#888', background: 'none', border: 'none', cursor: 'pointer', padding: 8, borderRadius: 4 }}
             onMouseEnter={e => { e.currentTarget.style.color = '#e0e0e0'; e.currentTarget.style.background = '#161616' }}
-            onMouseLeave={e => { e.currentTarget.style.color = '#555'; e.currentTarget.style.background = 'none' }}
+            onMouseLeave={e => { e.currentTarget.style.color = '#888'; e.currentTarget.style.background = 'none' }}
             aria-label="User management"
             title="User management"
           >
@@ -78,9 +78,9 @@ export default function Header({ activeTab, onTabChange, onSettings, onAdmin, us
 
         <button
           onClick={onSettings}
-          style={{ color: '#555', background: 'none', border: 'none', cursor: 'pointer', padding: 8, borderRadius: 4 }}
+          style={{ color: '#888', background: 'none', border: 'none', cursor: 'pointer', padding: 8, borderRadius: 4 }}
           onMouseEnter={e => { e.currentTarget.style.color = '#e0e0e0'; e.currentTarget.style.background = '#161616' }}
-          onMouseLeave={e => { e.currentTarget.style.color = '#555'; e.currentTarget.style.background = 'none' }}
+          onMouseLeave={e => { e.currentTarget.style.color = '#888'; e.currentTarget.style.background = 'none' }}
           aria-label="Settings"
           title="Settings"
         >
@@ -90,9 +90,9 @@ export default function Header({ activeTab, onTabChange, onSettings, onAdmin, us
         {onLogout && (
           <button
             onClick={onLogout}
-            style={{ color: '#555', background: 'none', border: 'none', cursor: 'pointer', padding: 8, borderRadius: 4 }}
+            style={{ color: '#888', background: 'none', border: 'none', cursor: 'pointer', padding: 8, borderRadius: 4 }}
             onMouseEnter={e => { e.currentTarget.style.color = '#ef5350'; e.currentTarget.style.background = '#161616' }}
-            onMouseLeave={e => { e.currentTarget.style.color = '#555'; e.currentTarget.style.background = 'none' }}
+            onMouseLeave={e => { e.currentTarget.style.color = '#888'; e.currentTarget.style.background = 'none' }}
             aria-label="Sign out"
             title="Sign out"
           >

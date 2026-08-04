@@ -31,12 +31,12 @@ function StatLedger({ stats, loading }) {
           style={{
             display: 'flex',
             justifyContent: 'space-between',
-            borderTop: '1px solid #161616',
-            borderBottom: i === rows.length - 1 ? '1px solid #161616' : 'none',
+            borderTop: '1px solid #222',
+            borderBottom: i === rows.length - 1 ? '1px solid #222' : 'none',
             padding: '10px 0',
           }}
         >
-          <span style={{ ...MONO, fontSize: 10, color: '#555555', letterSpacing: '0.08em' }}>{r.label}</span>
+          <span style={{ ...MONO, fontSize: 10, color: '#888', letterSpacing: '0.08em' }}>{r.label}</span>
           <span style={{ ...MONO, fontSize: 12, color: '#a8a8a8' }}>{r.value}</span>
         </div>
       ))}
@@ -91,7 +91,7 @@ export default function LoginPage({ onAuth }) {
           width: 'clamp(360px, 36%, 520px)',
           flexShrink: 0,
           background: '#0d0d0d',
-          borderRight: '1px solid #1e1e1e',
+          borderRight: '1px solid #2a2a2a',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'space-between',
@@ -105,7 +105,7 @@ export default function LoginPage({ onAuth }) {
             <img src={logo} alt="AIVAS" style={{ height: 36, width: 36, objectFit: 'contain' }} />
             <span style={{ color: '#e0e0e0', fontWeight: 700, fontSize: 20, letterSpacing: '-0.3px' }}>AIVAS</span>
           </div>
-          <p style={{ color: '#666666', fontSize: 13, lineHeight: 1.6, marginTop: 14, maxWidth: 280 }}>
+          <p style={{ color: '#999', fontSize: 13, lineHeight: 1.6, marginTop: 14, maxWidth: 280 }}>
             AI-Assisted Network Vulnerability Assessment System
           </p>
         </div>
@@ -115,14 +115,14 @@ export default function LoginPage({ onAuth }) {
 
         {/* Bottom: version + GitHub */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ ...MONO, color: '#444444', fontSize: 11 }}>v{stats?.version ?? '1.2.0'} · Authorized use only.</span>
+          <span style={{ ...MONO, color: '#666', fontSize: 11 }}>v{stats?.version ?? '1.2.0'} · Authorized use only.</span>
           <a
             href="https://github.com/Baraka-Malila/aivas"
             target="_blank"
             rel="noopener noreferrer"
-            style={{ color: '#444444', display: 'flex' }}
+            style={{ color: '#666', display: 'flex' }}
             onMouseEnter={e => e.currentTarget.style.color = '#e0e0e0'}
-            onMouseLeave={e => e.currentTarget.style.color = '#444444'}
+            onMouseLeave={e => e.currentTarget.style.color = '#666'}
             aria-label="GitHub"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -146,7 +146,7 @@ export default function LoginPage({ onAuth }) {
             <h2 style={{ color: '#e0e0e0', fontWeight: 600, fontSize: 18, margin: '0 0 4px 0' }}>
               {mode === 'login' ? 'Sign in' : 'Create account'}
             </h2>
-            <p style={{ color: '#555555', fontSize: 12, margin: 0 }}>
+            <p style={{ color: '#888', fontSize: 12, margin: 0 }}>
               {mode === 'login' ? 'Enter your credentials to continue' : 'Set up your AIVAS account'}
             </p>
           </div>
@@ -154,7 +154,7 @@ export default function LoginPage({ onAuth }) {
           <form onSubmit={submit}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <label style={{ color: '#666666', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>
+                <label style={{ color: '#999', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>
                   Username
                 </label>
                 <input
@@ -169,7 +169,7 @@ export default function LoginPage({ onAuth }) {
                 />
               </div>
               <div>
-                <label style={{ color: '#666666', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>
+                <label style={{ color: '#999', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>
                   Password
                 </label>
                 <input
@@ -202,8 +202,8 @@ export default function LoginPage({ onAuth }) {
             </button>
           </form>
 
-          <div style={{ borderTop: '1px solid #1a1a1a', marginTop: 24, paddingTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ color: '#555555', fontSize: 12 }}>
+          <div style={{ borderTop: '1px solid #252525', marginTop: 24, paddingTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ color: '#888', fontSize: 12 }}>
               {mode === 'login' ? "Don't have an account?" : 'Already have an account?'}
             </span>
             <button
