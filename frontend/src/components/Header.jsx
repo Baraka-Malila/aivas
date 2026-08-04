@@ -7,7 +7,7 @@ const TABS = ['Console', 'History', 'Targets', 'Reports']
 export default function Header({ activeTab, onTabChange, onSettings, onAdmin, user, onLogout }) {
   return (
     <header
-      style={{ background: '#0d0d0d', borderBottom: '1px solid #252525', height: 48 }}
+      style={{ background: '#0d0d0d', borderBottom: '1px solid #2a2a2a', height: 48 }}
       className="flex items-center justify-between px-4 shrink-0"
     >
       {/* Left: logo + name + tabs */}

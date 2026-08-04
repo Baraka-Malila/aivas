@@ -4,8 +4,8 @@ import logo from '../assets/logo.png'
 const MONO = { fontFamily: '"Fira Code", monospace' }
 
 const inp = {
-  background: '#0f0f0f',
-  border: '1px solid #252525',
+  background: '#1a1a1a',
+  border: '1px solid #3a3a3a',
   color: '#e0e0e0',
   borderRadius: 4,
   width: '100%',
@@ -165,7 +165,7 @@ export default function LoginPage({ onAuth }) {
                   autoComplete="username"
                   required
                   onFocus={e => e.target.style.borderColor = '#4a9eff'}
-                  onBlur={e => e.target.style.borderColor = '#252525'}
+                  onBlur={e => e.target.style.borderColor = '#3a3a3a'}
                 />
               </div>
               <div>
@@ -180,7 +180,7 @@ export default function LoginPage({ onAuth }) {
                   autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                   required
                   onFocus={e => e.target.style.borderColor = '#4a9eff'}
-                  onBlur={e => e.target.style.borderColor = '#252525'}
+                  onBlur={e => e.target.style.borderColor = '#3a3a3a'}
                 />
               </div>
             </div>
@@ -202,7 +202,7 @@ export default function LoginPage({ onAuth }) {
             </button>
           </form>
 
-          <div style={{ borderTop: '1px solid #252525', marginTop: 24, paddingTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ borderTop: '1px solid #3a3a3a', marginTop: 24, paddingTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ color: '#888', fontSize: 12 }}>
               {mode === 'login' ? "Don't have an account?" : 'Already have an account?'}
             </span>

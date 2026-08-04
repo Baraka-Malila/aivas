@@ -1,4 +1,4 @@
-const inp = { background: '#0f0f0f', border: '1px solid #252525', color: '#e0e0e0' }
+const inp = { background: '#1a1a1a', border: '1px solid #3a3a3a', color: '#e0e0e0' }
 
 export default function RemoteTargetsSection({
   remoteTargets, newTarget, setNewTarget,
@@ -9,11 +9,11 @@ export default function RemoteTargetsSection({
     <>
       <div className="mb-4 space-y-1.5">
         {remoteTargets.length === 0 && (
-          <p style={{ color: '#444' }} className="text-xs py-2">No saved targets yet.</p>
+          <p style={{ color: '#777' }} className="text-xs py-2">No saved targets yet.</p>
         )}
         {remoteTargets.map((t) => (
           <div key={t.id}
-            style={{ background: '#1a1a1a', border: '1px solid #252525', borderRadius: 6 }}
+            style={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: 6 }}
             className="flex items-center gap-2 px-3 py-2 text-xs"
           >
             <span style={{ color: '#4a9eff', fontFamily: 'monospace', fontSize: 10 }}>
@@ -21,7 +21,7 @@ export default function RemoteTargetsSection({
             </span>
             <div className="flex flex-col min-w-0 flex-1">
               <span style={{ color: '#e0e0e0' }}>{t.label || `${t.username}@${t.host}`}</span>
-              <span style={{ color: '#555' }}>{t.username}@{t.host}:{t.port}</span>
+              <span style={{ color: '#888' }}>{t.username}@{t.host}:{t.port}</span>
             </div>
             <div className="flex gap-3">
               {onScan && (
@@ -35,7 +35,7 @@ export default function RemoteTargetsSection({
               )}
               <button
                 onClick={() => onDelete(t.id)}
-                style={{ color: '#555' }}
+                style={{ color: '#888' }}
                 className="hover:text-red-400 transition-colors"
               >✕</button>
             </div>
@@ -43,7 +43,7 @@ export default function RemoteTargetsSection({
         ))}
       </div>
 
-      <div style={{ border: '1px solid #252525', borderRadius: 8 }} className="p-3">
+      <div style={{ border: '1px solid #333', borderRadius: 8 }} className="p-3">
         <p style={{ color: '#888' }} className="text-xs font-medium mb-2">Add Target</p>
 
         <input type="text" placeholder="Label"
@@ -94,7 +94,7 @@ export default function RemoteTargetsSection({
         <div className="flex gap-2 items-center">
           <button onClick={onTest}
             disabled={testing || !newTarget.host || !newTarget.username}
-            style={{ background: '#1a1a1a', border: '1px solid #252525', color: testing ? '#555' : '#e0e0e0' }}
+            style={{ background: '#1a1a1a', border: '1px solid #333', color: testing ? '#777' : '#e0e0e0' }}
             className="text-xs px-3 py-1.5 rounded hover:opacity-80 transition-opacity disabled:cursor-not-allowed"
           >
             {testing ? 'Testing…' : 'Test'}

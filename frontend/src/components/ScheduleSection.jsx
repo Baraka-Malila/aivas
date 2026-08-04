@@ -7,7 +7,7 @@ const INTERVALS = [
   { value: 'weekly', label: 'Every week',  color: '#ff9800' },
 ]
 
-const inp = { background: '#0f0f0f', border: '1px solid #252525', color: '#e0e0e0' }
+const inp = { background: '#1a1a1a', border: '1px solid #3a3a3a', color: '#e0e0e0' }
 
 function fmtTime(iso) {
   if (!iso) return '—'
@@ -77,12 +77,12 @@ export default function ScheduleSection({ remoteTargets = [] }) {
     <>
       <div className="mb-5 space-y-2">
         {schedules.length === 0 && (
-          <p style={{ color: '#444' }} className="text-xs py-2">No scheduled scans yet.</p>
+          <p style={{ color: '#777' }} className="text-xs py-2">No scheduled scans yet.</p>
         )}
         {schedules.map(s => {
           const iv = INTERVALS.find(i => i.value === s.interval)
           return (
-            <div key={s.id} style={{ background: '#1a1a1a', border: '1px solid #252525', borderRadius: 6 }}
+            <div key={s.id} style={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: 6 }}
                  className="px-3 py-2.5 text-xs">
               <div className="flex items-center gap-2 mb-1">
                 <span style={{ color: '#e0e0e0', fontWeight: 500 }}>{s.label}</span>
@@ -91,12 +91,12 @@ export default function ScheduleSection({ remoteTargets = [] }) {
                 </span>
                 <div className="ml-auto flex items-center gap-3">
                   <Toggle on={Boolean(s.enabled)} onClick={() => toggle(s.id, s.enabled)} />
-                  <button onClick={() => del(s.id)} style={{ color: '#555' }} className="hover:text-red-400 transition-colors">
+                  <button onClick={() => del(s.id)} style={{ color: '#888' }} className="hover:text-red-400 transition-colors">
                     <Trash2 size={13} />
                   </button>
                 </div>
               </div>
-              <div style={{ color: '#555' }} className="flex flex-wrap gap-x-4">
+              <div style={{ color: '#888' }} className="flex flex-wrap gap-x-4">
                 <span>Target: <span style={{ color: '#888' }}>{s.target}</span></span>
                 <span>Next: <span style={{ color: '#888' }}>{fmtTime(s.next_run)}</span></span>
                 {s.last_run && <span>Last: <span style={{ color: '#888' }}>{fmtTime(s.last_run)}</span></span>}
@@ -106,7 +106,7 @@ export default function ScheduleSection({ remoteTargets = [] }) {
         })}
       </div>
 
-      <div style={{ border: '1px solid #252525', borderRadius: 8 }} className="p-3">
+      <div style={{ border: '1px solid #333', borderRadius: 8 }} className="p-3">
         <p style={{ color: '#888' }} className="text-xs font-medium mb-2">Add Schedule</p>
         <input type="text" placeholder="Label"
           value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))}

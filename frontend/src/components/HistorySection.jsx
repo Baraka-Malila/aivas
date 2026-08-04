@@ -24,7 +24,7 @@ function InlineEdit({ value, onSave, onCancel }) {
         value={text}
         onChange={e => setText(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') onCancel() }}
-        style={{ background: '#0f0f0f', border: '1px solid #4a9eff', color: '#e0e0e0', borderRadius: 4 }}
+        style={{ background: '#1a1a1a', border: '1px solid #4a9eff', color: '#e0e0e0', borderRadius: 4 }}
         className="flex-1 min-w-0 px-2 py-0.5 text-xs outline-none"
       />
       <button onClick={commit} style={{ color: '#66bb6a', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}>
@@ -64,7 +64,7 @@ function ScanRow({ scan, onDelete, onRename, onContextMenu }) {
 
   return (
     <div
-      style={{ background: '#1a1a1a', border: '1px solid #252525', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 12, padding: '9px 12px', cursor: 'default' }}
+      style={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 12, padding: '9px 12px', cursor: 'default' }}
       onContextMenu={e => { e.preventDefault(); onContextMenu(e, { onRename: () => setEditing(true), onDelete }) }}
     >
       <GradeBox grade={grade} />
@@ -76,7 +76,7 @@ function ScanRow({ scan, onDelete, onRename, onContextMenu }) {
             {label}
           </div>
         )}
-        <div style={{ ...MONO, fontSize: 10, color: '#555555', marginTop: 2 }}>
+        <div style={{ ...MONO, fontSize: 10, color: '#888', marginTop: 2 }}>
           {scan.target} · {scan.finding_count ?? 0} findings · {fmtDate(scan.started_at)}
         </div>
       </div>
@@ -90,7 +90,7 @@ function SessionRow({ session, onDelete, onRename, onContextMenu }) {
 
   return (
     <div
-      style={{ background: '#1a1a1a', border: '1px solid #252525', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', cursor: 'default' }}
+      style={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', cursor: 'default' }}
       onContextMenu={e => { e.preventDefault(); onContextMenu(e, { onRename: () => setEditing(true), onDelete }) }}
     >
       {editing ? (
@@ -100,7 +100,7 @@ function SessionRow({ session, onDelete, onRename, onContextMenu }) {
           <span style={{ color: '#e0e0e0', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
             {title}
           </span>
-          <span style={{ ...MONO, fontSize: 10, color: '#555555', flexShrink: 0, marginLeft: 12 }}>
+          <span style={{ ...MONO, fontSize: 10, color: '#888', flexShrink: 0, marginLeft: 12 }}>
             updated {fmtDate(session.updated_at)}
           </span>
         </>
@@ -171,7 +171,7 @@ export default function HistorySection() {
   }
 
   const sectionLabel = {
-    ...MONO, fontSize: 10, letterSpacing: '0.1em', color: '#555555',
+    ...MONO, fontSize: 10, letterSpacing: '0.1em', color: '#888',
     textTransform: 'uppercase', marginBottom: 8, display: 'block',
   }
 
@@ -181,7 +181,7 @@ export default function HistorySection() {
         <span style={sectionLabel}>SCAN HISTORY ({scans.length}{hasMoreScans ? '+' : ''})</span>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {scans.length === 0 && (
-            <div style={{ color: '#444', fontSize: 12 }}>No scans yet.</div>
+            <div style={{ color: '#777', fontSize: 12 }}>No scans yet.</div>
           )}
           {scans.map(s => (
             <ScanRow key={s.id} scan={s}
@@ -195,9 +195,9 @@ export default function HistorySection() {
           <button
             onClick={() => loadScans(scanOffsetRef.current)}
             disabled={loadingMore}
-            style={{ ...MONO, fontSize: 10, color: '#555555', background: 'transparent', border: '1px solid #252525', borderRadius: 3, padding: '5px 12px', cursor: 'pointer', marginTop: 8, width: '100%' }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#888'; e.currentTarget.style.borderColor = '#3a3a3a' }}
-            onMouseLeave={e => { e.currentTarget.style.color = '#555555'; e.currentTarget.style.borderColor = '#252525' }}
+            style={{ ...MONO, fontSize: 10, color: '#888', background: 'transparent', border: '1px solid #333', borderRadius: 3, padding: '5px 12px', cursor: 'pointer', marginTop: 8, width: '100%' }}
+            onMouseEnter={e => { e.currentTarget.style.color = '#c0c0c0'; e.currentTarget.style.borderColor = '#555' }}
+            onMouseLeave={e => { e.currentTarget.style.color = '#888'; e.currentTarget.style.borderColor = '#333' }}
           >
             {loadingMore ? 'Loading…' : 'Load more'}
           </button>
@@ -208,7 +208,7 @@ export default function HistorySection() {
         <span style={sectionLabel}>CHAT SESSIONS ({sessions.length})</span>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {sessions.length === 0 && (
-            <div style={{ color: '#444', fontSize: 12 }}>No chat sessions yet.</div>
+            <div style={{ color: '#777', fontSize: 12 }}>No chat sessions yet.</div>
           )}
           {sessions.map(s => (
             <SessionRow key={s.id} session={s}
