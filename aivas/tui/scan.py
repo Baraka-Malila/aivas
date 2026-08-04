@@ -231,25 +231,24 @@ async def run_scan_pipeline(app: "AIVASApp", target: str,
     all_findings: list[dict] = []
     for svc in services:
         port = svc.get("port", "?")
+        proto = svc.get("protocol", "tcp")
         product = svc.get("product") or svc.get("service") or "unknown"
         version = svc.get("version") or ""
         label = f"{product} {version}".strip()
-        app.tui_print(f"    [#888888]querying:[/#888888] {label} [#888888](port {port})[/#888888]")
-        await asyncio.sleep(0.02)
         svc_findings = await asyncio.to_thread(correlate, app.conn, [svc], os_hint)
         probable = [f for f in svc_findings if f.get("confidence") in ("probable", "confirmed")]
         if probable:
             worst = max(probable, key=lambda f: f.get("cvss_score") or 0)
-            sev_col = {"CRITICAL": "red", "HIGH": "yellow", "MEDIUM": "magenta"}.get(
-                worst.get("cvss_severity", ""), "white"
+            sev_col = {"CRITICAL": "#e53935", "HIGH": "#ff6d00", "MEDIUM": "#fdd835"}.get(
+                worst.get("cvss_severity", ""), "#9e9e9e"
             )
+            cve_tag = (f"[{sev_col}]{worst.get('cve_id','')}[/{sev_col}] "
+                       f"[#888888]{worst.get('cvss_severity','')} {worst.get('cvss_score','')}[/#888888]")
+            extra = f"  [#888888]+{len(probable)-1} more[/#888888]" if len(probable) > 1 else ""
             app.tui_print(
-                f"    [#888888]→[/#888888] {len(probable)} CVE(s) — worst: "
-                f"[{sev_col}]{worst.get('cve_id','')}[/{sev_col}] "
-                f"({worst.get('cvss_severity','')} {worst.get('cvss_score','')})"
+                f"    [#555555]╴[/#555555] [#888888]{port}/{proto}[/#888888]  [cyan]{label}[/cyan]"
+                f"  {cve_tag}{extra}"
             )
-        else:
-            app.tui_print("    [#888888]→ no CVEs matched[/#888888]")
         all_findings.extend(svc_findings)
         await asyncio.sleep(0.02)
     findings = [f for f in all_findings if f.get("confidence") in ("probable", "confirmed")][:30]

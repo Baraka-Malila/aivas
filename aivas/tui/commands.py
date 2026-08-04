@@ -27,7 +27,7 @@ REGISTRY: dict[str, tuple[str, str]] = {
     "scan":    ("/scan <target> [--level 1-3] [--udp]", "Full CVE + config probe scan"),
     "quick":   ("/quick <target>",                       "Quick service scan (level 1)"),
     "deep":    ("/deep <target>",                         "Deep scan with UDP (level 2, UDP always on)"),
-"doctor":  ("/doctor",                               "Check dependencies and configuration"),
+    "doctor":  ("/doctor",                               "Check dependencies and configuration"),
     "history": ("/history [list|show <id>]",             "View past scan results"),
     "config":  ("/config [set <key> <value>|show]",      "Manage configuration"),
     "clear":   ("/clear",                                "Clear the output pane"),
@@ -51,15 +51,26 @@ async def handle(app: "AIVASApp", raw: str) -> None:
     await handler(app, args)
 
 
+_HELP_GROUPS = [
+    ("Scanning", ["scan", "quick", "deep"]),
+    ("Results",  ["history", "copy"]),
+    ("Setup",    ["config", "doctor"]),
+    ("Interface",["clear", "help", "exit"]),
+]
+
 async def _cmd_help(app: "AIVASApp", args: str) -> None:
     if args and args in REGISTRY:
         usage, desc = REGISTRY[args]
-        app.tui_print(f"[bold]{usage}[/bold]\n  {desc}")
+        app.tui_print(f"[bold #4a9eff]{usage}[/bold #4a9eff]\n  [#888888]{desc}[/#888888]")
         return
-    lines = ["[bold cyan]Available commands:[/bold cyan]\n"]
-    for cmd, (usage, desc) in REGISTRY.items():
-        lines.append(f"  [bold]{usage:<40}[/bold] {desc}")
-    lines.append("\n[#888888]Free text (no /) routes to AI if API key is configured.[/#888888]")
+    lines = ["[bold #e0e0e0]Commands[/bold #e0e0e0]\n"]
+    for group, cmds in _HELP_GROUPS:
+        lines.append(f"  [#555555]{group}[/#555555]")
+        for cmd in cmds:
+            usage, desc = REGISTRY[cmd]
+            lines.append(f"    [#4a9eff]{usage:<38}[/#4a9eff] [#888888]{desc}[/#888888]")
+        lines.append("")
+    lines.append("[#555555]Free-text (no /) → AI assistant if API key is set.[/#555555]")
     app.tui_print("\n".join(lines))
 
 
