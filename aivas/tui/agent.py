@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 import httpx
 
-from .agent_prompts import SYSTEM as _SYSTEM, TOOLS as _TOOLS
+from .agent_prompts import SYSTEM as _SYSTEM, TOOLS as _TOOLS, PHASE_A_SYSTEM as _PHASE_A_SYSTEM
 
 _XML_CALL_RE = _re.compile(r'<function(?:=\w[^>]*)?>.*?</function>', _re.DOTALL)
 
@@ -312,18 +312,26 @@ async def run_agent(
                 kwargs["tool_choice"] = "auto"
             return client.chat.completions.create(**kwargs)
 
+    # Phase A base: short routing prompt + optional context.
+    # messages[1:] carries history + user message, so we swap the system
+    # prompt only for tool-routing calls (Phase A) and keep full _SYSTEM
+    # for the final narrative call (Phase B).
+    phase_a_base = _PHASE_A_SYSTEM + (f"\n\n{context}" if context else "")
+
     for _step in range(_MAX_STEPS):
+        # Phase A: use short routing prompt for tool-selection calls.
+        phase_a_msgs = [{"role": "system", "content": phase_a_base}] + messages[1:]
         try:
             if use_mistral:
-                raw = await asyncio.to_thread(_mistral_call, messages, _TOOLS, api_key)
+                raw = await asyncio.to_thread(_mistral_call, phase_a_msgs, _TOOLS, api_key)
                 msg = _mistral_msg(raw)
             else:
-                resp = await asyncio.to_thread(_groq_call, messages, _TOOLS)
+                resp = await asyncio.to_thread(_groq_call, phase_a_msgs, _TOOLS)
                 msg = resp.choices[0].message
         except Exception as exc:
             s = str(exc)
             if not use_mistral and ("400" in s or "tool" in s.lower()):
-                # Retry Groq without tools
+                # Retry Groq without tools using full system for a clean text answer
                 orig = [{"role": "system", "content": system}, {"role": "user", "content": text}]
                 resp = await asyncio.to_thread(_groq_call, orig, None)
                 content = _XML_CALL_RE.sub("", resp.choices[0].message.content or "").strip()
@@ -332,7 +340,16 @@ async def run_agent(
             raise
 
         if not msg.tool_calls:
-            content = _XML_CALL_RE.sub("", msg.content or "").strip()
+            # Phase B: no tool chosen — use full SYSTEM for the narrative response.
+            try:
+                if use_mistral:
+                    raw_b = await asyncio.to_thread(_mistral_call, messages, None, api_key)
+                    content = _XML_CALL_RE.sub("", (_mistral_msg(raw_b).content or "")).strip()
+                else:
+                    resp_b = await asyncio.to_thread(_groq_call, messages, None)
+                    content = _XML_CALL_RE.sub("", resp_b.choices[0].message.content or "").strip()
+            except Exception:
+                content = _XML_CALL_RE.sub("", msg.content or "").strip()
             turns_to_persist.append({"role": "assistant", "content": content})
             return content, scan_intent, turns_to_persist
 
