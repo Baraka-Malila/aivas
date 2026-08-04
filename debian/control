@@ -1,0 +1,31 @@
+Source: aivas
+Section: utils
+Priority: optional
+Maintainer: Baraka Malila <bmalila87@gmail.com>
+Build-Depends: debhelper-compat (= 13),
+               dh-python,
+               python3-all,
+               python3-setuptools,
+               python3-build,
+               python3-pip,
+               nmap
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+Homepage: https://github.com/Baraka-Malila/aivas
+
+Package: aivas
+Architecture: all
+Depends: ${python3:Depends},
+         ${misc:Depends},
+         python3,
+         python3-click,
+         python3-rich,
+         python3-requests,
+         nmap
+Description: AI-Assisted Network Vulnerability Assessment System
+ AIVAS scans network targets using Nmap, correlates findings against
+ a local CVE database, and generates bilingual (English/Swahili)
+ vulnerability reports with LLM-powered narration.
+ .
+ Features a Textual-based terminal UI and a web UI (FastAPI + React),
+ supporting both Groq cloud and local Ollama inference.

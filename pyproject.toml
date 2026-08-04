@@ -7,7 +7,7 @@ where = ["."]
 include = ["aivas*"]
 
 [tool.setuptools.package-data]
-aivas = ["**/*.jinja2", "**/*.html", "**/*.css"]
+aivas = ["**/*.jinja2", "**/*.html", "**/*.css", "server/static/**/*", "server/static/assets/**/*"]
 
 [project]
 name = "aivas"

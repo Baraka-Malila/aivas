@@ -1,0 +1,10 @@
+aivas (0.1.0-1) noble; urgency=medium
+
+  * Initial Launchpad PPA release.
+  * Textual TUI with Groq/Mistral/Ollama AI support.
+  * FastAPI + React web UI (bundled static assets).
+  * Local CVE database with NIST NVD JSON feeds.
+  * Bilingual English/Swahili vulnerability narration.
+  * aivas serve command to launch web UI.
+
+ -- Baraka Malila <bmalila87@gmail.com>  Mon, 04 Aug 2026 15:00:00 +0300

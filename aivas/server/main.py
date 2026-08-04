@@ -37,8 +37,11 @@ from aivas.server.scheduler import scheduler_loop
 _pending: dict[str, tuple] = {}
 _conn: sqlite3.Connection | None = None
 
-_DIST = Path(__file__).parent.parent.parent / "frontend" / "dist"
-_LEGACY = Path(__file__).parent.parent.parent / "frontend" / "index.html"
+# Bundled static dir (inside the installed package) takes priority over dev path
+_STATIC_BUNDLED = Path(__file__).parent / "static"
+_DIST_DEV       = Path(__file__).parent.parent.parent / "frontend" / "dist"
+_DIST   = _STATIC_BUNDLED if _STATIC_BUNDLED.exists() else _DIST_DEV
+_LEGACY = _DIST_DEV.parent / "index.html"
 
 
 @asynccontextmanager
