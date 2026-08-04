@@ -314,20 +314,34 @@ async def stream_agent_response(
                 yield {"type": "error", "text": "Mistral rate limit reached — please wait a moment and try again."}
                 return
             elif not use_mistral_phase_a and ("400" in s or "tool" in s.lower()):
-                # Retry without tools so Phase B can still give a text answer
-                try:
-                    raw = await asyncio.to_thread(
-                        lambda: groq.chat.completions.create(
-                            model="llama-3.3-70b-versatile",
-                            messages=phase_a_msgs,
-                            max_tokens=400,
+                # Groq generated a malformed tool call — fall back to Mistral for Phase A
+                fallback_key = fallback_mistral_key or _load_mistral_key()
+                if fallback_key:
+                    try:
+                        _log.info("Phase A falling back to Mistral (Groq tool_use_failed)")
+                        raw_m = await asyncio.to_thread(
+                            _mistral_phase_a, phase_a_msgs, _TOOLS, 400, fallback_key
                         )
-                    )
-                    msg = _groq_msg(raw)
-                except Exception as inner:
-                    _log.error("Phase A no-tools retry also failed: %s", inner)
-                    yield {"type": "error", "text": "I'm having trouble processing that right now. Please try again."}
-                    return
+                        msg = _mistral_msg(raw_m)
+                    except Exception as mexc:
+                        _log.warning("Mistral Phase A fallback also failed: %s", mexc)
+                        yield {"type": "error", "text": "I'm having trouble processing that right now. Please try again."}
+                        return
+                else:
+                    # No Mistral key — last resort: groq without tools for a text answer
+                    try:
+                        raw = await asyncio.to_thread(
+                            lambda: groq.chat.completions.create(
+                                model="llama-3.3-70b-versatile",
+                                messages=phase_a_msgs,
+                                max_tokens=400,
+                            )
+                        )
+                        msg = _groq_msg(raw)
+                    except Exception as inner:
+                        _log.error("Phase A no-tools retry also failed: %s", inner)
+                        yield {"type": "error", "text": "I'm having trouble processing that right now. Please try again."}
+                        return
             else:
                 yield {"type": "error", "text": "I'm having trouble processing that right now. Please try again."}
                 return
