@@ -19,12 +19,12 @@ const PROVIDERS = [
 ]
 
 function ProviderIcon({ icon, active }) {
-  const color = active ? 'e0e0e0' : '666666'
+  const color = active ? 'e0e0e0' : '888888'
   if (icon === 'groq') {
-    const fg = active ? '#e0e0e0' : '#666666'
+    const fg = active ? '#e0e0e0' : '#888888'
     return (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-        <rect width="24" height="24" rx="5" fill={active ? '#1a1a1a' : '#111'} />
+        <rect width="24" height="24" rx="5" fill={active ? '#1e1e1e' : '#161616'} />
         <text x="12" y="17" textAnchor="middle" fontFamily="Arial Black, Arial" fontWeight="900" fontSize="15" fill={fg}>G</text>
       </svg>
     )
@@ -54,8 +54,24 @@ const NAV = [
   { id: 'history',      label: 'History',        Icon: RotateCcw },
 ]
 
-const inp = { background: '#0f0f0f', border: '1px solid #252525', color: '#e0e0e0', borderRadius: 4, outline: 'none', boxSizing: 'border-box' }
-const fieldLabel = { ...MONO, fontSize: 10, color: '#555555', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8, display: 'block' }
+/* Lifted inputs for projector visibility */
+const inp = {
+  background: '#1a1a1a',
+  border: '1px solid #3a3a3a',
+  color: '#e0e0e0',
+  borderRadius: 4,
+  outline: 'none',
+  boxSizing: 'border-box',
+}
+const fieldLabel = {
+  ...MONO,
+  fontSize: 10,
+  color: '#999',
+  letterSpacing: '0.1em',
+  textTransform: 'uppercase',
+  marginBottom: 8,
+  display: 'block',
+}
 
 export default function SettingsModal({ open, onClose, onScan, initialSection }) {
   const [apiKey,    setApiKey]    = useState('')
@@ -74,7 +90,6 @@ export default function SettingsModal({ open, onClose, onScan, initialSection })
     if (!open) return
     const p = localStorage.getItem('aivas_provider') || 'groq'
     setProvider(p)
-    // Load the key for the currently-selected provider
     setApiKey(localStorage.getItem(`aivas_api_key_${p}`) || localStorage.getItem('aivas_api_key') || '')
     setShodanKey(localStorage.getItem('aivas_shodan_key') || '')
     setLang(localStorage.getItem('aivas_lang') || 'auto')
@@ -93,7 +108,7 @@ export default function SettingsModal({ open, onClose, onScan, initialSection })
 
   const save = () => {
     localStorage.setItem(`aivas_api_key_${provider}`, apiKey)
-    localStorage.setItem('aivas_api_key',    apiKey)  // keep for backwards compat
+    localStorage.setItem('aivas_api_key',    apiKey)
     localStorage.setItem('aivas_shodan_key', shodanKey)
     localStorage.setItem('aivas_lang',       lang)
     localStorage.setItem('aivas_provider',   provider)
@@ -139,19 +154,37 @@ export default function SettingsModal({ open, onClose, onScan, initialSection })
 
   return (
     <>
+      {/* Backdrop */}
       <div
-        style={{ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', background: 'rgba(0,0,0,0.55)' }}
+        style={{ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', background: 'rgba(0,0,0,0.65)' }}
         className="fixed inset-0 z-40"
         onClick={onClose}
       />
+
+      {/* Modal — lighter than page so it clearly floats */}
       <div
         data-testid="settings-modal"
-        style={{ background: '#141414', border: '1px solid #222222', width: 820, maxWidth: '95vw', height: 'min(85vh, 600px)' }}
+        style={{
+          background: '#1c1c1c',
+          border: '1px solid #3a3a3a',
+          width: 820,
+          maxWidth: '95vw',
+          height: 'min(85vh, 600px)',
+        }}
         className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-xl flex overflow-hidden"
       >
         {/* Sidebar */}
-        <div style={{ width: 220, borderRight: '1px solid #222222', background: '#0f0f0f', flexShrink: 0, display: 'flex', flexDirection: 'column', padding: '16px 0', overflowY: 'auto' }}>
-          <p style={{ ...MONO, color: '#444444', fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', padding: '0 16px', marginBottom: 10 }}>
+        <div style={{
+          width: 220,
+          borderRight: '1px solid #3a3a3a',
+          background: '#111111',
+          flexShrink: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          padding: '16px 0',
+          overflowY: 'auto',
+        }}>
+          <p style={{ ...MONO, color: '#999', fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', padding: '0 16px', marginBottom: 10 }}>
             Settings
           </p>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -162,19 +195,23 @@ export default function SettingsModal({ open, onClose, onScan, initialSection })
                   key={id}
                   onClick={() => setSection(id)}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '8px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    padding: '9px 16px',
+                    paddingLeft: active ? 14 : 16,
                     fontSize: 13,
-                    color: active ? '#e0e0e0' : '#666666',
-                    background: active ? '#161616' : 'transparent',
+                    color: active ? '#e8e8e8' : '#c0c0c0',
+                    background: active ? '#1c1c1c' : 'transparent',
                     border: 'none',
+                    borderLeft: active ? '2px solid #4a9eff' : '2px solid transparent',
                     cursor: 'pointer',
                     textAlign: 'left',
                     width: '100%',
-                    transition: 'color 0.1s',
+                    transition: 'background 0.1s, color 0.1s',
                   }}
-                  onMouseEnter={e => { if (!active) e.currentTarget.style.color = '#cccccc' }}
-                  onMouseLeave={e => { if (!active) e.currentTarget.style.color = '#666666' }}
+                  onMouseEnter={e => { if (!active) { e.currentTarget.style.background = '#1a1a1a'; e.currentTarget.style.color = '#e0e0e0' } }}
+                  onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#c0c0c0' } }}
                 >
                   <Icon size={15} />
                   {label}
@@ -187,38 +224,49 @@ export default function SettingsModal({ open, onClose, onScan, initialSection })
         {/* Content panel */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Panel header */}
-          <div style={{ borderBottom: '1px solid #1e1e1e', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 24px', flexShrink: 0 }}>
+          <div style={{
+            borderBottom: '1px solid #333',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '14px 24px',
+            flexShrink: 0,
+          }}>
             <span style={{ color: '#e0e0e0', fontWeight: 600, fontSize: 14 }}>{activeLabel}</span>
-            <button onClick={onClose} style={{ color: '#555555', background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', borderRadius: 3 }}
+            <button
+              onClick={onClose}
+              style={{ color: '#888', background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', borderRadius: 3 }}
               onMouseEnter={e => e.currentTarget.style.color = '#e0e0e0'}
-              onMouseLeave={e => e.currentTarget.style.color = '#555555'}
+              onMouseLeave={e => e.currentTarget.style.color = '#888'}
             >
               <X size={16} />
             </button>
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+
             {/* General */}
             {section === 'general' && (
               <>
                 <div style={{ marginBottom: 20 }}>
                   <span style={fieldLabel}>Language</span>
-                  <p style={{ color: '#555555', fontSize: 11, marginBottom: 10 }}>Language used for AI-generated reports and descriptions.</p>
+                  <p style={{ color: '#888', fontSize: 11, marginBottom: 10 }}>Language used for AI-generated reports and descriptions.</p>
                   <div style={{ display: 'flex', gap: 8 }}>
                     {LANGS.map(l => (
                       <button key={l.value} onClick={() => setLang(l.value)}
                         style={{
-                          flex: 1, padding: '6px 0', fontSize: 12, fontWeight: 500, borderRadius: 4, cursor: 'pointer',
+                          flex: 1, padding: '7px 0', fontSize: 12, fontWeight: 500, borderRadius: 4, cursor: 'pointer',
                           background: lang === l.value ? '#4a9eff22' : 'transparent',
-                          border: `1px solid ${lang === l.value ? '#4a9eff' : '#252525'}`,
-                          color: lang === l.value ? '#4a9eff' : '#888888',
+                          border: `1px solid ${lang === l.value ? '#4a9eff' : '#3a3a3a'}`,
+                          color: lang === l.value ? '#4a9eff' : '#bbb',
                           transition: 'all 0.1s',
                         }}
                       >{l.label}</button>
                     ))}
                   </div>
                 </div>
-                <button onClick={save} style={{ background: '#4a9eff', color: '#000000', fontWeight: 600, borderRadius: 4, padding: '9px 20px', fontSize: 13, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                <button onClick={save}
+                  style={{ background: '#4a9eff', color: '#000000', fontWeight: 600, borderRadius: 4, padding: '9px 20px', fontSize: 13, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
                   onMouseEnter={e => e.currentTarget.style.background = '#6cb0ff'}
                   onMouseLeave={e => e.currentTarget.style.background = '#4a9eff'}
                 >
@@ -245,16 +293,24 @@ export default function SettingsModal({ open, onClose, onScan, initialSection })
                             setApiKey(localStorage.getItem(`aivas_api_key_${pv}`) || '')
                           }}
                           style={{
-                            flex: 1, border: `1px solid ${active ? '#4a9eff' : '#252525'}`, borderRadius: 4,
-                            padding: '10px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
+                            flex: 1,
+                            border: `1px solid ${active ? '#4a9eff' : '#3a3a3a'}`,
+                            borderRadius: 4,
+                            padding: '10px 12px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 10,
+                            background: active ? '#0a1828' : 'transparent',
+                            transition: 'border-color 0.1s',
                           }}
-                          onMouseEnter={e => { if (!active) e.currentTarget.style.borderColor = '#3a3a3a' }}
-                          onMouseLeave={e => { if (!active) e.currentTarget.style.borderColor = '#252525' }}
+                          onMouseEnter={e => { if (!active) e.currentTarget.style.borderColor = '#555' }}
+                          onMouseLeave={e => { if (!active) e.currentTarget.style.borderColor = '#3a3a3a' }}
                         >
                           <ProviderIcon icon={p.icon} active={active} />
                           <div>
-                            <div style={{ color: active ? '#e0e0e0' : '#aaaaaa', fontSize: 13, fontWeight: 600 }}>{p.label}</div>
-                            <div style={{ color: active ? '#666666' : '#555555', fontSize: 11, marginTop: 1 }}>{p.sub}</div>
+                            <div style={{ color: active ? '#e0e0e0' : '#bbb', fontSize: 13, fontWeight: 600 }}>{p.label}</div>
+                            <div style={{ color: active ? '#888' : '#777', fontSize: 11, marginTop: 1 }}>{p.sub}</div>
                           </div>
                         </div>
                       )
@@ -267,13 +323,13 @@ export default function SettingsModal({ open, onClose, onScan, initialSection })
                   <input type="text" value={model} onChange={e => setModel(e.target.value)}
                     style={{ ...inp, width: '100%', padding: '9px 12px', fontSize: 13, fontFamily: '"Fira Code", monospace' }}
                     onFocus={e => e.target.style.borderColor = '#4a9eff'}
-                    onBlur={e => e.target.style.borderColor = '#252525'}
+                    onBlur={e => e.target.style.borderColor = '#3a3a3a'}
                   />
                 </div>
 
                 <div style={{ marginBottom: 24 }}>
                   <span style={fieldLabel}>API Key{provider === 'ollama' ? ' (not needed)' : ''}</span>
-                  <p style={{ color: '#555555', fontSize: 11, marginBottom: 8 }}>
+                  <p style={{ color: '#888', fontSize: 11, marginBottom: 8 }}>
                     {provider === 'groq'    ? 'Groq Cloud API key (console.groq.com)' :
                      provider === 'mistral' ? 'Mistral API key (console.mistral.ai)' :
                      'Ollama runs locally — no API key required'}
@@ -283,11 +339,12 @@ export default function SettingsModal({ open, onClose, onScan, initialSection })
                     disabled={provider === 'ollama'}
                     style={{ ...inp, width: '100%', padding: '9px 12px', fontSize: 13, fontFamily: '"Fira Code", monospace', opacity: provider === 'ollama' ? 0.4 : 1 }}
                     onFocus={e => e.target.style.borderColor = '#4a9eff'}
-                    onBlur={e => e.target.style.borderColor = '#252525'}
+                    onBlur={e => e.target.style.borderColor = '#3a3a3a'}
                   />
                 </div>
 
-                <button onClick={save} style={{ background: '#4a9eff', color: '#000000', fontWeight: 600, borderRadius: 4, padding: '9px 20px', fontSize: 13, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                <button onClick={save}
+                  style={{ background: '#4a9eff', color: '#000000', fontWeight: 600, borderRadius: 4, padding: '9px 20px', fontSize: 13, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
                   onMouseEnter={e => e.currentTarget.style.background = '#6cb0ff'}
                   onMouseLeave={e => e.currentTarget.style.background = '#4a9eff'}
                 >
@@ -301,17 +358,18 @@ export default function SettingsModal({ open, onClose, onScan, initialSection })
               <>
                 <div style={{ marginBottom: 24 }}>
                   <span style={fieldLabel}>Shodan API Key</span>
-                  <p style={{ color: '#555555', fontSize: 11, marginBottom: 8 }}>
+                  <p style={{ color: '#888', fontSize: 11, marginBottom: 8 }}>
                     Optional. Enables internet exposure lookups for scanned IPs. Leave empty to skip.
                   </p>
                   <input type="password" value={shodanKey} onChange={e => setShodanKey(e.target.value)}
                     placeholder="shodan api key…"
                     style={{ ...inp, width: '100%', padding: '9px 12px', fontSize: 13, fontFamily: '"Fira Code", monospace' }}
                     onFocus={e => e.target.style.borderColor = '#4a9eff'}
-                    onBlur={e => e.target.style.borderColor = '#252525'}
+                    onBlur={e => e.target.style.borderColor = '#3a3a3a'}
                   />
                 </div>
-                <button onClick={save} style={{ background: '#4a9eff', color: '#000000', fontWeight: 600, borderRadius: 4, padding: '9px 20px', fontSize: 13, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                <button onClick={save}
+                  style={{ background: '#4a9eff', color: '#000000', fontWeight: 600, borderRadius: 4, padding: '9px 20px', fontSize: 13, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
                   onMouseEnter={e => e.currentTarget.style.background = '#6cb0ff'}
                   onMouseLeave={e => e.currentTarget.style.background = '#4a9eff'}
                 >

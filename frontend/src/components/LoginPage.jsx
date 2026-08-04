@@ -31,8 +31,8 @@ function StatLedger({ stats, loading }) {
           style={{
             display: 'flex',
             justifyContent: 'space-between',
-            borderTop: '1px solid #222',
-            borderBottom: i === rows.length - 1 ? '1px solid #222' : 'none',
+            borderTop: '1px solid #2a2a2a',
+            borderBottom: i === rows.length - 1 ? '1px solid #2a2a2a' : 'none',
             padding: '10px 0',
           }}
         >
@@ -90,8 +90,8 @@ export default function LoginPage({ onAuth }) {
         style={{
           width: 'clamp(360px, 36%, 520px)',
           flexShrink: 0,
-          background: '#0d0d0d',
-          borderRight: '1px solid #2a2a2a',
+          background: '#141414',
+          borderRight: '1px solid #333',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'space-between',
@@ -115,14 +115,14 @@ export default function LoginPage({ onAuth }) {
 
         {/* Bottom: version + GitHub */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ ...MONO, color: '#666', fontSize: 11 }}>v{stats?.version ?? '1.2.0'} · Authorized use only.</span>
+          <span style={{ ...MONO, color: '#888', fontSize: 11 }}>v{stats?.version ?? '1.2.0'} · Authorized use only.</span>
           <a
             href="https://github.com/Baraka-Malila/aivas"
             target="_blank"
             rel="noopener noreferrer"
-            style={{ color: '#666', display: 'flex' }}
+            style={{ color: '#888', display: 'flex' }}
             onMouseEnter={e => e.currentTarget.style.color = '#e0e0e0'}
-            onMouseLeave={e => e.currentTarget.style.color = '#666'}
+            onMouseLeave={e => e.currentTarget.style.color = '#888'}
             aria-label="GitHub"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">

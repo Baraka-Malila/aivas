@@ -30,9 +30,9 @@ function InlineEdit({ value, onSave, onCancel }) {
       <button onClick={commit} style={{ color: '#66bb6a', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}>
         <Check size={12} />
       </button>
-      <button onClick={onCancel} style={{ color: '#555', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}
+      <button onClick={onCancel} style={{ color: '#888', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}
         onMouseEnter={e => e.currentTarget.style.color = '#ef5350'}
-        onMouseLeave={e => e.currentTarget.style.color = '#555'}
+        onMouseLeave={e => e.currentTarget.style.color = '#888'}
       >
         <X size={12} />
       </button>
