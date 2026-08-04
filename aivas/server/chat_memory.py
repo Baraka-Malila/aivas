@@ -143,7 +143,7 @@ def load_history(
         if r["tool_call_id"]:
             m["tool_call_id"] = r["tool_call_id"]
         msgs.append(m)
-    return _trim_to_turns(msgs, max_turns)
+    return _strip_trailing_orphans(_trim_to_turns(msgs, max_turns))
 
 
 def _trim_to_turns(msgs: list[dict], max_turns: int) -> list[dict]:
@@ -155,3 +155,18 @@ def _trim_to_turns(msgs: list[dict], max_turns: int) -> list[dict]:
         return msgs
     start = boundaries[-max_turns]
     return msgs[start:]
+
+
+def _strip_trailing_orphans(msgs: list[dict]) -> list[dict]:
+    """Drop trailing user messages that have no following assistant response.
+
+    When a rate-limit error aborts a turn, save_user() has already persisted
+    the user message but save_assistant() is never called.  Loading that
+    history on the next turn produces two consecutive user messages, which
+    Groq and Mistral reject with a 400 error, causing a cascade that breaks
+    all subsequent chat until the session is cleared.
+    """
+    i = len(msgs)
+    while i > 0 and msgs[i - 1]["role"] == "user":
+        i -= 1
+    return msgs[:i]

@@ -1,3 +1,15 @@
+// UTF-8 smart punctuation decoded as Windows-1252 → fix back to Unicode.
+// Happens when LLMs trained on CP1252-encoded data echo those byte sequences.
+function fixMojibake(s) {
+  return s
+    .replace(/â€”/g, '—')  // â€" → em-dash
+    .replace(/â€™/g, '’')  // â€™ → right single quote
+    .replace(/â€˜/g, '‘')  // â€˜ → left single quote
+    .replace(/â€œ/g, '“')  // â€œ → left double quote
+    .replace(/â€/g, '”')  // â€\x9d → right double quote
+    .replace(/â€¦/g, '…')  // â€¦ → ellipsis
+}
+
 function esc(s) {
   return String(s)
     .replace(/&/g, '&amp;')
@@ -13,6 +25,7 @@ function applyInline(line) {
 
 export function mdToHtml(md) {
   if (!md) return ''
+  md = fixMojibake(md)
   const lines = md.split('\n')
   const out = []
   let inList = false

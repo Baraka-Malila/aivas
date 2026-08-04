@@ -289,7 +289,12 @@ function AuthenticatedApp({ user, token, logout }) {
       }
       const blob = await resp.blob()
       const url = URL.createObjectURL(blob)
-      window.open(url, '_blank', 'noopener')
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `aivas-report-${(target || String(scan_id)).replace(/[^a-zA-Z0-9._-]/g, '_')}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
       setTimeout(() => URL.revokeObjectURL(url), 60000)
       dispatch({ type: 'SET_STREAMING', id: msgId, streaming: false })
       dispatch({ type: 'UPDATE_TEXT', id: msgId, text: `PDF report for **${target}** is ready.` })

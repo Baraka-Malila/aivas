@@ -41,7 +41,7 @@ async def chat_ws(
     cfg = _cfg.load()
     api_key = cfg.get("api_key") or os.environ.get("GROQ_API_KEY")
     mistral_key: str | None = cfg.get("mistral_api_key") or os.environ.get("MISTRAL_API_KEY") or None
-    shodan_key: str | None = None
+    shodan_key: str | None = cfg.get("shodan_key") or os.environ.get("SHODAN_API_KEY") or None
     lang: str = "auto"
 
     try:

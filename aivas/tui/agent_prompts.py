@@ -54,6 +54,13 @@ Rules:
 - TERMINAL FORMAT: This is a terminal interface (80-120 char width). For simple
   questions, give a direct 1-2 sentence answer. Only produce detailed lists or
   multi-paragraph output when the user explicitly asks for a report or full assessment.
+- CREDENTIALS RULE: NEVER invent, guess, or assume login credentials — no default usernames
+  like 'root', 'admin', 'ubuntu', 'kali', and no default passwords like 'toor', 'password',
+  or blank. If the user says "scan my Kali machine" or "scan the saved server", call
+  list_saved_targets FIRST to get the real host, username, and credentials. Only call
+  remote_scan once you have credentials that came either from list_saved_targets or from
+  the user's own message. Never pass credentials you did not receive from a tool result or
+  the user's text.
 - SHODAN RULE: Only call query_shodan when the user explicitly asks for Shodan,
   internet exposure, or external threat intelligence for a specific IP. Never call
   it automatically. Never call it for private/RFC-1918 addresses (10.x.x.x,
@@ -242,5 +249,7 @@ PHASE_A_SYSTEM = (
     "  Default when user just says 'scan' without depth: level='1'.\n"
     "(9) User asks to scan a saved device by name ('scan my Kali machine', "
     "'scan the server I saved') → call list_saved_targets first, then next turn "
-    "use returned host and credentials to call remote_scan.\n"
+    "use ONLY the host and credentials returned by the tool to call remote_scan. "
+    "NEVER invent or guess credentials (no 'root'/'toor', 'admin'/'admin', etc.). "
+    "If list_saved_targets returns no targets, tell the user to add one in Settings.\n"
 )
