@@ -13,7 +13,7 @@ async def cmd_copy(app: "AIVASApp", _args: str) -> None:
     if not text.strip():
         app.tui_print(
             "[yellow]Nothing to copy yet.[/yellow] Run a scan first, then /copy.\n"
-            "[dim]Tip: Shift+drag with mouse → Ctrl+Shift+C also works in most terminals.[/dim]"
+            "[#888888]Tip: Shift+drag with mouse → Ctrl+Shift+C also works in most terminals.[/#888888]"
         )
         return
     if shutil.which("wl-copy"):
@@ -32,7 +32,7 @@ async def cmd_copy(app: "AIVASApp", _args: str) -> None:
             f.write(text)
         app.tui_print(
             f"[yellow]No clipboard tool found.[/yellow] Saved to: [bold]{f.name}[/bold]\n"
-            "[dim]Install one: sudo apt install xclip[/dim]"
+            "[#888888]Install one: sudo apt install xclip[/#888888]"
         )
 
 
@@ -88,7 +88,7 @@ async def cmd_doctor(app: "AIVASApp", _args: str) -> None:
 async def cmd_kev(app: "AIVASApp", _args: str) -> None:
     from aivas.database.kev import fetch_kev, mark_kev
     from datetime import datetime, timezone
-    app.tui_print("[dim]Downloading CISA KEV feed...[/dim]")
+    app.tui_print("[#888888]Downloading CISA KEV feed...[/#888888]")
     try:
         cve_ids = await asyncio.to_thread(fetch_kev)
         count = mark_kev(app.conn, cve_ids)
@@ -110,7 +110,7 @@ async def cmd_config(app: "AIVASApp", args: str) -> None:
         cfg = _config.load()
         lines = ["[bold]Configuration[/bold]"]
         for k, v in cfg.items():
-            display = "***" if k == "api_key" and v else (str(v) if v else "[dim]not set[/dim]")
+            display = "***" if k == "api_key" and v else (str(v) if v else "[#888888]not set[/#888888]")
             lines.append(f"  {k}: {display}")
         app.tui_print("\n".join(lines))
     elif parts[0] == "set" and len(parts) >= 3:
@@ -137,7 +137,7 @@ async def cmd_history(app: "AIVASApp", args: str) -> None:
             "FROM scans ORDER BY id DESC LIMIT 15"
         ).fetchall()
         if not rows:
-            app.tui_print("[dim]No scans saved yet. Use /scan ... and it will offer to save.[/dim]")
+            app.tui_print("[#888888]No scans saved yet. Use /scan ... and it will offer to save.[/#888888]")
             return
         t = Table(title="Scan History", show_lines=True)
         t.add_column("#", justify="right")
@@ -176,7 +176,7 @@ async def post_scan_handler(app: "AIVASApp", choice: str) -> None:
         cfg = _cfg.load()
         api_key = cfg.get("api_key") or os.environ.get("GROQ_API_KEY")
         if not api_key:
-            app.tui_print("[dim]No API key — set one with [bold]/config set api_key ...[/bold][/dim]")
+            app.tui_print("[#888888]No API key — set one with [bold]/config set api_key ...[/bold][/#888888]")
             return
         from .ai import narrate_findings
         await narrate_findings(app, app._last_findings[:5], api_key, cfg.get("lang", "en"))
@@ -187,4 +187,4 @@ async def post_scan_handler(app: "AIVASApp", choice: str) -> None:
             app.tui_print(table)
             app.store_scan_output(table)
         else:
-            app.tui_print("[dim]No CVE findings to report.[/dim]")
+            app.tui_print("[#888888]No CVE findings to report.[/#888888]")

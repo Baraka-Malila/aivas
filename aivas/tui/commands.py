@@ -59,7 +59,7 @@ async def _cmd_help(app: "AIVASApp", args: str) -> None:
     lines = ["[bold cyan]Available commands:[/bold cyan]\n"]
     for cmd, (usage, desc) in REGISTRY.items():
         lines.append(f"  [bold]{usage:<40}[/bold] {desc}")
-    lines.append("\n[dim]Free text (no /) routes to AI if API key is configured.[/dim]")
+    lines.append("\n[#888888]Free text (no /) routes to AI if API key is configured.[/#888888]")
     app.tui_print("\n".join(lines))
 
 
@@ -106,7 +106,7 @@ async def _cmd_scan(app: "AIVASApp", args: str) -> None:
         elif parts[i] not in _KNOWN_FLAGS and parts[i].startswith("--"):
             app.tui_print(
                 f"[red]Unknown flag:[/red] {parts[i]!r}\n"
-                "[dim]Valid flags: --level 1-3, --udp[/dim]"
+                "[#888888]Valid flags: --level 1-3, --udp[/#888888]"
             )
             return
         else:

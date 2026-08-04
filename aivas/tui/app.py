@@ -25,23 +25,31 @@ _BANNER = (
     "[bold #4a9eff]  ██╔══██║██║╚██╗ ██╔╝██╔══██║╚════██║[/bold #4a9eff]\n"
     "[bold #4a9eff]  ██║  ██║██║ ╚████╔╝ ██║  ██║███████║[/bold #4a9eff]\n"
     "[bold #4a9eff]  ╚═╝  ╚═╝╚═╝  ╚═══╝  ╚═╝  ╚═╝╚══════╝[/bold #4a9eff]\n"
-    "[dim]  AI-Assisted Vulnerability Assessment System[/dim]\n"
-    "[dim]  Type [bold]/help[/bold] for commands  "
-    "·  [bold]/copy[/bold] → clipboard  "
-    "·  [bold]Shift+drag[/bold] → select text[/dim]"
+    "[#888888]  AI-Assisted Vulnerability Assessment System[/#888888]\n"
+    "[#888888]  Type [#4a9eff]/help[/#4a9eff] for commands  "
+    "·  [#4a9eff]/copy[/#4a9eff] → clipboard  "
+    "·  [#4a9eff]Shift+drag[/#4a9eff] → select text[/#888888]"
 )
 
-_CSS = """Screen { layout: vertical; background: $surface; }
-#output { height: 1fr; border: none; padding: 1 2; scrollbar-gutter: stable; }
-#suggestions { max-height: 12; background: $surface-darken-1; display: none; border: none; padding: 0; }
-OptionList > .option-list--option-highlighted { background: $surface-darken-3; color: #4a9eff; }
-#rule-top, #rule-bottom { color: $panel; margin: 0; height: 1; }
-#input-row { height: 1; background: $surface; padding: 0; }
+_CSS = """
+Screen { layout: vertical; background: #0a0a0a; }
+Header { background: #0d0d0d; color: #e0e0e0; border-bottom: solid #2a2a2a; }
+Header .header--title { color: #e0e0e0; text-style: bold; }
+Header .header--sub-title { color: #888888; }
+Footer { background: #0d0d0d; color: #777777; }
+Footer .footer--key { color: #4a9eff; text-style: bold; }
+Footer .footer--description { color: #999999; }
+#output { height: 1fr; border: none; padding: 1 2; scrollbar-gutter: stable; background: #0a0a0a; }
+#suggestions { max-height: 12; background: #111111; display: none; border: none; padding: 0; }
+OptionList > .option-list--option { color: #c0c0c0; }
+OptionList > .option-list--option-highlighted { background: #1e1e1e; color: #4a9eff; }
+#rule-top, #rule-bottom { color: #2a2a2a; margin: 0; height: 1; }
+#input-row { height: 1; background: #0a0a0a; padding: 0; }
 #prompt-label { width: 3; padding: 0 0 0 1; color: #4a9eff; text-style: bold; }
-#cmd-input { background: $surface; border: none; padding: 0; width: 1fr; color: $text; }
+#cmd-input { background: #0a0a0a; border: none; padding: 0; width: 1fr; color: #e0e0e0; }
 #cmd-input:focus { border: none; }
 #cmd-input.cmd { color: #4a9eff; }
-#scan-status { height: 1; padding: 0 2; color: #fdd835; display: none; }
+#scan-status { height: 1; padding: 0 2; color: #fdd835; display: none; background: #0a0a0a; }
 """
 
 
@@ -107,7 +115,7 @@ class AIVASApp(InputActionsMixin, App):
             from .screens import SetupWizardScreen
             result = await self.push_screen_wait(SetupWizardScreen())
             if result:
-                self.tui_print(f"[dim]Setup saved. Provider: {result['provider']}.[/dim]")
+                self.tui_print(f"[#888888]Setup saved. Provider: {result['provider']}.[/#888888]")
 
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         text = event.value.strip()
@@ -119,7 +127,7 @@ class AIVASApp(InputActionsMixin, App):
             self._cmd_history.insert(0, text)
         self._history_idx = -1
         log = self.query_one("#output", RichLog)
-        log.write(f"[dim]❯ {text}[/dim]")
+        log.write(f"[#555555]❯ {text}[/#555555]")
         try:
             await self._route(text)
         except Exception as exc:  # last-resort: keeps TUI alive if any command raises
@@ -128,7 +136,7 @@ class AIVASApp(InputActionsMixin, App):
             log.write(
                 f"[bold red]Unexpected error:[/bold red] {type(exc).__name__}: "
                 + escape(str(exc))
-                + "\n[dim]This is a bug — please report it. The TUI is still running.[/dim]"
+                + "\n[#888888]This is a bug — please report it. The TUI is still running.[/#888888]"
             )
 
     async def _route(self, text: str) -> None:
@@ -202,6 +210,6 @@ class AIVASApp(InputActionsMixin, App):
                     pass
                 self._scan_proc = None
             self.set_scan_idle()
-            self.tui_print("[dim]Scan cancelled.[/dim]")
+            self.tui_print("[#888888]Scan cancelled.[/#888888]")
         else:
             self.query_one("#cmd-input", Input).blur()

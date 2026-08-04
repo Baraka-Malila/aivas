@@ -18,18 +18,18 @@ class SetupWizardScreen(Screen):
 
     CSS = """
     SetupWizardScreen {
-        background: $surface;
+        background: #111111;
         padding: 2 4;
     }
     #wizard-title { margin-bottom: 1; }
     #api-key-input { margin-top: 1; width: 50; }
-    #hint-bar { dock: bottom; color: $text-muted; }
+    #hint-bar { dock: bottom; color: #888888; }
     """
 
     def compose(self) -> ComposeResult:
         yield Rule()
         yield Static("[bold]Welcome to AIVAS — Quick Setup[/bold]\n"
-                     "[dim]Set up once, scan forever.[/dim]\n",
+                     "[#888888]Set up once, scan forever.[/#888888]\n",
                      id="wizard-title")
         yield Static("[bold]AI Provider:[/bold]")
         yield RadioSet(
@@ -38,10 +38,10 @@ class SetupWizardScreen(Screen):
             RadioButton("Ollama   (local, private)",         id="ollama"),
             id="provider-set",
         )
-        yield Static("\n[bold]API Key[/bold] [dim](Groq or Mistral — leave blank for Ollama):[/dim]")
+        yield Static("\n[bold]API Key[/bold] [#888888](Groq or Mistral — leave blank for Ollama):[/#888888]")
         yield Input(placeholder="gsk_… or Mistral key", password=True,
                     id="api-key-input")
-        yield Static("\n[bold]Shodan API Key[/bold] [dim](optional — for internet exposure checks):[/dim]")
+        yield Static("\n[bold]Shodan API Key[/bold] [#888888](optional — for internet exposure checks):[/#888888]")
         yield Input(placeholder="leave blank to skip", password=True,
                     id="shodan-key-input")
         yield Static("\n[bold]Output Language:[/bold]")
@@ -52,7 +52,7 @@ class SetupWizardScreen(Screen):
             id="lang-set",
         )
         yield Rule()
-        yield Static("[dim]Tab next field  ·  Ctrl+S save  ·  Esc skip[/dim]",
+        yield Static("[#888888]Tab next field  ·  Ctrl+S save  ·  Esc skip[/#888888]",
                      id="hint-bar")
 
     def action_save_config(self) -> None:
@@ -93,11 +93,11 @@ class ScanResultScreen(ModalScreen):
     CSS = """
     ScanResultScreen {
         align: center bottom;
-        background: $background 60%;
+        background: #0a0a0a 60%;
     }
     #scan-panel {
-        background: $surface;
-        border: solid $panel;
+        background: #141414;
+        border: solid #3a3a3a;
         padding: 1 2;
         width: 70%;
         margin-bottom: 4;
@@ -117,7 +117,7 @@ class ScanResultScreen(ModalScreen):
             yield Static(
                 f"[bold]Scan complete:[/bold] {self._target}"
                 f"  Grade [{grade_col}]{self._grade}[/{grade_col}]"
-                f"  [dim]{self._count} finding(s)[/dim]"
+                f"  [#888888]{self._count} finding(s)[/#888888]"
             )
             yield RadioSet(
                 RadioButton("AI narration  (Swahili + English)", id="narrate"),
@@ -125,7 +125,7 @@ class ScanResultScreen(ModalScreen):
                 RadioButton("Skip",                              id="skip", value=True),
                 id="choice-set",
             )
-            yield Static("[dim]Tab to select  ·  Enter confirm  ·  Esc skip[/dim]")
+            yield Static("[#888888]Tab to select  ·  Enter confirm  ·  Esc skip[/#888888]")
 
     def action_confirm(self) -> None:
         rs = self.query_one("#choice-set", RadioSet)

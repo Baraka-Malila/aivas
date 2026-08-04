@@ -37,8 +37,8 @@ async def run_kev_background(conn: sqlite3.Connection,
         )
         conn.commit()
         tui_print(
-            f"[dim]KEV: {count:,} active exploits tracked  "
-            f"(synced {datetime.now().strftime('%Y-%m-%d')})[/dim]"
+            f"[#888888]KEV: {count:,} active exploits tracked  "
+            f"(synced {datetime.now().strftime('%Y-%m-%d')})[/#888888]"
         )
     except Exception:
         pass  # silently skip if offline — no crash, no noise

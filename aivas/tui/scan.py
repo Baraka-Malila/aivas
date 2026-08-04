@@ -113,15 +113,15 @@ async def _show_findings(app: "AIVASApp", target: str, findings: list) -> None:
     parts = [f"{v} {k.lower()}" for k, v in s.get("sev_counts", {}).items() if v]
     grade_col = "red" if s["grade"] in ("D", "F") else "green"
     line = (f"Risk Score: {s['score']}/100  Grade [{grade_col}]{s['grade']}[/{grade_col}]"
-            f"  [dim]— {s['total']} findings"
-            + (" (" + ", ".join(parts) + ")" if parts else "") + "[/dim]")
+            f"  [#888888]— {s['total']} findings"
+            + (" (" + ", ".join(parts) + ")" if parts else "") + "[/#888888]")
     app.tui_print(line)
     app.store_scan_output(line)
     try:
         save_scan(app.conn, target, findings)
-        app.tui_print("[dim]Scan saved to history (/history list)[/dim]")
+        app.tui_print("[#888888]Scan saved to history (/history list)[/#888888]")
     except Exception:
-        app.tui_print("[dim]History save unavailable.[/dim]")
+        app.tui_print("[#888888]History save unavailable.[/#888888]")
     hist = getattr(app, "_scan_history", None)
     if hist is not None:
         hist.append({"target": target, "score": s["score"], "grade": s["grade"],
@@ -168,13 +168,15 @@ async def run_scan_pipeline(app: "AIVASApp", target: str,
         app.tui_print(f"[red]Invalid target:[/red] {ip_err}")
         return
     if not _IPV4_RE.match(target.split('/')[0] if '/' in target else target):
-        app.tui_print(f"[dim]Resolving {target}…[/dim]")
+        app.tui_print(f"[#888888]Resolving {target}…[/#888888]")
         await asyncio.sleep(0)
         if not await _resolves(target):
             app.tui_print(f"[red]Scan error:[/red] Cannot resolve hostname: {target!r}\n"
-                          "[dim]Check spelling or use an IP address directly.[/dim]")
+                          "[#888888]Check spelling or use an IP address directly.[/#888888]")
             return
-    app.tui_print(f"Scanning [bold]{target}[/bold]  [dim](level {level}{', UDP' if udp else ''})[/dim]")
+    app.tui_print(f"\n[#2a2a2a]{'─' * 58}[/#2a2a2a]")
+    app.tui_print(f"  [#4a9eff]▶[/#4a9eff] Scanning [bold #e0e0e0]{target}[/bold #e0e0e0]  [#888888]level {level}{' · UDP' if udp else ''}[/#888888]")
+    app.tui_print(f"[#2a2a2a]{'─' * 58}[/#2a2a2a]")
     app._last_scan_text = f"# AIVAS Scan — {target}\n"
     app.set_scan_running(target)
     await asyncio.sleep(0)
@@ -213,7 +215,7 @@ async def run_scan_pipeline(app: "AIVASApp", target: str,
     if not services:
         prog.fail("Port discovery + service detection", "host unreachable or no open ports")
         app.tui_print(f"[yellow]{target}[/yellow]: no open ports — host may be offline or firewalled.\n"
-                      "[dim]Tip: scan a known-active IP, e.g. your router or default gateway.[/dim]")
+                      "[#888888]Tip: scan a known-active IP, e.g. your router or default gateway.[/#888888]")
         return
     await prog.done("Port discovery + service detection", f"{len(services)} open port(s)")
     for svc in services:
@@ -222,7 +224,7 @@ async def run_scan_pipeline(app: "AIVASApp", target: str,
         product = svc.get("product") or svc.get("service") or "unknown"
         version = svc.get("version") or ""
         label = f"{product} {version}".strip()
-        app.tui_print(f"    [dim]{port}/{proto}[/dim]  OPEN  [cyan]{label}[/cyan]")
+        app.tui_print(f"    [#888888]{port}/{proto}[/#888888]  OPEN  [cyan]{label}[/cyan]")
         await asyncio.sleep(0.03)
     await prog.step("CVE correlation")
     os_hint = services[0].get("os_family") or None
@@ -232,7 +234,7 @@ async def run_scan_pipeline(app: "AIVASApp", target: str,
         product = svc.get("product") or svc.get("service") or "unknown"
         version = svc.get("version") or ""
         label = f"{product} {version}".strip()
-        app.tui_print(f"    [dim]querying:[/dim] {label} (port {port})…")
+        app.tui_print(f"    [#888888]querying:[/#888888] {label} [#888888](port {port})[/#888888]")
         await asyncio.sleep(0.02)
         svc_findings = await asyncio.to_thread(correlate, app.conn, [svc], os_hint)
         probable = [f for f in svc_findings if f.get("confidence") in ("probable", "confirmed")]
@@ -242,12 +244,12 @@ async def run_scan_pipeline(app: "AIVASApp", target: str,
                 worst.get("cvss_severity", ""), "white"
             )
             app.tui_print(
-                f"    [dim]→[/dim] {len(probable)} CVE(s) — worst: "
+                f"    [#888888]→[/#888888] {len(probable)} CVE(s) — worst: "
                 f"[{sev_col}]{worst.get('cve_id','')}[/{sev_col}] "
                 f"({worst.get('cvss_severity','')} {worst.get('cvss_score','')})"
             )
         else:
-            app.tui_print("    [dim]→ no CVEs matched[/dim]")
+            app.tui_print("    [#888888]→ no CVEs matched[/#888888]")
         all_findings.extend(svc_findings)
         await asyncio.sleep(0.02)
     findings = [f for f in all_findings if f.get("confidence") in ("probable", "confirmed")][:30]

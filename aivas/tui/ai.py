@@ -62,7 +62,7 @@ def _try_direct_scan(app: "AIVASApp", text: str) -> bool:
     if not m:
         return False
     from .scan import run_scan_pipeline
-    app.tui_print("[dim]AI unavailable — running scan directly.[/dim]")
+    app.tui_print("[#888888]AI unavailable — running scan directly.[/#888888]")
     app.run_worker(run_scan_pipeline(app, m.group(1), 2), exclusive=True)
     return True
 
@@ -93,7 +93,7 @@ async def dispatch(
             )
             app._chat_history = (history + turns)[-12:]
             if response:
-                app.tui_print(f"[dim]AIVAS:[/dim] {response}")
+                app.tui_print(f"[#888888]AIVAS:[/#888888] {response}")
             if scan_intent:
                 from .scan import run_scan_pipeline
                 app.run_worker(
@@ -106,8 +106,8 @@ async def dispatch(
             if "401" in s or "invalid_api_key" in s.lower() or "Unauthorized" in s:
                 key_cmd = "mistral_api_key" if provider == "mistral" else "api_key"
                 app.tui_print(
-                    f"[dim]{provider.title()} key rejected — falling back to local model.[/dim]\n"
-                    f"[dim]Fix: [bold]/config set {key_cmd} YOUR_KEY[/bold][/dim]"
+                    f"[#888888]{provider.title()} key rejected — falling back to local model.[/#888888]\n"
+                    f"[#888888]Fix: [bold]/config set {key_cmd} YOUR_KEY[/bold][/#888888]"
                 )
                 use_local = True
             else:
@@ -121,19 +121,19 @@ async def dispatch(
         prompt = f"{context}\n\nUser: {text}"
         try:
             response = await asyncio.to_thread(_call_local, prompt)
-            app.tui_print(f"[dim]AIVAS (local):[/dim] {response}")
+            app.tui_print(f"[#888888]AIVAS (local):[/#888888] {response}")
             return
         except Exception:
             pass  # Ollama not running — try direct scan
 
     if not _try_direct_scan(app, text):
         if api_key:
-            app.tui_print("[dim]Both Groq and local model unavailable. Try /scan <target> directly.[/dim]")
+            app.tui_print("[#888888]Both Groq and local model unavailable. Try /scan <target> directly.[/#888888]")
         else:
             app.tui_print(
-                "[dim]No AI configured and no local model running.\n"
+                "[#888888]No AI configured and no local model running.\n"
                 "Set a key: [bold]/config set api_key YOUR_KEY[/bold]  "
-                "or start Ollama for offline use.[/dim]"
+                "or start Ollama for offline use.[/#888888]"
             )
 
 
@@ -145,7 +145,7 @@ async def narrate_findings(app: "AIVASApp", findings: list[dict],
     from aivas.formatting import print_narrations
 
     src = "Groq" if api_key else "local model"
-    app.tui_print(f"[dim]Generating AI narration ({src})...[/dim]")
+    app.tui_print(f"[#888888]Generating AI narration ({src})...[/#888888]")
     _busy = getattr(app, 'set_busy', None)
     _idle = getattr(app, 'set_scan_idle', None)
     if _busy:
