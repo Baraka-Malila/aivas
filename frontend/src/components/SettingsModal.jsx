@@ -13,15 +13,36 @@ const LANGS = [
 ]
 
 const PROVIDERS = [
-  { value: 'groq',   label: 'Groq',   sub: 'online',        icon: 'groq' },
-  { value: 'claude', label: 'Claude', sub: 'Anthropic',      icon: 'claude' },
-  { value: 'ollama', label: 'Ollama', sub: 'local · no key', icon: 'ollama' },
+  { value: 'groq',    label: 'Groq',    sub: 'online',         icon: 'groq' },
+  { value: 'mistral', label: 'Mistral', sub: 'online',         icon: 'mistralai' },
+  { value: 'ollama',  label: 'Ollama',  sub: 'local · no key', icon: 'ollama' },
 ]
 
+function ProviderIcon({ icon, active }) {
+  const color = active ? 'e0e0e0' : '666666'
+  if (icon === 'groq') {
+    const fg = active ? '#e0e0e0' : '#666666'
+    return (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+        <rect width="24" height="24" rx="5" fill={active ? '#1a1a1a' : '#111'} />
+        <text x="12" y="17" textAnchor="middle" fontFamily="Arial Black, Arial" fontWeight="900" fontSize="15" fill={fg}>G</text>
+      </svg>
+    )
+  }
+  return (
+    <img
+      src={`https://cdn.simpleicons.org/${icon}/${color}`}
+      alt={icon}
+      style={{ width: 18, height: 18, flexShrink: 0 }}
+      onError={e => { e.currentTarget.style.display = 'none' }}
+    />
+  )
+}
+
 const MODEL_DEFAULTS = {
-  groq:   'llama-3.3-70b-versatile',
-  claude: 'claude-haiku-4-5-20251001',
-  ollama: 'llama3',
+  groq:    'llama-3.3-70b-versatile',
+  mistral: 'mistral-small-latest',
+  ollama:  'llama3',
 }
 
 const NAV = [
@@ -51,11 +72,12 @@ export default function SettingsModal({ open, onClose, onScan, initialSection })
 
   useEffect(() => {
     if (!open) return
-    setApiKey(localStorage.getItem('aivas_api_key') || '')
-    setShodanKey(localStorage.getItem('aivas_shodan_key') || '')
-    setLang(localStorage.getItem('aivas_lang') || 'auto')
     const p = localStorage.getItem('aivas_provider') || 'groq'
     setProvider(p)
+    // Load the key for the currently-selected provider
+    setApiKey(localStorage.getItem(`aivas_api_key_${p}`) || localStorage.getItem('aivas_api_key') || '')
+    setShodanKey(localStorage.getItem('aivas_shodan_key') || '')
+    setLang(localStorage.getItem('aivas_lang') || 'auto')
     setModel(localStorage.getItem('aivas_model') || MODEL_DEFAULTS[p] || MODEL_DEFAULTS.groq)
     setTestResult(null)
     setSection(initialSection || 'general')
@@ -70,7 +92,8 @@ export default function SettingsModal({ open, onClose, onScan, initialSection })
   if (!open) return null
 
   const save = () => {
-    localStorage.setItem('aivas_api_key',    apiKey)
+    localStorage.setItem(`aivas_api_key_${provider}`, apiKey)
+    localStorage.setItem('aivas_api_key',    apiKey)  // keep for backwards compat
     localStorage.setItem('aivas_shodan_key', shodanKey)
     localStorage.setItem('aivas_lang',       lang)
     localStorage.setItem('aivas_provider',   provider)
@@ -215,7 +238,12 @@ export default function SettingsModal({ open, onClose, onScan, initialSection })
                       return (
                         <div
                           key={p.value}
-                          onClick={() => { setProvider(p.value); setModel(MODEL_DEFAULTS[p.value] || MODEL_DEFAULTS.groq) }}
+                          onClick={() => {
+                            const pv = p.value
+                            setProvider(pv)
+                            setModel(MODEL_DEFAULTS[pv] || MODEL_DEFAULTS.groq)
+                            setApiKey(localStorage.getItem(`aivas_api_key_${pv}`) || '')
+                          }}
                           style={{
                             flex: 1, border: `1px solid ${active ? '#4a9eff' : '#252525'}`, borderRadius: 4,
                             padding: '10px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
@@ -223,12 +251,7 @@ export default function SettingsModal({ open, onClose, onScan, initialSection })
                           onMouseEnter={e => { if (!active) e.currentTarget.style.borderColor = '#3a3a3a' }}
                           onMouseLeave={e => { if (!active) e.currentTarget.style.borderColor = '#252525' }}
                         >
-                          <img
-                            src={`https://cdn.simpleicons.org/${p.icon}/${active ? 'e0e0e0' : '666666'}`}
-                            alt={p.label}
-                            style={{ width: 18, height: 18, flexShrink: 0 }}
-                            onError={e => { e.currentTarget.style.display = 'none' }}
-                          />
+                          <ProviderIcon icon={p.icon} active={active} />
                           <div>
                             <div style={{ color: active ? '#e0e0e0' : '#aaaaaa', fontSize: 13, fontWeight: 600 }}>{p.label}</div>
                             <div style={{ color: active ? '#666666' : '#555555', fontSize: 11, marginTop: 1 }}>{p.sub}</div>
@@ -251,12 +274,12 @@ export default function SettingsModal({ open, onClose, onScan, initialSection })
                 <div style={{ marginBottom: 24 }}>
                   <span style={fieldLabel}>API Key{provider === 'ollama' ? ' (not needed)' : ''}</span>
                   <p style={{ color: '#555555', fontSize: 11, marginBottom: 8 }}>
-                    {provider === 'groq' ? 'Groq Cloud API key (console.groq.com)' :
-                     provider === 'claude' ? 'Anthropic API key (console.anthropic.com)' :
+                    {provider === 'groq'    ? 'Groq Cloud API key (console.groq.com)' :
+                     provider === 'mistral' ? 'Mistral API key (console.mistral.ai)' :
                      'Ollama runs locally — no API key required'}
                   </p>
                   <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)}
-                    placeholder={provider === 'groq' ? 'gsk_…' : provider === 'claude' ? 'sk-ant-…' : 'not required'}
+                    placeholder={provider === 'groq' ? 'gsk_…' : provider === 'mistral' ? 'msk-…' : 'not required'}
                     disabled={provider === 'ollama'}
                     style={{ ...inp, width: '100%', padding: '9px 12px', fontSize: 13, fontFamily: '"Fira Code", monospace', opacity: provider === 'ollama' ? 0.4 : 1 }}
                     onFocus={e => e.target.style.borderColor = '#4a9eff'}

@@ -33,13 +33,17 @@ class SetupWizardScreen(Screen):
                      id="wizard-title")
         yield Static("[bold]AI Provider:[/bold]")
         yield RadioSet(
-            RadioButton("Groq  (cloud, fast, free tier)", id="groq", value=True),
-            RadioButton("Ollama  (local, private)",       id="ollama"),
+            RadioButton("Groq     (cloud, fast, free tier)", id="groq",    value=True),
+            RadioButton("Mistral  (cloud, reliable)",        id="mistral"),
+            RadioButton("Ollama   (local, private)",         id="ollama"),
             id="provider-set",
         )
-        yield Static("\n[bold]API Key:[/bold]")
-        yield Input(placeholder="sk-... or groq API key", password=True,
+        yield Static("\n[bold]API Key[/bold] [dim](Groq or Mistral — leave blank for Ollama):[/dim]")
+        yield Input(placeholder="gsk_… or Mistral key", password=True,
                     id="api-key-input")
+        yield Static("\n[bold]Shodan API Key[/bold] [dim](optional — for internet exposure checks):[/dim]")
+        yield Input(placeholder="leave blank to skip", password=True,
+                    id="shodan-key-input")
         yield Static("\n[bold]Output Language:[/bold]")
         yield RadioSet(
             RadioButton("English",           id="en", value=True),
@@ -55,11 +59,18 @@ class SetupWizardScreen(Screen):
         from aivas import config as _config
         provider_rs = self.query_one("#provider-set", RadioSet)
         lang_rs = self.query_one("#lang-set", RadioSet)
-        api_key = self.query_one("#api-key-input", Input).value.strip()
         provider = provider_rs.pressed_button.id if provider_rs.pressed_button else "groq"
         lang = lang_rs.pressed_button.id if lang_rs.pressed_button else "en"
-        if api_key:
-            _config.save("api_key", api_key)
+        api_key = self.query_one("#api-key-input", Input).value.strip()
+        shodan_key = self.query_one("#shodan-key-input", Input).value.strip()
+        if provider == "mistral":
+            if api_key:
+                _config.save("mistral_api_key", api_key)
+        else:
+            if api_key:
+                _config.save("api_key", api_key)
+        if shodan_key:
+            _config.save("shodan_key", shodan_key)
         _config.save("provider", provider)
         _config.save("lang", lang)
         self.dismiss({"provider": provider, "lang": lang, "has_key": bool(api_key)})

@@ -67,8 +67,14 @@ def _try_direct_scan(app: "AIVASApp", text: str) -> bool:
     return True
 
 
-async def dispatch(app: "AIVASApp", text: str, api_key: str | None) -> None:
-    """Route free text: normalize → Groq agent → Ollama Q&A → direct scan fallback."""
+async def dispatch(
+    app: "AIVASApp",
+    text: str,
+    api_key: str | None,
+    provider: str = "groq",
+    shodan_key: str | None = None,
+) -> None:
+    """Route free text: normalize → agent → Ollama Q&A → direct scan fallback."""
     text = _normalize(text)
     context = build_context(getattr(app, "_scan_history", []))
     use_local = not api_key
@@ -82,7 +88,8 @@ async def dispatch(app: "AIVASApp", text: str, api_key: str | None) -> None:
         try:
             history = getattr(app, '_chat_history', [])
             response, scan_intent, turns = await run_agent(
-                app, text, api_key, context=context, history=history
+                app, text, api_key, provider=provider, shodan_key=shodan_key,
+                context=context, history=history,
             )
             app._chat_history = (history + turns)[-12:]
             if response:
@@ -96,10 +103,11 @@ async def dispatch(app: "AIVASApp", text: str, api_key: str | None) -> None:
             return
         except Exception as exc:
             s = str(exc)
-            if "401" in s or "invalid_api_key" in s.lower():
+            if "401" in s or "invalid_api_key" in s.lower() or "Unauthorized" in s:
+                key_cmd = "mistral_api_key" if provider == "mistral" else "api_key"
                 app.tui_print(
-                    "[dim]Groq key rejected — falling back to local model.[/dim]\n"
-                    "[dim]Fix: [bold]/config set api_key YOUR_KEY[/bold][/dim]"
+                    f"[dim]{provider.title()} key rejected — falling back to local model.[/dim]\n"
+                    f"[dim]Fix: [bold]/config set {key_cmd} YOUR_KEY[/bold][/dim]"
                 )
                 use_local = True
             else:

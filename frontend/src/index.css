@@ -31,6 +31,11 @@ body {
   animation: blink 1s step-start infinite;
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
 /* 14c — Center bloom thinking animation */
 @keyframes aivas-logoCenter {
   0%   { stroke-dasharray: 0 1; stroke-dashoffset: -0.5; opacity: 1; }

@@ -1,9 +1,9 @@
 from .base import BaseProvider
 
 _DEFAULTS: dict[str, str] = {
-    "groq": "llama-3.3-70b-versatile",
-    "claude": "claude-haiku-4-5-20251001",
-    "ollama": "llama3",
+    "groq":    "llama-3.3-70b-versatile",
+    "mistral": "mistral-small-latest",
+    "ollama":  "llama3",
 }
 
 
@@ -20,12 +20,12 @@ def get_provider(
             )
         from .groq import GroqProvider
         return GroqProvider(api_key=api_key, model=m)
-    if name == "claude":
+    if name == "mistral":
         if not api_key:
-            raise ValueError("Anthropic API key required for claude provider.")
-        from .anthropic import AnthropicProvider
-        return AnthropicProvider(api_key=api_key, model=m)
+            raise ValueError("Mistral API key required. Set MISTRAL_API_KEY env var or pass api_key.")
+        from .mistral import MistralProvider
+        return MistralProvider(api_key=api_key, model=m)
     if name == "ollama":
         from .ollama import OllamaProvider
         return OllamaProvider(model=m)
-    raise ValueError(f"Unknown provider: {name!r}. Choose 'groq', 'claude', or 'ollama'.")
+    raise ValueError(f"Unknown provider: {name!r}. Choose 'groq', 'mistral', or 'ollama'.")

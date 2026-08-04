@@ -27,6 +27,8 @@ CONFIG_PATH = Path.home() / ".aivas" / "config.yml"
 
 _DEFAULTS: dict = {
     "api_key": None,
+    "mistral_api_key": None,
+    "shodan_key": None,
     "provider": "groq",
     "lang": "both",
     "default_level": 2,

@@ -1,4 +1,4 @@
-"""AIVAS AI agent: Groq tool-calling loop for free-text dispatch."""
+"""AIVAS AI agent: Groq/Mistral tool-calling loop for free-text dispatch."""
 from __future__ import annotations
 
 import asyncio
@@ -6,6 +6,8 @@ import json
 import re as _re
 import sqlite3
 from typing import TYPE_CHECKING
+
+import httpx
 
 from .agent_prompts import SYSTEM as _SYSTEM, TOOLS as _TOOLS
 
@@ -235,25 +237,61 @@ async def _exec_tool(
     return json.dumps({"error": f"Unknown tool: {name}"}), None
 
 
+def _mistral_call(messages: list[dict], tools: list | None, api_key: str) -> dict:
+    """Blocking Mistral chat/completions call."""
+    body: dict = {
+        "model": "mistral-small-latest",
+        "messages": messages,
+        "max_tokens": 1000,
+    }
+    if tools:
+        body["tools"] = tools
+        body["tool_choice"] = "auto"
+    resp = httpx.post(
+        "https://api.mistral.ai/v1/chat/completions",
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        json=body,
+        timeout=30.0,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def _mistral_msg(raw: dict):
+    """Extract normalised message from Mistral response dict."""
+    choice = raw["choices"][0]["message"]
+    content = choice.get("content") or ""
+    tool_calls_raw = choice.get("tool_calls") or []
+
+    class _Fn:
+        __slots__ = ("name", "arguments")
+        def __init__(self, n, a): self.name = n; self.arguments = a
+
+    class _TC:
+        __slots__ = ("id", "function")
+        def __init__(self, i, f): self.id = i; self.function = f
+
+    class _Msg:
+        __slots__ = ("content", "tool_calls")
+        def __init__(self, c, tc): self.content = c; self.tool_calls = tc
+
+    tcs = [_TC(t["id"], _Fn(t["function"]["name"], t["function"].get("arguments", "{}")))
+           for t in tool_calls_raw]
+    return _Msg(content, tcs or None)
+
+
 async def run_agent(
     app: "AIVASApp", text: str, api_key: str,
+    provider: str = "groq",
     context: str = "", history: list[dict] | None = None,
     shodan_key: str | None = None,
 ) -> tuple[str, tuple | None, list[dict]]:
-    """Run Groq tool-calling loop with optional prior history.
+    """Run tool-calling loop (Groq or Mistral) with optional prior history.
 
     Returns:
         (final_text, scan_intent | None, assistant_turns)
-        - final_text: the assistant's last natural-language reply
-        - scan_intent: (target, level) if any scan_host tool call was made, else None
-        - assistant_turns: the new messages produced this call, ready to persist:
-            [{"role":"assistant","content":..., "tool_calls":[...]?},
-             {"role":"tool","tool_call_id":..., "content":...}, ...]
     """
-    from groq import Groq
-
     system = "\n\n".join(filter(None, [_SYSTEM, context or ""]))
-    client = Groq(api_key=api_key)
     messages: list[dict] = [{"role": "system", "content": system}]
     if history:
         messages.extend(history)
@@ -261,59 +299,55 @@ async def run_agent(
     scan_intent: tuple | None = None
     turns_to_persist: list[dict] = []
 
-    def _call(msgs: list[dict], tools) -> object:
-        kwargs: dict = {
-            "model": "llama-3.3-70b-versatile",
-            "messages": msgs,
-            "max_tokens": 1000,
-        }
-        if tools:
-            kwargs["tools"] = tools
-            kwargs["tool_choice"] = "auto"
-        return client.chat.completions.create(**kwargs)
+    use_mistral = (provider == "mistral")
+
+    if not use_mistral:
+        from groq import Groq
+        client = Groq(api_key=api_key)
+
+        def _groq_call(msgs: list[dict], tools) -> object:
+            kwargs: dict = {"model": "llama-3.3-70b-versatile", "messages": msgs, "max_tokens": 1000}
+            if tools:
+                kwargs["tools"] = tools
+                kwargs["tool_choice"] = "auto"
+            return client.chat.completions.create(**kwargs)
 
     for _step in range(_MAX_STEPS):
         try:
-            resp = await asyncio.to_thread(_call, messages, _TOOLS)
+            if use_mistral:
+                raw = await asyncio.to_thread(_mistral_call, messages, _TOOLS, api_key)
+                msg = _mistral_msg(raw)
+            else:
+                resp = await asyncio.to_thread(_groq_call, messages, _TOOLS)
+                msg = resp.choices[0].message
         except Exception as exc:
             s = str(exc)
-            if "400" in s or "tool" in s.lower():
-                # Retry without tools
-                orig = [
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": text},
-                ]
-                resp = await asyncio.to_thread(_call, orig, None)
+            if not use_mistral and ("400" in s or "tool" in s.lower()):
+                # Retry Groq without tools
+                orig = [{"role": "system", "content": system}, {"role": "user", "content": text}]
+                resp = await asyncio.to_thread(_groq_call, orig, None)
                 content = _XML_CALL_RE.sub("", resp.choices[0].message.content or "").strip()
                 turns_to_persist.append({"role": "assistant", "content": content})
                 return content, scan_intent, turns_to_persist
             raise
-        msg = resp.choices[0].message
 
         if not msg.tool_calls:
             content = _XML_CALL_RE.sub("", msg.content or "").strip()
             turns_to_persist.append({"role": "assistant", "content": content})
             return content, scan_intent, turns_to_persist
 
-        # Build assistant turn with tool_calls
         tool_calls_payload = [
             {"id": tc.id, "type": "function",
              "function": {"name": tc.function.name, "arguments": tc.function.arguments}}
             for tc in msg.tool_calls
         ]
-        assistant_turn = {
-            "role": "assistant",
-            "content": msg.content or "",
-            "tool_calls": tool_calls_payload,
-        }
+        assistant_turn = {"role": "assistant", "content": msg.content or "", "tool_calls": tool_calls_payload}
         messages.append(assistant_turn)
         turns_to_persist.append(assistant_turn)
 
-        # Execute each tool, record both the in-flight message and the persisted turn
         for tc in msg.tool_calls:
-            raw = tc.function.arguments or "{}"
             try:
-                args = json.loads(raw) or {}
+                args = json.loads(tc.function.arguments or "{}") or {}
             except (json.JSONDecodeError, TypeError):
                 args = {}
             result, si = await _exec_tool(tc.function.name, args, app.conn, shodan_key=shodan_key)
@@ -323,7 +357,15 @@ async def run_agent(
             messages.append(tool_msg)
             turns_to_persist.append(tool_msg)
 
-    final = await asyncio.to_thread(_call, messages, None)
-    content = _XML_CALL_RE.sub("", final.choices[0].message.content or "").strip()
+    # Exhausted steps — one final call without tools
+    try:
+        if use_mistral:
+            raw = await asyncio.to_thread(_mistral_call, messages, None, api_key)
+            content = _XML_CALL_RE.sub("", (_mistral_msg(raw).content or "")).strip()
+        else:
+            final = await asyncio.to_thread(_groq_call, messages, None)
+            content = _XML_CALL_RE.sub("", final.choices[0].message.content or "").strip()
+    except Exception:
+        content = ""
     turns_to_persist.append({"role": "assistant", "content": content})
     return content, scan_intent, turns_to_persist

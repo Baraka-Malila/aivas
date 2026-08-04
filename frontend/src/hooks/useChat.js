@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 
-export function useChat({ sessionId, onEvent, provider = 'groq', model, apiKey, shodanKey, lang }) {
+export function useChat({ sessionId, onEvent, provider = 'groq', model, apiKey, mistralKey, shodanKey, lang }) {
   const onEventRef = useRef(onEvent)
   useEffect(() => { onEventRef.current = onEvent })
 
@@ -8,8 +8,8 @@ export function useChat({ sessionId, onEvent, provider = 'groq', model, apiKey, 
   const [status, setStatus] = useState('idle')
 
   // Keep latest auth values in a ref so the onopen closure always sends current values
-  const authRef = useRef({ apiKey, shodanKey, lang })
-  useEffect(() => { authRef.current = { apiKey, shodanKey, lang } }, [apiKey, shodanKey, lang])
+  const authRef = useRef({ apiKey, mistralKey, shodanKey, lang })
+  useEffect(() => { authRef.current = { apiKey, mistralKey, shodanKey, lang } }, [apiKey, mistralKey, shodanKey, lang])
 
   useEffect(() => {
     if (!sessionId) return
@@ -19,9 +19,10 @@ export function useChat({ sessionId, onEvent, provider = 'groq', model, apiKey, 
     const ws = new WebSocket(`${proto}://${window.location.host}/ws/chat/${sessionId}?${params}`)
     ws.onopen = () => {
       setStatus('open')
-      const { apiKey: ak, shodanKey: sk, lang: lg } = authRef.current
+      const { apiKey: ak, mistralKey: mk, shodanKey: sk, lang: lg } = authRef.current
       const auth = { type: 'auth' }
       if (ak) auth.api_key = ak
+      if (mk) auth.mistral_key = mk
       if (sk) auth.shodan_key = sk
       if (lg) auth.lang = lg
       ws.send(JSON.stringify(auth))
