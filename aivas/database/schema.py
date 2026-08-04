@@ -238,3 +238,15 @@ def create_schema(conn: sqlite3.Connection) -> None:
         conn.commit()
     except Exception:
         pass
+    # Migration: link scans to chat sessions
+    try:
+        conn.execute("ALTER TABLE scans ADD COLUMN session_id TEXT REFERENCES chat_sessions(id) ON DELETE SET NULL")
+        conn.commit()
+    except Exception:
+        pass
+    # Migration: store scan progress log
+    try:
+        conn.execute("ALTER TABLE scans ADD COLUMN scan_log TEXT DEFAULT '[]'")
+        conn.commit()
+    except Exception:
+        pass

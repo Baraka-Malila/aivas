@@ -38,12 +38,14 @@ function AuthenticatedApp({ user, token, logout }) {
   })
 
   // Refs to break circular dep: handleChatEvent → startScan, and onDone → refresh
+  const chatAreaRef      = useRef(null)
   const thinkingIdRef    = useRef(null)
   const streamingTextRef = useRef('')
   const scanningIdRef    = useRef(null)
   const scanPendingRef   = useRef(false)
   const startScanRef     = useRef(null)
   const refreshSessRef   = useRef(null)
+  const sessionIdRef     = useRef(null)
 
   // --- Scan callbacks (stable refs) ---
 
@@ -154,7 +156,8 @@ function AuthenticatedApp({ user, token, logout }) {
 
   const storedProvider = localStorage.getItem('aivas_provider') || 'groq'
   const storedModel = localStorage.getItem('aivas_model') || undefined
-  const storedKey = localStorage.getItem('aivas_api_key') || undefined
+  const storedKey = localStorage.getItem(`aivas_api_key_${storedProvider}`) || localStorage.getItem('aivas_api_key') || undefined
+  const storedMistralKey = localStorage.getItem('aivas_api_key_mistral') || undefined
   const storedShodan = localStorage.getItem('aivas_shodan_key') || undefined
   const storedLang = localStorage.getItem('aivas_lang') || 'auto'
 
@@ -164,6 +167,7 @@ function AuthenticatedApp({ user, token, logout }) {
     provider: storedProvider,
     model: storedModel,
     apiKey: storedKey,
+    mistralKey: storedMistralKey,
     shodanKey: storedShodan,
     lang: storedLang,
   })
@@ -173,16 +177,38 @@ function AuthenticatedApp({ user, token, logout }) {
   // Wire refs after hooks resolve
   useEffect(() => { startScanRef.current = startScan }, [startScan])
   useEffect(() => { refreshSessRef.current = refreshSessions }, [refreshSessions])
+  useEffect(() => { sessionIdRef.current = sessionId }, [sessionId])
 
-  // --- Mount: create session + opening greeting ---
+  // Persist session across page refreshes
+  useEffect(() => {
+    if (sessionId) localStorage.setItem('aivas_session_id', sessionId)
+  }, [sessionId])
+
+  // --- Mount: restore or create session + opening greeting ---
 
   useEffect(() => {
     async function init() {
+      refreshSessions()
+
+      // Try to restore the last active session
+      const storedSessId = localStorage.getItem('aivas_session_id')
+      if (storedSessId) {
+        try {
+          const check = await authFetch(`/api/sessions/${storedSessId}`)
+          if (check.ok) {
+            const msgs = await authFetch(`/api/sessions/${storedSessId}/messages`).then(r => r.json())
+            dispatch({ type: 'SET_MESSAGES', messages: mapHistory(msgs) })
+            setSessionId(storedSessId)
+            return
+          }
+        } catch (_) {}
+      }
+
+      // No valid stored session — create a new one with greeting
       try {
         const { id } = await authFetch('/api/sessions', { method: 'POST' }).then(r => r.json())
         setSessionId(id)
       } catch (_) {}
-      refreshSessions()
 
       let text = FIRST_VISIT_MSG
       try {
@@ -233,21 +259,44 @@ function AuthenticatedApp({ user, token, logout }) {
     }
   }, [startScan])
 
+  const handlePdfRequest = useCallback(async (scan_id, target) => {
+    const msgId = uid()
+    dispatch({ type: 'APPEND', msg: { id: msgId, type: 'ai', text: '', streaming: true, label: 'REPORTING' } })
+    // Force scroll to bottom so the REPORTING animation is visible
+    requestAnimationFrame(() => chatAreaRef.current?.scrollToBottom())
+    try {
+      const resp = await fetch(`/api/report/${scan_id}/pdf`)
+      if (!resp.ok) {
+        dispatch({ type: 'ERROR_MESSAGE', id: msgId, text: `Report failed (${resp.status})` })
+        return
+      }
+      const blob = await resp.blob()
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank', 'noopener')
+      setTimeout(() => URL.revokeObjectURL(url), 60000)
+      dispatch({ type: 'SET_STREAMING', id: msgId, streaming: false })
+      dispatch({ type: 'UPDATE_TEXT', id: msgId, text: `PDF report for **${target}** is ready.` })
+    } catch (err) {
+      dispatch({ type: 'ERROR_MESSAGE', id: msgId, text: `Report failed: ${err.message}` })
+    }
+  }, [dispatch])
+
   const handleAnalysis = useCallback(async (type, scanId) => {
     const msgId = uid()
     dispatch({ type: 'APPEND', msg: { id: msgId, type: 'ai', text: '', streaming: true } })
 
-    const provider = localStorage.getItem('aivas_provider') || 'groq'
-    const model    = localStorage.getItem('aivas_model')    || undefined
-    const apiKey   = localStorage.getItem('aivas_api_key')  || undefined
-    const lang     = localStorage.getItem('aivas_lang')     || 'auto'
+    const provider    = localStorage.getItem('aivas_provider') || 'groq'
+    const model       = localStorage.getItem('aivas_model')    || undefined
+    const apiKey      = localStorage.getItem(`aivas_api_key_${provider}`) || localStorage.getItem('aivas_api_key') || undefined
+    const mistralKey  = localStorage.getItem('aivas_api_key_mistral') || undefined
+    const lang        = localStorage.getItem('aivas_lang')     || 'auto'
 
     let accText = ''
     try {
       const resp = await fetch(`/api/analyze/${scanId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, provider, model, api_key: apiKey, lang }),
+        body: JSON.stringify({ type, provider, model, api_key: apiKey, mistral_key: mistralKey, lang }),
       })
       if (!resp.ok) {
         dispatch({ type: 'ERROR_MESSAGE', id: msgId, text: `Analysis request failed (${resp.status})` })
@@ -283,7 +332,20 @@ function AuthenticatedApp({ user, token, logout }) {
       dispatch({ type: 'ERROR_MESSAGE', id: msgId, text: `Analysis error: ${err.message}` })
     }
     dispatch({ type: 'SET_STREAMING', id: msgId, streaming: false })
-  }, [dispatch])
+
+    // Persist the analysis result so it survives session reload
+    const sid = sessionIdRef.current
+    if (accText && sid) {
+      try {
+        const hdr = token ? { Authorization: `Bearer ${token}` } : {}
+        await fetch(`/api/sessions/${sid}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...hdr },
+          body: JSON.stringify({ content: accText }),
+        })
+      } catch (_) {}
+    }
+  }, [dispatch, token])
 
   const handleSelectSession = useCallback(async (id) => {
     thinkingIdRef.current = null
@@ -340,7 +402,7 @@ function AuthenticatedApp({ user, token, logout }) {
         <ReportsView token={token} />
       ) : (
         <>
-          <ChatArea messages={messages} onSend={handleSend} onAnalysis={handleAnalysis} onStopScan={stopScan} />
+          <ChatArea ref={chatAreaRef} messages={messages} onSend={handleSend} onAnalysis={handleAnalysis} onPdfRequest={handlePdfRequest} onStopScan={stopScan} />
           <ChatInput onSend={handleSend} disabled={chatStatus !== 'open'} />
         </>
       )}

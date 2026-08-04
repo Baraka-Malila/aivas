@@ -57,17 +57,131 @@ export function reducer(state, action) {
 }
 
 export function mapHistory(msgs) {
-  return (Array.isArray(msgs) ? msgs : [])
-    .filter(m => {
-      if (m.role === 'user') return !!m.content
-      if (m.role === 'assistant') return !!m.content && !m.tool_calls
-      return false
-    })
-    .map(m => ({
-      id: uid(),
-      type: m.role === 'user' ? 'user' : 'ai',
-      text: m.content,
-    }))
+  const result = []
+  const list = Array.isArray(msgs) ? msgs : []
+  let i = 0
+
+  while (i < list.length) {
+    const m = list[i]
+
+    if (m.role === 'user') {
+      if (m.content) result.push({ id: uid(), type: 'user', text: m.content })
+      i++
+      continue
+    }
+
+    if (m.role === 'scan_progress') {
+      result.push({ id: uid(), type: 'scan-progress', log: m.log || [], scanStatus: 'complete' })
+      i++
+      continue
+    }
+
+    if (m.role === 'scan') {
+      result.push({ id: uid(), type: 'scan-card', scanData: m.scan_data })
+      i++
+      continue
+    }
+
+    if (m.role === 'assistant' && m.tool_calls && m.tool_calls.length > 0) {
+      // Build tool call entries with _id for matching
+      const toolCalls = m.tool_calls.map(tc => ({
+        name: tc.function?.name || '?',
+        args: _parseArgs(tc.function?.arguments),
+        status: 'done',
+        summary: 'done',
+        _id: tc.id,
+      }))
+
+      let finalText = ''
+      // {progress: log[]|null, scanData: {...}|null} pairs
+      const scanPairs = []
+
+      // Scan forward collecting tool results, scan progress, scan cards, optional final text
+      let j = i + 1
+      while (j < list.length) {
+        const cur = list[j]
+        if (cur.role === 'tool') {
+          const idx = toolCalls.findIndex(tc => tc._id === cur.tool_call_id)
+          if (idx >= 0) {
+            toolCalls[idx] = {
+              ...toolCalls[idx],
+              summary: _histSummary(toolCalls[idx].name, cur.content || ''),
+            }
+          }
+          j++
+        } else if (cur.role === 'scan_progress') {
+          // Pair with the next scan card
+          const next = list[j + 1]
+          if (next && next.role === 'scan') {
+            scanPairs.push({ progress: cur.log || [], scanData: next.scan_data })
+            j += 2
+          } else {
+            scanPairs.push({ progress: cur.log || [], scanData: null })
+            j++
+          }
+        } else if (cur.role === 'scan') {
+          scanPairs.push({ progress: null, scanData: cur.scan_data })
+          j++
+        } else if (cur.role === 'assistant' && !(cur.tool_calls && cur.tool_calls.length > 0)) {
+          if (cur.content) finalText = cur.content
+          j++
+          break
+        } else {
+          break
+        }
+      }
+
+      i = j
+      const cleanCalls = toolCalls.map(({ _id, ...rest }) => rest)
+      result.push({ id: uid(), type: 'ai', text: finalText, toolCalls: cleanCalls, streaming: false })
+      for (const { progress, scanData } of scanPairs) {
+        if (progress && progress.length > 0) {
+          result.push({ id: uid(), type: 'scan-progress', log: progress, scanStatus: 'complete' })
+        }
+        if (scanData) result.push({ id: uid(), type: 'scan-card', scanData })
+      }
+      continue
+    }
+
+    if (m.role === 'assistant') {
+      if (m.content) result.push({ id: uid(), type: 'ai', text: m.content, streaming: false })
+      i++
+      continue
+    }
+
+    // Skip orphaned tool messages
+    i++
+  }
+
+  return result
+}
+
+function _parseArgs(argsStr) {
+  try { return JSON.parse(argsStr || '{}') } catch { return {} }
+}
+
+function _histSummary(name, resultJson) {
+  try {
+    const data = JSON.parse(resultJson)
+    if (name === 'get_local_info') {
+      const ip = data.ip || data.primary_ip || data.local_ip || ''
+      const host = data.hostname || ''
+      return ip ? (host ? `${host} · ${ip}` : ip) : 'done'
+    }
+    if (name === 'get_findings') return `${Array.isArray(data) ? data.length : 0} finding(s) returned`
+    if (name === 'get_last_scan') return `${data?.findings?.length || 0} finding(s) returned`
+    if (name === 'discover_hosts') {
+      if (data && typeof data === 'object') {
+        const count = data.count || 0
+        return count === 0 && data.note ? data.note.slice(0, 80) : `${count} device(s) found`
+      }
+    }
+    if (name === 'get_history') return `${Array.isArray(data) ? data.length : 0} scan(s) in history`
+    if (name === 'scan_host' || name === 'remote_scan') return 'Scan started'
+    return 'done'
+  } catch {
+    return 'done'
+  }
 }
 
 export function countSeverities(findings) {
