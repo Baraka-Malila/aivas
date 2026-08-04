@@ -73,7 +73,6 @@ async def chat_ws(
                 )
                 _main._conn.commit()
 
-            save_user(_main._conn, session_id, text)
             update_title_if_unset(_main._conn, session_id, text)
 
             history = load_history(_main._conn, session_id, max_turns=6)
@@ -96,6 +95,7 @@ async def chat_ws(
                         _main._pending[scan_key] = (event["target"], event["level"], event.get("creds"), None, session_id)
                         await websocket.send_json({**event, "scan_key": scan_key})
                     elif event["type"] == "done":
+                        save_user(_main._conn, session_id, text)
                         for turn in event.get("turns", []):
                             role = turn.get("role")
                             if role == "assistant":

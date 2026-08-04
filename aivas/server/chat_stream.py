@@ -208,6 +208,8 @@ async def stream_agent_response(
     _REPEATABLE_TOOLS = {'scan_host', 'remote_scan', 'discover_hosts'}
     _completed_tools: set[str] = set()
 
+    _phase_b_provider = provider  # upgraded to Mistral if Phase A falls back
+
     for _step in range(_MAX_STEPS):
         # Phase A uses a short routing-only system prompt.
         # Append scan context (if any) so the model can make informed tool choices.
@@ -245,6 +247,12 @@ async def stream_agent_response(
                             _mistral_phase_a, phase_a_msgs, _TOOLS, 400, fallback_key
                         )
                         msg = _mistral_msg(raw_m)
+                        if _phase_b_provider is provider:
+                            try:
+                                from aivas.narrator.providers.factory import get_provider as _get_prov
+                                _phase_b_provider = _get_prov("mistral", model="mistral-small-latest", api_key=fallback_key)
+                            except Exception:
+                                pass
                     except Exception as mexc:
                         _log.error("Mistral Phase A fallback also failed: %s", mexc)
                         yield {"type": "error", "text": "Rate limit reached on all providers. Please wait a moment."}
@@ -265,6 +273,12 @@ async def stream_agent_response(
                             _mistral_phase_a, phase_a_msgs, _TOOLS, 400, fallback_key
                         )
                         msg = _mistral_msg(raw_m)
+                        if _phase_b_provider is provider:
+                            try:
+                                from aivas.narrator.providers.factory import get_provider as _get_prov
+                                _phase_b_provider = _get_prov("mistral", model="mistral-small-latest", api_key=fallback_key)
+                            except Exception:
+                                pass
                     except Exception as mexc:
                         _log.warning("Mistral Phase A fallback also failed: %s", mexc)
                         yield {"type": "error", "text": "I'm having trouble processing that right now. Please try again."}
@@ -303,7 +317,7 @@ async def stream_agent_response(
         if not msg.tool_calls:
             # Phase B: stream the final response
             try:
-                async for token in provider.stream(messages, max_tokens=1200):
+                async for token in _phase_b_provider.stream(messages, max_tokens=1200):
                     clean = _XML_CALL_RE.sub("", token)
                     if clean:
                         full_text += clean
@@ -384,7 +398,7 @@ async def stream_agent_response(
 
     # Exhausted steps — stream whatever the provider gives
     try:
-        async for token in provider.stream(messages, max_tokens=1200):
+        async for token in _phase_b_provider.stream(messages, max_tokens=1200):
             clean = _XML_CALL_RE.sub("", token)
             if clean:
                 full_text += clean
