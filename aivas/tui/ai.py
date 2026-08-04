@@ -54,6 +54,15 @@ def build_context(scan_history: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _print_ai(app: "AIVASApp", text: str, label: str = "AIVAS") -> None:
+    """Render an AI response with Markdown formatting."""
+    from rich.markdown import Markdown
+    app.tui_print(f"\n[#888888]{label}:[/#888888]")
+    if text.strip():
+        app.tui_print(Markdown(text.strip()))
+    app.tui_print("")
+
+
 def _try_direct_scan(app: "AIVASApp", text: str) -> bool:
     """If text contains a scan intent + IP, launch scan directly. Returns True if launched."""
     from .commands import _SCAN_INTENT_RE
@@ -107,7 +116,7 @@ async def dispatch(
             )
             app._chat_history = (history + turns)[-12:]
             if response:
-                app.tui_print(f"\n[#888888]AIVAS:[/#888888] {response}\n")
+                _print_ai(app, response)
             if scan_intent:
                 from .scan import run_scan_pipeline
                 app.run_worker(
@@ -156,7 +165,7 @@ async def dispatch(
                 )
                 app._chat_history = (history2 + turns2)[-12:]
                 if response2:
-                    app.tui_print(f"\n[#888888]AIVAS (mistral):[/#888888] {response2}\n")
+                    _print_ai(app, response2)
                 if scan_intent2:
                     from .scan import run_scan_pipeline as _rsp2
                     app.run_worker(_rsp2(app, scan_intent2[0], scan_intent2[1]), exclusive=True)
@@ -183,7 +192,7 @@ async def dispatch(
         prompt = f"{context}\n\nUser: {text}"
         try:
             response = await asyncio.to_thread(_call_local, prompt)
-            app.tui_print(f"[#888888]AIVAS (local):[/#888888] {response}")
+            _print_ai(app, response, label="AIVAS (local)")
             return
         except Exception:
             pass  # Ollama not running — try direct scan
